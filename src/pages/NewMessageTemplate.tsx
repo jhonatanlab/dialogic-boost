@@ -57,6 +57,7 @@ export default function NewMessageTemplate() {
   const [category, setCategory] = useState("");
   const [message, setMessage] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [showTestModal, setShowTestModal] = useState(false);
   const [testNumber, setTestNumber] = useState("");
@@ -325,7 +326,10 @@ export default function NewMessageTemplate() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setAttachment(null)}
+                        onClick={() => {
+                          setAttachment(null);
+                          setPreviewImage(null);
+                        }}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -339,9 +343,17 @@ export default function NewMessageTemplate() {
                         ? "image/jpeg,image/png"
                         : "video/mp4"
                     }
-                    onChange={(e) =>
-                      setAttachment(e.target.files?.[0] || null)
-                    }
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setAttachment(file);
+                      if (file && messageType === "imagem") {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setPreviewImage(reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
                   />
                 )}
               </div>
@@ -416,11 +428,13 @@ export default function NewMessageTemplate() {
                 <div className="relative">
                   {message ? (
                     <div className="bg-white rounded-lg p-4 shadow-sm max-w-[85%] ml-auto">
-                      {attachment && messageType === "imagem" && (
-                        <div className="mb-2">
-                          <div className="bg-muted rounded h-48 flex items-center justify-center text-muted-foreground">
-                            📷 Imagem anexada
-                          </div>
+                      {attachment && messageType === "imagem" && previewImage && (
+                        <div className="mb-3">
+                          <img
+                            src={previewImage}
+                            alt="Pré-visualização da mensagem"
+                            className="rounded-lg w-full object-cover max-h-64 shadow-md"
+                          />
                         </div>
                       )}
                       {attachment && messageType === "video" && (

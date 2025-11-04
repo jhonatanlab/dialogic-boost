@@ -411,18 +411,28 @@ export default function NewCampaign() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Disparo *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="border-[#8F9491]">
-                              <SelectValue placeholder="Modelo de mensagem" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="bg-white z-50">
-                            <SelectItem value="modelo1">Black Friday 2024</SelectItem>
-                            <SelectItem value="modelo2">Promoção de Natal</SelectItem>
-                            <SelectItem value="modelo3">Lançamento de Produto</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="border-[#8F9491]">
+                                <SelectValue placeholder="Modelo de mensagem" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-white z-50">
+                              <SelectItem value="modelo1">Black Friday 2024</SelectItem>
+                              <SelectItem value="modelo2">Promoção de Natal</SelectItem>
+                              <SelectItem value="modelo3">Lançamento de Produto</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            onClick={() => window.open('/message-templates/new', '_blank')}
+                            className="whitespace-nowrap px-4 py-2 text-sm font-medium"
+                            style={{ backgroundColor: "#FC6625" }}
+                          >
+                            ➕ Criar novo modelo
+                          </Button>
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
