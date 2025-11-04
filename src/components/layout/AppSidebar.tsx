@@ -7,7 +7,8 @@ import {
   BarChart3, 
   QrCode, 
   Brain,
-  LayoutDashboard 
+  LayoutDashboard,
+  Settings
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,6 +31,7 @@ const menuItems = [
   { title: "Relatórios", url: "/analytics", icon: BarChart3 },
   { title: "Check-in", url: "/checkin", icon: QrCode },
   { title: "IA", url: "/ai", icon: Brain },
+  { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {

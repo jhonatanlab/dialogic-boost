@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Send, Phone, MessageSquare, Edit, Plus, Copy, Calendar, Clock, Heart } from "lucide-react";
+import { Search, Send, Phone, MessageSquare, Edit, Plus, Copy, Calendar, Clock, Heart, Zap } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useTags, useAddTagToContact, useRemoveTagFromContact } from "@/hooks/useTags";
+import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -19,6 +20,8 @@ const Inbox = () => {
   const [selectedConversation, setSelectedConversation] = useState(1);
   const [newNote, setNewNote] = useState("");
   const [origin, setOrigin] = useState("whatsapp");
+  const [messageInput, setMessageInput] = useState("");
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
   
   // Mock contact ID - in real app this would come from the selected conversation
   const mockContactId = "1";
@@ -29,6 +32,7 @@ const Inbox = () => {
   const { data: tags } = useTags();
   const addTag = useAddTagToContact();
   const removeTag = useRemoveTagFromContact();
+  const { quickReplies } = useQuickReplies();
 
   const conversations = [
     {
@@ -137,6 +141,11 @@ const Inbox = () => {
     }
   };
 
+  const insertQuickReply = (text: string) => {
+    setMessageInput(text);
+    setShowQuickReplies(false);
+  };
+
   return (
     <DashboardLayout>
       <div className="flex flex-col h-screen overflow-hidden">
@@ -238,11 +247,43 @@ const Inbox = () => {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <Input placeholder="Digite sua mensagem..." />
-              <Button size="icon">
-                <Send className="h-4 w-4" />
-              </Button>
+            <div className="relative">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setShowQuickReplies(!showQuickReplies)}
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+                <Input
+                  placeholder="Digite sua mensagem..."
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                />
+                <Button size="icon">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {showQuickReplies && quickReplies && quickReplies.length > 0 && (
+                <div className="absolute bottom-16 left-0 right-0 bg-background border rounded-lg shadow-lg p-2 z-50 max-h-64 overflow-y-auto">
+                  {quickReplies.map((reply) => (
+                    <div
+                      key={reply.id}
+                      onClick={() => insertQuickReply(reply.text)}
+                      className="p-3 hover:bg-accent cursor-pointer rounded-lg transition-colors"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Zap className="h-3 w-3 text-primary" />
+                        <span className="font-medium text-sm">{reply.name}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{reply.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
 

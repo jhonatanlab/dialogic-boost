@@ -16,6 +16,8 @@ import Analytics from "./pages/Analytics";
 import CheckIn from "./pages/CheckIn";
 import AI from "./pages/AI";
 import NotFound from "./pages/NotFound";
+import ModeloMessages from "./pages/ModeloMessages";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +40,8 @@ const App = () => (
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/checkin" element={<CheckIn />} />
           <Route path="/ai" element={<AI />} />
+          <Route path="/modelo-messages" element={<ModeloMessages />} />
+          <Route path="/settings" element={<Settings />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

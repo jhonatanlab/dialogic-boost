@@ -486,7 +486,7 @@ export default function NewMessageTemplate() {
 
         {/* Botões de Ação */}
         <div className="flex items-center justify-between mt-6">
-          <Button variant="ghost" onClick={() => navigate("/campaigns")}>
+          <Button variant="ghost" onClick={() => navigate("/campaigns/new")}>
             Cancelar
           </Button>
           <div className="flex gap-3">
