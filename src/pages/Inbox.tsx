@@ -139,17 +139,17 @@ const Inbox = () => {
 
   return (
     <DashboardLayout>
-      <div className="h-full flex flex-col">
-        <div className="mb-6">
+      <div className="flex flex-col h-screen overflow-hidden">
+        <div className="p-6 pb-4">
           <h1 className="text-3xl font-bold tracking-tight">Inbox</h1>
           <p className="text-muted-foreground mt-2">
             Gerencie todas as suas conversas em um só lugar
           </p>
         </div>
 
-        <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
+        <div className="flex flex-1 gap-4 px-6 pb-6 overflow-hidden">
           {/* Coluna 1: Lista de conversas */}
-          <Card className="col-span-3 p-4 flex flex-col">
+          <Card className="w-1/4 flex flex-col overflow-hidden">
             <div className="mb-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -160,7 +160,7 @@ const Inbox = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto space-y-2">
+            <div className="flex-1 overflow-y-auto space-y-2 p-4">
               {conversations.map((conv) => (
                 <div
                   key={conv.id}
@@ -204,7 +204,7 @@ const Inbox = () => {
           </Card>
 
           {/* Coluna 2: Janela de chat */}
-          <Card className="col-span-5 p-6 flex flex-col">
+          <Card className="flex-1 flex flex-col overflow-hidden p-6">
             <div className="border-b pb-4 mb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -223,7 +223,7 @@ const Inbox = () => {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto mb-4 space-y-4">
+            <div className="flex-1 overflow-y-auto mb-4 space-y-4">
               <div className="flex justify-start">
                 <div className="max-w-[70%] bg-muted p-3 rounded-lg">
                   <p className="text-sm">{selectedContact?.lastMessage}</p>
@@ -247,7 +247,7 @@ const Inbox = () => {
           </Card>
 
           {/* Coluna 3: Painel CRM do contato */}
-          <Card className="col-span-4 p-6 flex flex-col overflow-auto">
+          <Card className="w-1/4 flex flex-col overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold">Informações do Contato</h2>
               <Button size="icon" variant="ghost">
