@@ -253,6 +253,51 @@ export type Database = {
         }
         Relationships: []
       }
+      message_templates: {
+        Row: {
+          attachment_url: string | null
+          category: string | null
+          created_at: string
+          id: string
+          message: string
+          name: string
+          preview: string | null
+          quick_replies: Json | null
+          type: string
+          updated_at: string
+          user_id: string
+          variables_used: string[] | null
+        }
+        Insert: {
+          attachment_url?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          name: string
+          preview?: string | null
+          quick_replies?: Json | null
+          type?: string
+          updated_at?: string
+          user_id: string
+          variables_used?: string[] | null
+        }
+        Update: {
+          attachment_url?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          name?: string
+          preview?: string | null
+          quick_replies?: Json | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+          variables_used?: string[] | null
+        }
+        Relationships: []
+      }
       tags: {
         Row: {
           color: string

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import {
   Select,
   SelectContent,
@@ -52,6 +53,7 @@ const MOCK_VARIABLES = {
 
 export default function NewMessageTemplate() {
   const navigate = useNavigate();
+  const { createTemplate } = useMessageTemplates();
   const [templateName, setTemplateName] = useState("");
   const [messageType, setMessageType] = useState("texto");
   const [category, setCategory] = useState("");
@@ -107,7 +109,7 @@ export default function NewMessageTemplate() {
     );
   };
 
-  const handleSaveTemplate = () => {
+  const handleSaveTemplate = async () => {
     if (!templateName.trim()) {
       toast({
         title: "Campo obrigatório",
@@ -149,27 +151,23 @@ export default function NewMessageTemplate() {
 
     const usedVariables = VARIABLES.filter((v) =>
       message.includes(v.key)
-    ).map((v) => v.key);
+    ).map((v) => v.key.replace(/[{}]/g, ''));
 
-    const templateData = {
-      nome_modelo: templateName,
-      tipo: messageType,
-      categoria_id: category,
-      mensagem: message,
-      variaveis_utilizadas: usedVariables,
-      anexo_url: attachment ? URL.createObjectURL(attachment) : null,
-      respostas_rapidas: quickReplies,
+    createTemplate({
+      name: templateName,
+      type: messageType,
+      category: category || null,
+      message: message,
+      variables_used: usedVariables,
+      attachment_url: previewImage,
+      quick_replies: quickReplies,
       preview: getPreviewMessage(),
-    };
-
-    console.log("Saving template:", templateData);
-
-    toast({
-      title: "✅ Modelo criado com sucesso!",
-      description: "O modelo está disponível para uso em campanhas.",
     });
 
-    navigate("/campaigns");
+    // Aguardar um pouco para garantir que o template seja salvo
+    setTimeout(() => {
+      navigate("/campaigns");
+    }, 1000);
   };
 
   const handleTestMessage = () => {

@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useContacts } from "@/hooks/useContacts";
 import { useTags } from "@/hooks/useTags";
 import { useCampaigns } from "@/hooks/useCampaigns";
+import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -54,6 +55,7 @@ export default function NewCampaign() {
   const { data: contacts } = useContacts();
   const { data: tags } = useTags();
   const { createCampaign } = useCampaigns();
+  const { templates, isLoading: isLoadingTemplates } = useMessageTemplates();
 
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showPublicoModal, setShowPublicoModal] = useState(false);
@@ -415,13 +417,21 @@ export default function NewCampaign() {
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                               <SelectTrigger className="border-[#8F9491]">
-                                <SelectValue placeholder="Modelo de mensagem" />
+                                <SelectValue placeholder="Selecione um modelo" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent className="bg-white z-50">
-                              <SelectItem value="modelo1">Black Friday 2024</SelectItem>
-                              <SelectItem value="modelo2">Promoção de Natal</SelectItem>
-                              <SelectItem value="modelo3">Lançamento de Produto</SelectItem>
+                              {isLoadingTemplates ? (
+                                <SelectItem value="_loading" disabled>Carregando...</SelectItem>
+                              ) : templates && templates.length > 0 ? (
+                                templates.map((template) => (
+                                  <SelectItem key={template.id} value={template.id}>
+                                    {template.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="_empty" disabled>Nenhum modelo disponível</SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                           <Button
@@ -447,29 +457,55 @@ export default function NewCampaign() {
                           className="max-w-[80%] p-3 rounded-lg shadow-sm"
                           style={{ backgroundColor: "#FFFFFF" }}
                         >
-                          <p className="text-sm" style={{ color: "#474747" }}>
-                            Olá! 👋
-                          </p>
-                          <p className="text-sm mt-2" style={{ color: "#474747" }}>
-                            Esta é uma mensagem automática da nossa Black Friday!
-                          </p>
-                          <p className="text-sm mt-2" style={{ color: "#474747" }}>
-                            Não perca as melhores ofertas! 🎉
-                          </p>
+                          {form.watch("modelo_disparo") && templates ? (
+                            <>
+                              {templates.find(t => t.id === form.watch("modelo_disparo"))?.attachment_url && (
+                                <img
+                                  src={templates.find(t => t.id === form.watch("modelo_disparo"))?.attachment_url || ''}
+                                  alt="Anexo"
+                                  className="rounded-lg mb-3 w-full object-cover max-h-64 shadow-sm"
+                                />
+                              )}
+                              <p className="text-sm whitespace-pre-wrap" style={{ color: "#474747" }}>
+                                {templates.find(t => t.id === form.watch("modelo_disparo"))?.preview || 
+                                 templates.find(t => t.id === form.watch("modelo_disparo"))?.message || 
+                                 "Selecione um modelo para visualizar"}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Selecione um modelo para visualizar a mensagem
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground mt-2 text-right">
                             {format(new Date(), "HH:mm")}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      className="w-full mt-4"
-                      style={{ borderColor: "#FC6625", color: "#FC6625" }}
-                    >
-                      Escolher modelo
-                    </Button>
+                    
+                    {/* Botões de Ação da Campanha */}
+                    <div className="flex justify-end gap-3 mt-6">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate('/campaigns')}
+                        className="px-4 py-2 text-sm font-medium"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        className="px-4 py-2 text-sm font-medium text-white"
+                        style={{ backgroundColor: "#FC6625" }}
+                      >
+                        🚀 Ativar Campanha
+                      </Button>
+                    </div>
+                    
+                    <p className="text-xs text-muted-foreground mt-4">
+                      💡 As variáveis serão substituídas automaticamente com os dados do contato ao enviar a mensagem.
+                    </p>
                   </div>
                 </div>
               </Card>
@@ -479,24 +515,10 @@ export default function NewCampaign() {
             <div className="border-t p-6 flex justify-end gap-4">
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => navigate("/campaigns")}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
                 variant="secondary"
                 onClick={handleSaveDraft}
               >
                 Salvar como Rascunho
-              </Button>
-              <Button
-                type="submit"
-                style={{ backgroundColor: "#FC6625", color: "#FFFFFF" }}
-                className="hover:opacity-90"
-              >
-                Criar Campanha
               </Button>
             </div>
           </form>
