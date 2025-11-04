@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const statusLabels = {
 };
 
 const Campaigns = () => {
+  const navigate = useNavigate();
   const [formOpen, setFormOpen] = useState(false);
   const { campaigns, isLoading, createCampaign, deleteCampaign } = useCampaigns();
 
@@ -56,7 +58,7 @@ const Campaigns = () => {
               Gerencie suas campanhas e disparos em massa
             </p>
           </div>
-          <Button onClick={() => setFormOpen(true)}>
+          <Button onClick={() => navigate("/campaigns/new")}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Campanha
           </Button>
@@ -149,7 +151,7 @@ const Campaigns = () => {
             <p className="text-muted-foreground mb-4">
               Crie sua primeira campanha para começar a enviar mensagens em massa.
             </p>
-            <Button onClick={() => setFormOpen(true)}>
+            <Button onClick={() => navigate("/campaigns/new")}>
               <Plus className="h-4 w-4 mr-2" />
               Nova Campanha
             </Button>
