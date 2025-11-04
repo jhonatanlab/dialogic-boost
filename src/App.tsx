@@ -11,6 +11,7 @@ import Contacts from "./pages/Contacts";
 import Automations from "./pages/Automations";
 import Campaigns from "./pages/Campaigns";
 import NewCampaign from "./pages/NewCampaign";
+import NewMessageTemplate from "./pages/NewMessageTemplate";
 import Analytics from "./pages/Analytics";
 import CheckIn from "./pages/CheckIn";
 import AI from "./pages/AI";
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/automations" element={<Automations />} />
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/campaigns/new" element={<NewCampaign />} />
+          <Route path="/message-templates/new" element={<NewMessageTemplate />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/checkin" element={<CheckIn />} />
           <Route path="/ai" element={<AI />} />
