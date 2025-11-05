@@ -166,7 +166,11 @@ export default function NewMessageTemplate() {
 
     // Aguardar um pouco para garantir que o template seja salvo
     setTimeout(() => {
-      navigate("/campaigns");
+      if (window.history.length > 1) {
+        navigate(-1);
+      } else {
+        navigate("/modelo-messages");
+      }
     }, 1000);
   };
 
@@ -490,7 +494,18 @@ export default function NewMessageTemplate() {
             Cancelar
           </Button>
           <div className="flex gap-3">
-            <Button variant="outline">Salvar como Rascunho</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate("/modelo-messages");
+                }
+              }}
+            >
+              Salvar como Rascunho
+            </Button>
             <Button onClick={handleSaveTemplate}>Salvar Modelo</Button>
           </div>
         </div>
