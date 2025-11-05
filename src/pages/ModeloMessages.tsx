@@ -93,7 +93,10 @@ const ModeloMessages = () => {
             <Card className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold">Modelos de Mensagem</h2>
-                <Button onClick={() => navigate("/message-templates/new")} className="gap-2">
+                <Button onClick={() => {
+                  sessionStorage.setItem('origin', window.location.pathname);
+                  navigate("/message-templates/new");
+                }} className="gap-2">
                   <Plus className="h-4 w-4" />
                   Criar Novo Modelo
                 </Button>
@@ -137,7 +140,10 @@ const ModeloMessages = () => {
                 <div className="text-center py-12">
                   <MessageCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-muted-foreground">Nenhum modelo cadastrado</p>
-                  <Button onClick={() => navigate("/message-templates/new")} className="mt-4">
+                  <Button onClick={() => {
+                    sessionStorage.setItem('origin', window.location.pathname);
+                    navigate("/message-templates/new");
+                  }} className="mt-4">
                     Criar Primeiro Modelo
                   </Button>
                 </div>

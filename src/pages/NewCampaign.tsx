@@ -436,7 +436,10 @@ export default function NewCampaign() {
                           </Select>
                           <Button
                             type="button"
-                            onClick={() => window.open('/message-templates/new', '_blank')}
+                            onClick={() => {
+                              sessionStorage.setItem('origin', window.location.pathname);
+                              navigate('/message-templates/new');
+                            }}
                             className="whitespace-nowrap px-4 py-2 text-sm font-medium"
                             style={{ backgroundColor: "#FC6625" }}
                           >

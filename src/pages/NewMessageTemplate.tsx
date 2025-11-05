@@ -153,25 +153,63 @@ export default function NewMessageTemplate() {
       message.includes(v.key)
     ).map((v) => v.key.replace(/[{}]/g, ''));
 
-    createTemplate({
-      name: templateName,
-      type: messageType,
-      category: category || null,
-      message: message,
-      variables_used: usedVariables,
-      attachment_url: previewImage,
-      quick_replies: quickReplies,
-      preview: getPreviewMessage(),
-    });
+    try {
+      createTemplate({
+        name: templateName,
+        type: messageType,
+        category: category || null,
+        message: message,
+        variables_used: usedVariables,
+        attachment_url: previewImage,
+        quick_replies: quickReplies,
+        preview: getPreviewMessage(),
+      });
 
-    // Aguardar um pouco para garantir que o template seja salvo
-    setTimeout(() => {
-      if (window.history.length > 1) {
-        navigate(-1);
-      } else {
-        navigate("/modelo-messages");
-      }
-    }, 1000);
+      toast({
+        title: "✅ Modelo salvo com sucesso!",
+        description: "Redirecionando...",
+      });
+
+      // Aguardar um pouco para garantir que o template seja salvo
+      setTimeout(() => {
+        const origin = sessionStorage.getItem('origin');
+        navigate(origin ?? '/modelo-messages');
+        sessionStorage.removeItem('origin');
+      }, 1000);
+    } catch (error) {
+      toast({
+        title: "❌ Erro ao salvar modelo",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveDraft = () => {
+    try {
+      toast({
+        title: "✅ Rascunho salvo!",
+        description: "Redirecionando...",
+      });
+
+      setTimeout(() => {
+        const origin = sessionStorage.getItem('origin');
+        navigate(origin ?? '/modelo-messages');
+        sessionStorage.removeItem('origin');
+      }, 1000);
+    } catch (error) {
+      toast({
+        title: "❌ Erro ao salvar rascunho",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    const origin = sessionStorage.getItem('origin');
+    navigate(origin ?? '/modelo-messages');
+    sessionStorage.removeItem('origin');
   };
 
   const handleTestMessage = () => {
@@ -490,20 +528,11 @@ export default function NewMessageTemplate() {
 
         {/* Botões de Ação */}
         <div className="flex items-center justify-between mt-6">
-          <Button variant="ghost" onClick={() => navigate("/campaigns/new")}>
+          <Button variant="ghost" onClick={handleCancel}>
             Cancelar
           </Button>
           <div className="flex gap-3">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                if (window.history.length > 1) {
-                  navigate(-1);
-                } else {
-                  navigate("/modelo-messages");
-                }
-              }}
-            >
+            <Button variant="outline" onClick={handleSaveDraft}>
               Salvar como Rascunho
             </Button>
             <Button onClick={handleSaveTemplate}>Salvar Modelo</Button>
