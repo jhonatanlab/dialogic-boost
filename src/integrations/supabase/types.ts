@@ -304,6 +304,50 @@ export type Database = {
         }
         Relationships: []
       }
+      conversations: {
+        Row: {
+          channel: string
+          contact_id: string
+          created_at: string
+          id: string
+          last_message_at: string
+          status: string
+          unread_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel?: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          status?: string
+          unread_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_fields: {
         Row: {
           created_at: string
@@ -499,6 +543,66 @@ export type Database = {
           variables_used?: string[] | null
         }
         Relationships: []
+      }
+      messages: {
+        Row: {
+          channel: string
+          contact_id: string
+          content: string
+          conversation_id: string
+          created_at: string
+          direction: string
+          external_id: string | null
+          id: string
+          message_type: string
+          metadata: Json | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          channel?: string
+          contact_id: string
+          content: string
+          conversation_id: string
+          created_at?: string
+          direction: string
+          external_id?: string | null
+          id?: string
+          message_type?: string
+          metadata?: Json | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          contact_id?: string
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          external_id?: string | null
+          id?: string
+          message_type?: string
+          metadata?: Json | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quick_replies: {
         Row: {
