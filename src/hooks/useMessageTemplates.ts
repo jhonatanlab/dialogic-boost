@@ -66,6 +66,34 @@ export const useMessageTemplates = () => {
     },
   });
 
+  const updateTemplate = useMutation({
+    mutationFn: async ({ id, ...templateData }: Partial<MessageTemplate> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("message_templates")
+        .update(templateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["message-templates"] });
+      toast({
+        title: "✅ Modelo atualizado com sucesso!",
+        description: "As alterações foram salvas.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao atualizar modelo",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteTemplate = useMutation({
     mutationFn: async (templateId: string) => {
       const { error } = await supabase
@@ -95,6 +123,7 @@ export const useMessageTemplates = () => {
     templates,
     isLoading,
     createTemplate: createTemplate.mutate,
+    updateTemplate: updateTemplate.mutate,
     deleteTemplate: deleteTemplate.mutate,
   };
 };

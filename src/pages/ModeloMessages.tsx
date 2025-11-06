@@ -17,12 +17,19 @@ import { format } from "date-fns";
 
 const ModeloMessages = () => {
   const navigate = useNavigate();
-  const { templates, isLoading: templatesLoading, deleteTemplate } = useMessageTemplates();
+  const { templates, isLoading: templatesLoading, updateTemplate, deleteTemplate } = useMessageTemplates();
   const { quickReplies, isLoading: repliesLoading, createQuickReply, deleteQuickReply } = useQuickReplies();
   
   const [isQuickReplyDialogOpen, setIsQuickReplyDialogOpen] = useState(false);
   const [quickReplyName, setQuickReplyName] = useState("");
   const [quickReplyText, setQuickReplyText] = useState("");
+  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<any>(null);
+  const [editName, setEditName] = useState("");
+  const [editType, setEditType] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editMessage, setEditMessage] = useState("");
 
   const handleCreateQuickReply = () => {
     if (!quickReplyName.trim() || !quickReplyText.trim()) return;
@@ -35,6 +42,35 @@ const ModeloMessages = () => {
     setQuickReplyName("");
     setQuickReplyText("");
     setIsQuickReplyDialogOpen(false);
+  };
+
+  const handleEdit = (model: any) => {
+    setSelectedModel(model);
+    setEditName(model.name);
+    setEditType(model.type);
+    setEditCategory(model.category || "");
+    setEditMessage(model.message);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveChanges = () => {
+    if (!selectedModel) return;
+    
+    updateTemplate({
+      id: selectedModel.id,
+      name: editName,
+      type: editType,
+      category: editCategory || null,
+      message: editMessage,
+    });
+    
+    setIsEditModalOpen(false);
+    setSelectedModel(null);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditModalOpen(false);
+    setSelectedModel(null);
   };
 
   const getCategoryBadge = (category: string | null) => {
@@ -124,7 +160,7 @@ const ModeloMessages = () => {
                         <TableCell>{format(new Date(template.updated_at), "dd/MM/yyyy HH:mm")}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button size="icon" variant="ghost" onClick={() => navigate(`/message-templates/edit/${template.id}`)}>
+                            <Button size="icon" variant="ghost" onClick={() => handleEdit(template)}>
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button size="icon" variant="ghost" onClick={() => deleteTemplate(template.id)}>
@@ -235,6 +271,75 @@ const ModeloMessages = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Modal de Edição */}
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Editar Modelo de Mensagem</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div>
+                <Label htmlFor="edit-name">Nome do Modelo</Label>
+                <Input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Ex: Confirmação de Pedido"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="edit-type">Tipo de Mensagem</Label>
+                <select
+                  id="edit-type"
+                  value={editType}
+                  onChange={(e) => setEditType(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="text">Texto</option>
+                  <option value="image">Imagem</option>
+                  <option value="template">Template</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-category">Categoria</Label>
+                <select
+                  id="edit-category"
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Geral</option>
+                  <option value="campanha">Campanha</option>
+                  <option value="atendimento">Atendimento</option>
+                  <option value="marketing">Marketing</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-message">Mensagem Base</Label>
+                <Textarea
+                  id="edit-message"
+                  value={editMessage}
+                  onChange={(e) => setEditMessage(e.target.value)}
+                  placeholder="Digite a mensagem aqui..."
+                  rows={6}
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4">
+                <Button variant="outline" onClick={handleCancelEdit}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleSaveChanges}>
+                  Salvar Alterações
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
