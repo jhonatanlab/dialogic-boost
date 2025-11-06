@@ -40,8 +40,7 @@ const App = () => (
           <Route path="/message-templates/new" element={<NewMessageTemplate />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/checkin" element={<CheckIn />} />
-          <Route path="/checkin/:userId" element={<PublicCheckIn />} />
-          <Route path="/checkin/:userId/:phone" element={<PublicCheckIn />} />
+          <Route path="/checkin/:urlToken" element={<PublicCheckIn />} />
           <Route path="/ai" element={<AI />} />
           <Route path="/modelo-messages" element={<ModeloMessages />} />
           <Route path="/settings" element={<Settings />} />

@@ -1,51 +1,37 @@
-import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { CheckInLinkGenerator } from "@/components/checkin/CheckInLinkGenerator";
-import { FidelitySettingsCard } from "@/components/checkin/FidelitySettingsCard";
-import { CheckInList } from "@/components/checkin/CheckInList";
-import { CustomerFidelityList } from "@/components/checkin/CustomerFidelityList";
-import { supabase } from "@/integrations/supabase/client";
+import { CheckinLinksManager } from "@/components/checkin/CheckinLinksManager";
+import { FidelityProgramsManager } from "@/components/checkin/FidelityProgramsManager";
+import { CheckinRecordsTable } from "@/components/checkin/CheckinRecordsTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const CheckIn = () => {
-  const [userId, setUserId] = useState<string>("");
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
-    };
-    getUser();
-  }, []);
-
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Check-in & Fidelidade</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Check-ins & Fidelidade</h1>
           <p className="text-muted-foreground mt-2">
-            Sistema completo de Check-in e Programa de Fidelidade Digital
+            Sistema completo de check-in com múltiplos links e programa de fidelidade
           </p>
         </div>
 
-        <Tabs defaultValue="checkins" className="space-y-6">
+        <Tabs defaultValue="manage" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="checkins">Check-ins</TabsTrigger>
-            <TabsTrigger value="fidelity">Programa Fidelidade</TabsTrigger>
-            <TabsTrigger value="settings">Configurações</TabsTrigger>
+            <TabsTrigger value="manage">Gerenciar Check-ins</TabsTrigger>
+            <TabsTrigger value="programs">Programas de Fidelidade</TabsTrigger>
+            <TabsTrigger value="records">Acompanhamento</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="checkins" className="space-y-6">
-            {userId && <CheckInLinkGenerator userId={userId} />}
-            <CheckInList />
+          <TabsContent value="manage" className="space-y-6">
+            <CheckinLinksManager />
           </TabsContent>
 
-          <TabsContent value="fidelity" className="space-y-6">
-            <CustomerFidelityList />
+          <TabsContent value="programs" className="space-y-6">
+            <FidelityProgramsManager />
           </TabsContent>
 
-          <TabsContent value="settings" className="space-y-6">
-            <FidelitySettingsCard />
+          <TabsContent value="records" className="space-y-6">
+            <CheckinRecordsTable />
           </TabsContent>
         </Tabs>
       </div>

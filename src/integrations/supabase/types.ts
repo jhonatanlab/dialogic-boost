@@ -80,32 +80,67 @@ export type Database = {
         }
         Relationships: []
       }
-      checkins: {
+      checkin_links: {
         Row: {
           created_at: string
-          customer_name: string | null
-          customer_phone: string
           id: string
-          source: string
+          name: string
+          url_token: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          customer_name?: string | null
-          customer_phone: string
           id?: string
-          source?: string
+          name: string
+          url_token: string
           user_id: string
         }
         Update: {
           created_at?: string
-          customer_name?: string | null
-          customer_phone?: string
           id?: string
-          source?: string
+          name?: string
+          url_token?: string
           user_id?: string
         }
         Relationships: []
+      }
+      checkin_records: {
+        Row: {
+          checkin_link_id: string
+          fidelity_progress: number
+          id: string
+          status: string
+          timestamp: string
+          user_id: string
+          whatsapp_user: string | null
+        }
+        Insert: {
+          checkin_link_id: string
+          fidelity_progress?: number
+          id?: string
+          status?: string
+          timestamp?: string
+          user_id: string
+          whatsapp_user?: string | null
+        }
+        Update: {
+          checkin_link_id?: string
+          fidelity_progress?: number
+          id?: string
+          status?: string
+          timestamp?: string
+          user_id?: string
+          whatsapp_user?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkin_records_checkin_link_id_fkey"
+            columns: ["checkin_link_id"]
+            isOneToOne: false
+            referencedRelation: "checkin_links"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contact_custom_fields: {
         Row: {
@@ -280,70 +315,37 @@ export type Database = {
         }
         Relationships: []
       }
-      customer_fidelity: {
+      fidelity_programs: {
         Row: {
+          congratulations_message: string
           created_at: string
-          customer_name: string | null
-          customer_phone: string
-          id: string
-          last_checkin_at: string | null
-          total_checkins: number
-          total_rewards: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          customer_name?: string | null
-          customer_phone: string
-          id?: string
-          last_checkin_at?: string | null
-          total_checkins?: number
-          total_rewards?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          customer_name?: string | null
-          customer_phone?: string
-          id?: string
-          last_checkin_at?: string | null
-          total_checkins?: number
-          total_rewards?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      fidelity_settings: {
-        Row: {
-          campaign_name: string
-          checkins_goal: number
-          created_at: string
+          goal: number
           id: string
           is_active: boolean
-          reward_description: string
+          name: string
+          reward: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          campaign_name?: string
-          checkins_goal?: number
+          congratulations_message: string
           created_at?: string
+          goal?: number
           id?: string
           is_active?: boolean
-          reward_description?: string
+          name: string
+          reward: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          campaign_name?: string
-          checkins_goal?: number
+          congratulations_message?: string
           created_at?: string
+          goal?: number
           id?: string
           is_active?: boolean
-          reward_description?: string
+          name?: string
+          reward?: string
           updated_at?: string
           user_id?: string
         }
