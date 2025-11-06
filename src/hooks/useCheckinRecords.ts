@@ -9,7 +9,21 @@ export interface CheckinRecord {
   whatsapp_user: string | null;
   status: string;
   fidelity_progress: number;
+  token: string | null;
+  contact_id: string | null;
+  checkin_links?: {
+    name: string;
+  };
+  contacts?: {
+    name: string;
+    phone: string | null;
+  };
 }
+
+// Generate unique token for check-in
+export const generateCheckinToken = (): string => {
+  return `CHK_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+};
 
 export const useCheckinRecords = () => {
   const queryClient = useQueryClient();
@@ -23,6 +37,10 @@ export const useCheckinRecords = () => {
           *,
           checkin_links:checkin_link_id (
             name
+          ),
+          contacts:contact_id (
+            name,
+            phone
           )
         `)
         .order("timestamp", { ascending: false });
@@ -35,10 +53,12 @@ export const useCheckinRecords = () => {
   const createCheckinRecord = useMutation({
     mutationFn: async ({ 
       checkinLinkId, 
-      userId 
+      userId,
+      token 
     }: { 
       checkinLinkId: string; 
       userId: string;
+      token: string;
     }) => {
       const { data, error } = await supabase
         .from("checkin_records")
@@ -46,7 +66,38 @@ export const useCheckinRecords = () => {
           checkin_link_id: checkinLinkId,
           user_id: userId,
           status: "pending",
+          token,
         })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checkin-records"] });
+    },
+  });
+
+  const identifyCheckin = useMutation({
+    mutationFn: async ({ 
+      token, 
+      whatsappNumber,
+      contactId 
+    }: { 
+      token: string; 
+      whatsappNumber: string;
+      contactId: string;
+    }) => {
+      const { data, error } = await supabase
+        .from("checkin_records")
+        .update({
+          whatsapp_user: whatsappNumber,
+          contact_id: contactId,
+          status: "identified",
+        })
+        .eq("token", token)
+        .eq("status", "pending")
         .select()
         .single();
 
@@ -62,5 +113,6 @@ export const useCheckinRecords = () => {
     checkinRecords,
     isLoading,
     createCheckinRecord,
+    identifyCheckin,
   };
 };

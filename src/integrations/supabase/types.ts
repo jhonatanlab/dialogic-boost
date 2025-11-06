@@ -107,28 +107,34 @@ export type Database = {
       checkin_records: {
         Row: {
           checkin_link_id: string
+          contact_id: string | null
           fidelity_progress: number
           id: string
           status: string
           timestamp: string
+          token: string | null
           user_id: string
           whatsapp_user: string | null
         }
         Insert: {
           checkin_link_id: string
+          contact_id?: string | null
           fidelity_progress?: number
           id?: string
           status?: string
           timestamp?: string
+          token?: string | null
           user_id: string
           whatsapp_user?: string | null
         }
         Update: {
           checkin_link_id?: string
+          contact_id?: string | null
           fidelity_progress?: number
           id?: string
           status?: string
           timestamp?: string
+          token?: string | null
           user_id?: string
           whatsapp_user?: string | null
         }
@@ -138,6 +144,13 @@ export type Database = {
             columns: ["checkin_link_id"]
             isOneToOne: false
             referencedRelation: "checkin_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checkin_records_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -314,6 +327,64 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      fidelity_cards: {
+        Row: {
+          contact_id: string
+          created_at: string
+          current_stamps: number
+          fidelity_program_id: string
+          id: string
+          last_checkin_id: string | null
+          status: string
+          target_stamps: number
+          updated_at: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          current_stamps?: number
+          fidelity_program_id: string
+          id?: string
+          last_checkin_id?: string | null
+          status?: string
+          target_stamps: number
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          current_stamps?: number
+          fidelity_program_id?: string
+          id?: string
+          last_checkin_id?: string | null
+          status?: string
+          target_stamps?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fidelity_cards_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fidelity_cards_fidelity_program_id_fkey"
+            columns: ["fidelity_program_id"]
+            isOneToOne: false
+            referencedRelation: "fidelity_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fidelity_cards_last_checkin_id_fkey"
+            columns: ["last_checkin_id"]
+            isOneToOne: false
+            referencedRelation: "checkin_records"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fidelity_programs: {
         Row: {

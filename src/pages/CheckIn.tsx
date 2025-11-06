@@ -2,6 +2,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CheckinLinksManager } from "@/components/checkin/CheckinLinksManager";
 import { FidelityProgramsManager } from "@/components/checkin/FidelityProgramsManager";
 import { CheckinRecordsTable } from "@/components/checkin/CheckinRecordsTable";
+import { FidelityCardsManager } from "@/components/checkin/FidelityCardsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const CheckIn = () => {
@@ -19,6 +20,7 @@ const CheckIn = () => {
           <TabsList>
             <TabsTrigger value="manage">Gerenciar Check-ins</TabsTrigger>
             <TabsTrigger value="programs">Programas de Fidelidade</TabsTrigger>
+            <TabsTrigger value="cards">Cartões Fidelidade</TabsTrigger>
             <TabsTrigger value="records">Acompanhamento</TabsTrigger>
           </TabsList>
 
@@ -28,6 +30,10 @@ const CheckIn = () => {
 
           <TabsContent value="programs" className="space-y-6">
             <FidelityProgramsManager />
+          </TabsContent>
+
+          <TabsContent value="cards" className="space-y-6">
+            <FidelityCardsManager />
           </TabsContent>
 
           <TabsContent value="records" className="space-y-6">

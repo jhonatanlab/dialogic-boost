@@ -1,11 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle, Loader2 } from "lucide-react";
+import { generateCheckinToken } from "@/hooks/useCheckinRecords";
 
 const PublicCheckIn = () => {
   const { urlToken } = useParams();
   const navigate = useNavigate();
+  const [checkinToken, setCheckinToken] = useState<string>("");
 
   useEffect(() => {
     const handleCheckin = async () => {
@@ -28,13 +30,18 @@ const PublicCheckIn = () => {
           return;
         }
 
-        // Create checkin record
+        // Generate unique token for this check-in
+        const token = generateCheckinToken();
+        setCheckinToken(token);
+
+        // Create checkin record with token
         const { error: recordError } = await supabase
           .from("checkin_records")
           .insert({
             checkin_link_id: checkinLink.id,
             user_id: checkinLink.user_id,
             status: "pending",
+            token,
           });
 
         if (recordError) {
@@ -42,8 +49,8 @@ const PublicCheckIn = () => {
           return;
         }
 
-        // Redirect to WhatsApp with message
-        const message = `Olá! Confirmei presença ✅\n\nCheck-in: ${checkinLink.name}\nToken: ${urlToken.substring(0, 8)}`;
+        // Redirect to WhatsApp with message including token
+        const message = `Estou fazendo meu check-in! ✅\n\nOrigem: ${checkinLink.name}\nToken: ${token}`;
         const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
         
         // Small delay to show confirmation
@@ -73,6 +80,11 @@ const PublicCheckIn = () => {
         <p className="text-muted-foreground">
           Redirecionando para o WhatsApp...
         </p>
+        {checkinToken && (
+          <p className="text-sm text-muted-foreground font-mono">
+            Token: {checkinToken}
+          </p>
+        )}
       </div>
     </div>
   );

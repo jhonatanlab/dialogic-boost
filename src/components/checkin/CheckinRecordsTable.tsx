@@ -1,92 +1,133 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { useCheckinRecords } from "@/hooks/useCheckinRecords";
+import { useFidelityCards } from "@/hooks/useFidelityCards";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Search } from "lucide-react";
-import { useCheckinRecords } from "@/hooks/useCheckinRecords";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { Search } from "lucide-react";
 
 export const CheckinRecordsTable = () => {
   const { checkinRecords, isLoading } = useCheckinRecords();
+  const { fidelityCards } = useFidelityCards();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredRecords = checkinRecords.filter((record: any) =>
-    record.whatsapp_user?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.checkin_links?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "destructive"> = {
+      pending: "secondary",
+      identified: "default",
+      completed: "default",
+    };
+    const labels: Record<string, string> = {
+      pending: "Aguardando",
+      identified: "Identificado",
+      completed: "Completo",
+    };
+    return <Badge variant={variants[status] || "default"}>{labels[status] || status}</Badge>;
+  };
+
+  const filteredRecords = checkinRecords.filter((record) => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      record.checkin_links?.name.toLowerCase().includes(searchLower) ||
+      record.contacts?.name.toLowerCase().includes(searchLower) ||
+      record.contacts?.phone?.toLowerCase().includes(searchLower) ||
+      record.whatsapp_user?.toLowerCase().includes(searchLower) ||
+      record.token?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const getContactFidelityProgress = (contactId: string | null) => {
+    if (!contactId) return null;
+    const card = fidelityCards.find(c => c.contact_id === contactId && c.status === 'active');
+    return card;
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Acompanhamento de Check-ins</CardTitle>
+        <CardTitle>Registros de Check-in</CardTitle>
+        <CardDescription>
+          Histórico completo de check-ins realizados
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center gap-2">
+          <Search className="h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por cliente ou origem..."
+            placeholder="Buscar por cliente, telefone, origem ou token..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="max-w-md"
           />
         </div>
 
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Origem</TableHead>
-                <TableHead>Data/Hora</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Progresso</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center">
-                    Carregando...
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Telefone</TableHead>
+              <TableHead>Origem</TableHead>
+              <TableHead>Data/Hora</TableHead>
+              <TableHead>Token</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Fidelidade</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredRecords.map((record) => {
+              const fidelityCard = getContactFidelityProgress(record.contact_id);
+              return (
+                <TableRow key={record.id}>
+                  <TableCell className="font-medium">
+                    {record.contacts?.name || (
+                      <span className="text-muted-foreground italic">Não identificado</span>
+                    )}
                   </TableCell>
-                </TableRow>
-              ) : filteredRecords.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
-                    {searchTerm ? "Nenhum registro encontrado" : "Nenhum check-in registrado ainda"}
+                  <TableCell>{record.contacts?.phone || record.whatsapp_user || "-"}</TableCell>
+                  <TableCell>{record.checkin_links?.name || "N/A"}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {format(new Date(record.timestamp), "dd/MM/yyyy HH:mm")}
                   </TableCell>
-                </TableRow>
-              ) : (
-                filteredRecords.map((record: any) => (
-                  <TableRow key={record.id}>
-                    <TableCell>
-                      {record.whatsapp_user || <span className="text-muted-foreground">Aguardando...</span>}
-                    </TableCell>
-                    <TableCell>{record.checkin_links?.name || "N/A"}</TableCell>
-                    <TableCell>
-                      {format(new Date(record.timestamp), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={record.status === "pending" ? "secondary" : "default"}>
-                        {record.status === "pending" ? "Pendente" : "Identificado"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Progress value={(record.fidelity_progress / 10) * 100} className="w-24" />
-                        <span className="text-sm text-muted-foreground">
-                          {record.fidelity_progress}/10
-                        </span>
+                  <TableCell>
+                    <code className="text-xs bg-muted px-2 py-1 rounded">
+                      {record.token || "-"}
+                    </code>
+                  </TableCell>
+                  <TableCell>{getStatusBadge(record.status)}</TableCell>
+                  <TableCell>
+                    {fidelityCard ? (
+                      <div className="space-y-1 min-w-[150px]">
+                        <div className="flex items-center justify-between text-xs">
+                          <span>{fidelityCard.current_stamps}/{fidelityCard.target_stamps}</span>
+                          <span className="text-muted-foreground">
+                            {Math.round((fidelityCard.current_stamps / fidelityCard.target_stamps) * 100)}%
+                          </span>
+                        </div>
+                        <Progress 
+                          value={(fidelityCard.current_stamps / fidelityCard.target_stamps) * 100} 
+                          className="h-2"
+                        />
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+
+        {isLoading && <div className="text-center py-4">Carregando...</div>}
+        {!isLoading && filteredRecords.length === 0 && (
+          <div className="text-center py-4 text-muted-foreground">
+            Nenhum registro encontrado
+          </div>
+        )}
       </CardContent>
     </Card>
   );
