@@ -20,6 +20,7 @@ import AI from "./pages/AI";
 import NotFound from "./pages/NotFound";
 import ModeloMessages from "./pages/ModeloMessages";
 import Settings from "./pages/Settings";
+import WhatsappIntegrations from "./pages/WhatsappIntegrations";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/ai" element={<AI />} />
           <Route path="/modelo-messages" element={<ModeloMessages />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/whatsapp-integrations" element={<WhatsappIntegrations />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

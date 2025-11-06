@@ -24,6 +24,14 @@ const Settings = () => {
       color: "text-orange-500",
     },
     {
+      icon: MessageCircle,
+      title: "Integrações WhatsApp",
+      description: "Configure API Oficial Meta ou Z-API.",
+      action: () => navigate("/settings/whatsapp-integrations"),
+      actionLabel: "Configurar Integrações",
+      color: "text-green-500",
+    },
+    {
       icon: Users,
       title: "Usuários",
       description: "Adicione ou remova usuários.",
@@ -37,7 +45,7 @@ const Settings = () => {
       description: "Organize suas equipes de atendimento.",
       action: () => console.log("Gerenciar equipes"),
       actionLabel: "Gerenciar equipes",
-      color: "text-green-500",
+      color: "text-cyan-500",
     },
   ];
 
