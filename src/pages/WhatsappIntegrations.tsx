@@ -11,7 +11,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 const WhatsappIntegrations = () => {
-  const { integrations, isLoading, saveIntegration, getIntegration } = useWhatsappIntegrations();
+  const { integrations, isLoading, saveIntegration, testConnection, getIntegration } = useWhatsappIntegrations();
   const { toast } = useToast();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
 
@@ -35,13 +35,20 @@ const WhatsappIntegrations = () => {
 
   useEffect(() => {
     if (metaIntegration) {
-      setMetaForm(metaIntegration.credentials as MetaCredentials);
+      setMetaForm({
+        accessToken: metaIntegration.access_token || "",
+        phoneNumberId: metaIntegration.phone_number_id || "",
+        whatsappBusinessId: metaIntegration.business_id || "",
+      });
     }
   }, [metaIntegration]);
 
   useEffect(() => {
     if (zapiIntegration) {
-      setZapiForm(zapiIntegration.credentials as ZapiCredentials);
+      setZapiForm({
+        instanceId: zapiIntegration.instance_id || "",
+        apiToken: zapiIntegration.api_token || "",
+      });
     }
   }, [zapiIntegration]);
 
@@ -116,7 +123,7 @@ const WhatsappIntegrations = () => {
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="meta" className="flex items-center gap-2">
                   API Oficial Meta
-                  {metaIntegration ? (
+                  {metaIntegration?.status === 'connected' ? (
                     <Badge variant="default" className="ml-2">
                       Conectado ✅
                     </Badge>
@@ -128,7 +135,7 @@ const WhatsappIntegrations = () => {
                 </TabsTrigger>
                 <TabsTrigger value="zapi" className="flex items-center gap-2">
                   Z-API
-                  {zapiIntegration ? (
+                  {zapiIntegration?.status === 'connected' ? (
                     <Badge variant="default" className="ml-2">
                       Conectado ✅
                     </Badge>
@@ -209,9 +216,21 @@ const WhatsappIntegrations = () => {
                     </div>
                   </div>
 
-                  <Button type="submit" disabled={saveIntegration.isPending}>
-                    {saveIntegration.isPending ? "Testando conexão..." : "Salvar Integração"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={saveIntegration.isPending}>
+                      {saveIntegration.isPending ? "Testando conexão..." : "Salvar Integração"}
+                    </Button>
+                    {metaIntegration && (
+                      <Button 
+                        type="button" 
+                        variant="outline"
+                        onClick={() => testConnection.mutate("meta")}
+                        disabled={testConnection.isPending}
+                      >
+                        {testConnection.isPending ? "Testando..." : "Testar Conexão"}
+                      </Button>
+                    )}
+                  </div>
                 </form>
               </TabsContent>
 
@@ -270,9 +289,21 @@ const WhatsappIntegrations = () => {
                     </div>
                   </div>
 
-                  <Button type="submit" disabled={saveIntegration.isPending}>
-                    {saveIntegration.isPending ? "Testando conexão..." : "Salvar Integração"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={saveIntegration.isPending}>
+                      {saveIntegration.isPending ? "Testando conexão..." : "Salvar Integração"}
+                    </Button>
+                    {zapiIntegration && (
+                      <Button 
+                        type="button" 
+                        variant="outline"
+                        onClick={() => testConnection.mutate("zapi")}
+                        disabled={testConnection.isPending}
+                      >
+                        {testConnection.isPending ? "Testando..." : "Testar Conexão"}
+                      </Button>
+                    )}
+                  </div>
                 </form>
               </TabsContent>
             </Tabs>

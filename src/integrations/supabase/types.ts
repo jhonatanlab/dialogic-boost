@@ -422,6 +422,39 @@ export type Database = {
         }
         Relationships: []
       }
+      incoming_messages: {
+        Row: {
+          created_at: string
+          from_phone: string
+          id: string
+          message_text: string | null
+          message_type: string | null
+          provider: string
+          raw_data: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_phone: string
+          id?: string
+          message_text?: string | null
+          message_type?: string | null
+          provider: string
+          raw_data?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_phone?: string
+          id?: string
+          message_text?: string | null
+          message_type?: string | null
+          provider?: string
+          raw_data?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       message_templates: {
         Row: {
           attachment_url: string | null
@@ -520,26 +553,41 @@ export type Database = {
       }
       whatsapp_integrations: {
         Row: {
+          access_token: string | null
+          api_token: string | null
+          business_id: string | null
           created_at: string
-          credentials: Json
           id: string
+          instance_id: string | null
+          phone_number_id: string | null
           provider: string
+          status: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          access_token?: string | null
+          api_token?: string | null
+          business_id?: string | null
           created_at?: string
-          credentials?: Json
           id?: string
+          instance_id?: string | null
+          phone_number_id?: string | null
           provider: string
+          status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          access_token?: string | null
+          api_token?: string | null
+          business_id?: string | null
           created_at?: string
-          credentials?: Json
           id?: string
+          instance_id?: string | null
+          phone_number_id?: string | null
           provider?: string
+          status?: string
           updated_at?: string
           user_id?: string
         }

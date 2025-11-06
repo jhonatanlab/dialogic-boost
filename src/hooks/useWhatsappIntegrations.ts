@@ -19,7 +19,12 @@ export interface WhatsappIntegration {
   id: string;
   user_id: string;
   provider: WhatsappProvider;
-  credentials: MetaCredentials | ZapiCredentials;
+  access_token?: string;
+  phone_number_id?: string;
+  business_id?: string;
+  instance_id?: string;
+  api_token?: string;
+  status: 'connected' | 'disconnected';
   created_at: string;
   updated_at: string;
 }
@@ -40,10 +45,7 @@ export const useWhatsappIntegrations = () => {
         .eq("user_id", user.id);
 
       if (error) throw error;
-      return (data || []).map(item => ({
-        ...item,
-        credentials: item.credentials as unknown as MetaCredentials | ZapiCredentials
-      })) as WhatsappIntegration[];
+      return (data || []) as WhatsappIntegration[];
     },
   });
 
@@ -94,19 +96,34 @@ export const useWhatsappIntegrations = () => {
         throw new Error("Falha ao conectar com a API. Verifique suas credenciais.");
       }
 
-      const { data, error } = await supabase
-        .from("whatsapp_integrations")
-        .upsert(
-          {
+      // Prepare data based on provider
+      const integrationData = provider === "meta" 
+        ? {
             user_id: user.id,
             provider,
-            credentials: credentials as any,
+            access_token: (credentials as MetaCredentials).accessToken,
+            phone_number_id: (credentials as MetaCredentials).phoneNumberId,
+            business_id: (credentials as MetaCredentials).whatsappBusinessId,
+            instance_id: null,
+            api_token: null,
+            status: 'connected' as const,
             updated_at: new Date().toISOString(),
-          },
-          {
-            onConflict: "user_id,provider",
           }
-        )
+        : {
+            user_id: user.id,
+            provider,
+            access_token: null,
+            phone_number_id: null,
+            business_id: null,
+            instance_id: (credentials as ZapiCredentials).instanceId,
+            api_token: (credentials as ZapiCredentials).apiToken,
+            status: 'connected' as const,
+            updated_at: new Date().toISOString(),
+          };
+
+      const { data, error } = await supabase
+        .from("whatsapp_integrations")
+        .upsert(integrationData, { onConflict: "user_id" })
         .select()
         .single();
 
@@ -134,10 +151,56 @@ export const useWhatsappIntegrations = () => {
     return integrations?.find((i) => i.provider === provider);
   };
 
+  const testConnection = useMutation({
+    mutationFn: async (provider: WhatsappProvider) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const integration = integrations?.find((i) => i.provider === provider);
+      if (!integration) {
+        throw new Error("Nenhuma integração encontrada para testar");
+      }
+
+      // Get phone number from integration to send test message
+      let testPhone = "";
+      if (provider === "meta" && integration.phone_number_id) {
+        testPhone = integration.phone_number_id;
+      } else if (provider === "zapi" && integration.instance_id) {
+        testPhone = integration.instance_id;
+      }
+
+      const { data, error } = await supabase.functions.invoke('send-message', {
+        body: {
+          user_id: user.id,
+          phone: testPhone,
+          message: "Conexão realizada com sucesso ✅"
+        }
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Teste realizado com sucesso!",
+        description: "A mensagem de teste foi enviada.",
+      });
+    },
+    onError: (error: Error) => {
+      console.error("Error testing connection:", error);
+      toast({
+        title: "Erro ao testar conexão",
+        description: error.message || "Não foi possível enviar mensagem de teste.",
+        variant: "destructive",
+      });
+    },
+  });
+
   return {
     integrations,
     isLoading,
     saveIntegration,
+    testConnection,
     getIntegration,
   };
 };
