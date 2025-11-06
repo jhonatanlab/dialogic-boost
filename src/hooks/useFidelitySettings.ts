@@ -22,9 +22,9 @@ export const useFidelitySettings = () => {
       const { data, error } = await supabase
         .from("fidelity_settings")
         .select("*")
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error) throw error;
       return data as FidelitySettings | null;
     },
   });

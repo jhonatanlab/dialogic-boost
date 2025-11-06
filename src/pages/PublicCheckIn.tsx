@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import { useFidelitySettings } from "@/hooks/useFidelitySettings";
 
 const PublicCheckIn = () => {
   const { userId, phone } = useParams();
-  const navigate = useNavigate();
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState(phone || "");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -52,7 +51,7 @@ const PublicCheckIn = () => {
         .select("*")
         .eq("user_id", userId)
         .eq("customer_phone", customerPhone)
-        .single();
+        .maybeSingle();
 
       if (customerData && settings && customerData.total_checkins >= settings.checkins_goal) {
         // Award reward

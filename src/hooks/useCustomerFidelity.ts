@@ -49,7 +49,7 @@ export const useCustomerFidelity = () => {
         .select("*")
         .eq("user_id", user.id)
         .eq("customer_phone", phone)
-        .single();
+        .maybeSingle();
 
       const newCheckins = incrementCheckins 
         ? (existing?.total_checkins || 0) + 1 
@@ -86,7 +86,7 @@ export const useCustomerFidelity = () => {
         .select("*")
         .eq("user_id", user.id)
         .eq("customer_phone", phone)
-        .single();
+        .maybeSingle();
 
       if (!existing) throw new Error("Cliente não encontrado");
 
