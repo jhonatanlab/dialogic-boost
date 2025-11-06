@@ -47,6 +47,30 @@ export const useWhatsappIntegrations = () => {
     },
   });
 
+  const testMetaConnection = async (credentials: MetaCredentials): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `https://graph.facebook.com/v18.0/${credentials.phoneNumberId}/?access_token=${credentials.accessToken}`
+      );
+      return response.ok;
+    } catch (error) {
+      console.error("Meta connection test failed:", error);
+      return false;
+    }
+  };
+
+  const testZapiConnection = async (credentials: ZapiCredentials): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `https://api.z-api.io/instances/${credentials.instanceId}/token/${credentials.apiToken}/status`
+      );
+      return response.ok;
+    } catch (error) {
+      console.error("Z-API connection test failed:", error);
+      return false;
+    }
+  };
+
   const saveIntegration = useMutation({
     mutationFn: async ({
       provider,
@@ -57,6 +81,18 @@ export const useWhatsappIntegrations = () => {
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
+
+      // Test connection before saving
+      let connectionSuccess = false;
+      if (provider === "meta") {
+        connectionSuccess = await testMetaConnection(credentials as MetaCredentials);
+      } else if (provider === "zapi") {
+        connectionSuccess = await testZapiConnection(credentials as ZapiCredentials);
+      }
+
+      if (!connectionSuccess) {
+        throw new Error("Falha ao conectar com a API. Verifique suas credenciais.");
+      }
 
       const { data, error } = await supabase
         .from("whatsapp_integrations")
@@ -80,15 +116,15 @@ export const useWhatsappIntegrations = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["whatsapp-integrations"] });
       toast({
-        title: "Integração salva com sucesso!",
-        description: "Suas credenciais foram armazenadas.",
+        title: "Integração conectada com sucesso!",
+        description: "Suas credenciais foram validadas e salvas.",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Error saving integration:", error);
       toast({
-        title: "Erro ao salvar integração",
-        description: "Não foi possível salvar as credenciais. Tente novamente.",
+        title: "Erro ao conectar",
+        description: error.message || "Não foi possível conectar. Verifique suas credenciais.",
         variant: "destructive",
       });
     },

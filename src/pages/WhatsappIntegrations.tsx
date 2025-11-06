@@ -15,7 +15,9 @@ const WhatsappIntegrations = () => {
   const { toast } = useToast();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
 
-  const webhookUrl = `${window.location.origin}/webhook/zapi`;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const zapiWebhookUrl = `${supabaseUrl}/functions/v1/webhook-zapi`;
+  const metaWebhookUrl = `${supabaseUrl}/functions/v1/webhook-meta`;
 
   const metaIntegration = getIntegration("meta");
   const zapiIntegration = getIntegration("zapi");
@@ -69,8 +71,8 @@ const WhatsappIntegrations = () => {
     saveIntegration.mutate({ provider: "zapi", credentials: zapiForm });
   };
 
-  const copyWebhookUrl = () => {
-    navigator.clipboard.writeText(webhookUrl);
+  const copyWebhookUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
     setCopiedWebhook(true);
     toast({
       title: "URL copiada!",
@@ -182,8 +184,33 @@ const WhatsappIntegrations = () => {
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="meta-webhook">Webhook URL (somente leitura)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="meta-webhook"
+                        type="text"
+                        value={metaWebhookUrl}
+                        readOnly
+                        className="bg-muted"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => copyWebhookUrl(metaWebhookUrl)}
+                      >
+                        {copiedWebhook ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
                   <Button type="submit" disabled={saveIntegration.isPending}>
-                    {saveIntegration.isPending ? "Salvando..." : "Salvar Integração"}
+                    {saveIntegration.isPending ? "Testando conexão..." : "Salvar Integração"}
                   </Button>
                 </form>
               </TabsContent>
@@ -224,7 +251,7 @@ const WhatsappIntegrations = () => {
                       <Input
                         id="zapi-webhook"
                         type="text"
-                        value={webhookUrl}
+                        value={zapiWebhookUrl}
                         readOnly
                         className="bg-muted"
                       />
@@ -232,7 +259,7 @@ const WhatsappIntegrations = () => {
                         type="button"
                         variant="outline"
                         size="icon"
-                        onClick={copyWebhookUrl}
+                        onClick={() => copyWebhookUrl(zapiWebhookUrl)}
                       >
                         {copiedWebhook ? (
                           <Check className="h-4 w-4" />
@@ -244,7 +271,7 @@ const WhatsappIntegrations = () => {
                   </div>
 
                   <Button type="submit" disabled={saveIntegration.isPending}>
-                    {saveIntegration.isPending ? "Salvando..." : "Salvar Integração"}
+                    {saveIntegration.isPending ? "Testando conexão..." : "Salvar Integração"}
                   </Button>
                 </form>
               </TabsContent>
