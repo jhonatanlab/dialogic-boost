@@ -80,6 +80,33 @@ export type Database = {
         }
         Relationships: []
       }
+      checkins: {
+        Row: {
+          created_at: string
+          customer_name: string | null
+          customer_phone: string
+          id: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name?: string | null
+          customer_phone: string
+          id?: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string
+          id?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       contact_custom_fields: {
         Row: {
           contact_id: string
@@ -249,6 +276,75 @@ export type Database = {
           field_type?: string
           id?: string
           name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      customer_fidelity: {
+        Row: {
+          created_at: string
+          customer_name: string | null
+          customer_phone: string
+          id: string
+          last_checkin_at: string | null
+          total_checkins: number
+          total_rewards: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name?: string | null
+          customer_phone: string
+          id?: string
+          last_checkin_at?: string | null
+          total_checkins?: number
+          total_rewards?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string
+          id?: string
+          last_checkin_at?: string | null
+          total_checkins?: number
+          total_rewards?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fidelity_settings: {
+        Row: {
+          campaign_name: string
+          checkins_goal: number
+          created_at: string
+          id: string
+          is_active: boolean
+          reward_description: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          campaign_name?: string
+          checkins_goal?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          reward_description?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          campaign_name?: string
+          checkins_goal?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          reward_description?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

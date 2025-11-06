@@ -14,6 +14,7 @@ import NewCampaign from "./pages/NewCampaign";
 import NewMessageTemplate from "./pages/NewMessageTemplate";
 import Analytics from "./pages/Analytics";
 import CheckIn from "./pages/CheckIn";
+import PublicCheckIn from "./pages/PublicCheckIn";
 import AI from "./pages/AI";
 import NotFound from "./pages/NotFound";
 import ModeloMessages from "./pages/ModeloMessages";
@@ -39,6 +40,8 @@ const App = () => (
           <Route path="/message-templates/new" element={<NewMessageTemplate />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/checkin" element={<CheckIn />} />
+          <Route path="/checkin/:userId" element={<PublicCheckIn />} />
+          <Route path="/checkin/:userId/:phone" element={<PublicCheckIn />} />
           <Route path="/ai" element={<AI />} />
           <Route path="/modelo-messages" element={<ModeloMessages />} />
           <Route path="/settings" element={<Settings />} />
