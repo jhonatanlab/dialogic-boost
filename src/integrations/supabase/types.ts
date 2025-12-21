@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          action: string
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string
+          details: Json | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          details?: Json | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_logs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_contacts: {
         Row: {
           campaign_id: string
@@ -272,33 +317,39 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          custom_fields: Json | null
           email: string | null
           id: string
           instagram: string | null
           name: string
           phone: string | null
+          source: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          custom_fields?: Json | null
           email?: string | null
           id?: string
           instagram?: string | null
           name: string
           phone?: string | null
+          source?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          custom_fields?: Json | null
           email?: string | null
           id?: string
           instagram?: string | null
           name?: string
           phone?: string | null
+          source?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -306,39 +357,58 @@ export type Database = {
       }
       conversations: {
         Row: {
+          assigned_team: string | null
+          assigned_to: string | null
           channel: string
           contact_id: string
           created_at: string
           id: string
           last_message_at: string
+          priority: number | null
+          sla_deadline: string | null
           status: string
           unread_count: number
           updated_at: string
           user_id: string
         }
         Insert: {
+          assigned_team?: string | null
+          assigned_to?: string | null
           channel?: string
           contact_id: string
           created_at?: string
           id?: string
           last_message_at?: string
+          priority?: number | null
+          sla_deadline?: string | null
           status?: string
           unread_count?: number
           updated_at?: string
           user_id: string
         }
         Update: {
+          assigned_team?: string | null
+          assigned_to?: string | null
           channel?: string
           contact_id?: string
           created_at?: string
           id?: string
           last_message_at?: string
+          priority?: number | null
+          sla_deadline?: string | null
           status?: string
           unread_count?: number
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_assigned_team_fkey"
+            columns: ["assigned_team"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversations_contact_id_fkey"
             columns: ["contact_id"]
@@ -655,6 +725,83 @@ export type Database = {
         }
         Relationships: []
       }
+      team_members: {
+        Row: {
+          created_at: string
+          id: string
+          member_user_id: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_user_id: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_user_id?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       whatsapp_integrations: {
         Row: {
           access_token: string | null
@@ -702,10 +849,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "manager" | "agent"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -832,6 +985,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "manager", "agent"],
+    },
   },
 } as const
