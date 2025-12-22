@@ -1,1 +1,10 @@
 project_id = "neujvcpyjtrgiteqhgck"
+
+[functions.send-message]
+verify_jwt = true
+
+[functions.webhook-meta]
+verify_jwt = false
+
+[functions.webhook-zapi]
+verify_jwt = false
