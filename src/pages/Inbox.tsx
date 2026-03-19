@@ -43,7 +43,11 @@ const Inbox = () => {
   const [origin, setOrigin] = useState("whatsapp");
   const [searchQuery, setSearchQuery] = useState("");
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
   const { messages, isLoading: messagesLoading, sendMessage, markAsRead } = useMessages(selectedConversationId);
   const { quickReplies } = useQuickReplies();
