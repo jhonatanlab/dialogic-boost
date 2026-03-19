@@ -47,14 +47,6 @@ const Settings = () => {
       actionLabel: "Gerenciar equipes",
       color: "text-cyan-500",
     },
-    {
-      icon: Shield,
-      title: "Admin SaaS - WhatsApp",
-      description: "Gerencie instâncias WhatsApp via n8n Webhooks.",
-      action: () => navigate("/settings/admin-whatsapp"),
-      actionLabel: "Abrir Admin",
-      color: "text-orange-500",
-    },
   ];
 
   return (
