@@ -128,23 +128,29 @@ const WhatsappIntegrations = () => {
     setGeneratingQr(true);
     try {
       const webhookSecret = getSettingValue("n8n_webhook_secret");
-      const response = await fetch(qrEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_id: companyId,
-          instance_id: companyInstance.instance_id,
-          instance_token: companyInstance.instance_token,
-          ...(webhookSecret ? { secret: webhookSecret } : {}),
-        }),
+      const response = await supabase.functions.invoke("proxy-n8n", {
+        body: {
+          endpoint: qrEndpoint,
+          payload: {
+            company_id: companyId,
+            instance_id: companyInstance.instance_id,
+            instance_token: companyInstance.instance_token,
+            ...(webhookSecret ? { secret: webhookSecret } : {}),
+          },
+        },
       });
-      if (!response.ok) throw new Error(`Erro ${response.status}`);
-      const result = await response.json();
-      if (result.qrcode || result.base64 || result.code) {
-        setQrCodeData(result.qrcode || result.base64 || result.code);
+      if (response.error) throw new Error(response.error.message);
+      const result = response.data;
+      console.log("QR Code response:", JSON.stringify(result));
+      const qrValue = result?.qrcode || result?.base64 || result?.code || result?.pairingCode || result?.raw;
+      if (qrValue) {
+        setQrCodeData(qrValue);
+        setQrDialogOpen(true);
+      } else if (typeof result === "string" && result.length > 10) {
+        setQrCodeData(result);
         setQrDialogOpen(true);
       } else {
-        toast({ title: "QR Code gerado", description: "Verifique o n8n para visualizar o QR Code." });
+        toast({ title: "Resposta inesperada", description: "O n8n não retornou um QR Code reconhecido.", variant: "destructive" });
       }
     } catch (error: any) {
       toast({ title: "Erro ao gerar QR Code", description: error.message, variant: "destructive" });
