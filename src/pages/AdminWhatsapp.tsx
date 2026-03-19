@@ -314,6 +314,20 @@ const AdminWhatsapp = () => {
                             {creatingInstance ? "Criando..." : "Criar Instância"}
                           </Button>
                         )}
+                        {hasInstance && (
+                          <Button
+                            onClick={() => handleGenerateQr(companyInstance!)}
+                            disabled={generatingQr === companyInstance!.id}
+                            variant="outline"
+                          >
+                            {generatingQr === companyInstance!.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <QrCode className="h-4 w-4 mr-2" />
+                            )}
+                            Gerar QR Code
+                          </Button>
+                        )}
                         {companyInstance && (
                           <Button
                             onClick={() => {
