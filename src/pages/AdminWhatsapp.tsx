@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,15 @@ const AdminWhatsapp = () => {
   const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
   const { instances, isLoading: instancesLoading, createInstance, deleteInstance } = useWhatsappInstances();
 
+  const { data: companies, isLoading: companiesLoading } = useQuery({
+    queryKey: ["all-companies"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("companies").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const [n8nBaseUrl, setN8nBaseUrl] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [createEndpoint, setCreateEndpoint] = useState("");
@@ -70,7 +81,7 @@ const AdminWhatsapp = () => {
 
   const { toast } = useToast();
 
-  const handleCreateInstanceWebhook = async (instance: NonNullable<typeof instances>[number]) => {
+  const handleCreateInstanceWebhook = async (company: { id: string; company_name: string }) => {
     if (!createEndpoint) {
       toast({ title: "Endpoint não configurado", description: "Configure o Create Instance Endpoint primeiro.", variant: "destructive" });
       return;
@@ -81,14 +92,14 @@ const AdminWhatsapp = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          company_name: instance.company_name,
-          instance_db_id: instance.id,
+          company_name: company.company_name,
+          company_id: company.id,
           ...(webhookSecret ? { secret: webhookSecret } : {}),
         }),
       });
       if (!response.ok) throw new Error(`Erro ${response.status}`);
       toast({ title: "Instância criada com sucesso!" });
-      console.log("Webhook Create Instance acionado para:", instance.company_name);
+      console.log("Webhook Create Instance acionado para:", company.company_name);
     } catch (error: any) {
       toast({ title: "Erro ao criar instância", description: error.message, variant: "destructive" });
     } finally {
@@ -216,9 +227,9 @@ const AdminWhatsapp = () => {
                       <SelectValue placeholder="Selecione uma empresa" />
                     </SelectTrigger>
                     <SelectContent>
-                      {instances?.map((inst) => (
-                        <SelectItem key={inst.id} value={inst.id}>
-                          {inst.company_name}
+                      {companies?.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -226,16 +237,17 @@ const AdminWhatsapp = () => {
                 </div>
 
                 {selectedCompany && (() => {
-                  const selected = instances?.find((i) => i.id === selectedCompany);
+                  const selected = companies?.find((c) => c.id === selectedCompany);
                   if (!selected) return null;
-                  const hasInstance = selected.instance_id && !selected.instance_id.startsWith("inst_");
+                  const companyInstance = instances?.find((i) => i.company_id === selected.id);
+                  const hasInstance = !!companyInstance?.instance_id;
                   return (
                     <div className="border-t pt-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">{selected.company_name}</p>
+                          <p className="font-medium">{selected.name}</p>
                           <p className="text-xs text-muted-foreground font-mono">
-                            {hasInstance ? selected.instance_id : "Sem instância criada"}
+                            {hasInstance ? companyInstance.instance_id : "Sem instância criada"}
                           </p>
                         </div>
                         {hasInstance ? (
@@ -252,7 +264,7 @@ const AdminWhatsapp = () => {
                       <div className="flex gap-3">
                         {!hasInstance && (
                           <Button
-                            onClick={() => handleCreateInstanceWebhook(selected)}
+                            onClick={() => handleCreateInstanceWebhook({ id: selected.id, company_name: selected.name })}
                             disabled={creatingInstance}
                             className="bg-orange-500 hover:bg-orange-600 text-white"
                           >
@@ -260,17 +272,19 @@ const AdminWhatsapp = () => {
                             {creatingInstance ? "Criando..." : "Criar Instância"}
                           </Button>
                         )}
-                        <Button
-                          onClick={() => {
-                            deleteInstance.mutate(selected.id);
-                            setSelectedCompany("");
-                          }}
-                          disabled={deleteInstance.isPending}
-                          variant="destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Apagar
-                        </Button>
+                        {companyInstance && (
+                          <Button
+                            onClick={() => {
+                              deleteInstance.mutate(companyInstance.id);
+                              setSelectedCompany("");
+                            }}
+                            disabled={deleteInstance.isPending}
+                            variant="destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Apagar Instância
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
