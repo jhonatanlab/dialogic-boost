@@ -109,6 +109,30 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (action === "get_instance_by_company") {
+      const { company_id } = data;
+
+      if (!company_id) {
+        return new Response(
+          JSON.stringify({ error: "company_id is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: instance, error } = await supabase
+        .from("whatsapp_instances")
+        .select("*")
+        .eq("company_id", company_id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      return new Response(
+        JSON.stringify({ success: true, instance: instance || null }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
