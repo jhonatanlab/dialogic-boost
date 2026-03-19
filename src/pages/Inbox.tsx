@@ -127,16 +127,71 @@ const Inbox = () => {
     }
   };
 
-  const handleSendMessage = () => {
-    if (messageInput.trim() && selectedConversation) {
-      sendMessage.mutate({
-        conversationId: selectedConversation.id,
-        contactId: selectedConversation.contact_id,
-        content: messageInput,
-        phone: selectedConversation.contact.phone || "",
-      });
-      setMessageInput("");
+  const getMediaTypeFromFile = (file: File): string => {
+    if (file.type.startsWith("image/")) return "image";
+    if (file.type.startsWith("video/")) return "video";
+    if (file.type.startsWith("audio/")) return "audio";
+    return "document";
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAttachedFile(file);
     }
+  };
+
+  const removeAttachment = () => {
+    setAttachedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleSendMessage = async () => {
+    if ((!messageInput.trim() && !attachedFile) || !selectedConversation || !companyId) return;
+
+    let mediaUrl: string | undefined;
+    let mediaType: string | undefined;
+    let mimetype: string | undefined;
+
+    if (attachedFile) {
+      setIsUploading(true);
+      try {
+        const fileExt = attachedFile.name.split(".").pop();
+        const filePath = `${companyId}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("chat-attachments")
+          .upload(filePath, attachedFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from("chat-attachments")
+          .getPublicUrl(filePath);
+
+        mediaUrl = urlData.publicUrl;
+        mediaType = getMediaTypeFromFile(attachedFile);
+        mimetype = attachedFile.type;
+      } catch (err) {
+        console.error("Upload error:", err);
+        toast.error("Erro ao enviar arquivo");
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
+    sendMessage.mutate({
+      conversationId: selectedConversation.id,
+      contactId: selectedConversation.contact_id,
+      content: messageInput,
+      phone: selectedConversation.contact.phone || "",
+      companyId,
+      mediaType,
+      mediaUrl,
+      mimetype,
+    });
+    setMessageInput("");
+    removeAttachment();
   };
 
   const insertQuickReply = (text: string) => {
