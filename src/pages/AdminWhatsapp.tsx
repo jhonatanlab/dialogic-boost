@@ -59,6 +59,9 @@ const AdminWhatsapp = () => {
   const [sendEndpoint, setSendEndpoint] = useState("");
   const [selectedCompany, setSelectedCompany] = useState("");
   const [creatingInstance, setCreatingInstance] = useState(false);
+  const [generatingQr, setGeneratingQr] = useState<string | null>(null);
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!settingsLoading) {
