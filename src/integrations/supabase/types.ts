@@ -846,8 +846,8 @@ export type Database = {
           conversation_id: string
           created_at: string
           direction: string
-          external_id: string | null
           id: string
+          message_id: string | null
           message_type: string
           metadata: Json | null
           status: string
@@ -861,8 +861,8 @@ export type Database = {
           conversation_id: string
           created_at?: string
           direction: string
-          external_id?: string | null
           id?: string
+          message_id?: string | null
           message_type?: string
           metadata?: Json | null
           status?: string
@@ -876,8 +876,8 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           direction?: string
-          external_id?: string | null
           id?: string
+          message_id?: string | null
           message_type?: string
           metadata?: Json | null
           status?: string
