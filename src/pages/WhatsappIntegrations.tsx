@@ -22,6 +22,25 @@ const WhatsappIntegrations = () => {
   const { toast } = useToast();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [nativeEnabled, setNativeEnabled] = useState(false);
+  const [generatingQr, setGeneratingQr] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const { companyId } = useCompany();
+
+  const { data: companyInstance } = useQuery({
+    queryKey: ["my-whatsapp-instance", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("whatsapp_instances")
+        .select("*")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const zapiWebhookUrl = `${supabaseUrl}/functions/v1/webhook-zapi`;
