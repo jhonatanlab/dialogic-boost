@@ -192,7 +192,28 @@ const Auth = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome</Label>
+                  <Label htmlFor="signup-company">Nome da Empresa</Label>
+                  <Input
+                    id="signup-company"
+                    type="text"
+                    placeholder="Nome da sua empresa"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-cnpj">CNPJ (opcional)</Label>
+                  <Input
+                    id="signup-cnpj"
+                    type="text"
+                    placeholder="00.000.000/0000-00"
+                    value={cnpj}
+                    onChange={(e) => setCnpj(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Seu Nome</Label>
                   <Input
                     id="signup-name"
                     type="text"
