@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Copy, Check } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { MessageSquare, Copy, Check, Zap } from "lucide-react";
 import { useWhatsappIntegrations, MetaCredentials, ZapiCredentials } from "@/hooks/useWhatsappIntegrations";
+import { useAdminSettings } from "@/hooks/useAdminSettings";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
