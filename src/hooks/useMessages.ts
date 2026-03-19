@@ -90,7 +90,7 @@ export const useMessages = (conversationId: string | null) => {
         company_id: companyId,
         number: phone,
         text: content,
-        media_type: effectiveMediaType,
+        type: effectiveMediaType,
       };
 
       if (mediaUrl) {
