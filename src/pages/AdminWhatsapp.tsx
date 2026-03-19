@@ -43,7 +43,7 @@ const AdminWhatsapp = () => {
   const [deleteEndpoint, setDeleteEndpoint] = useState("");
   const [sendEndpoint, setSendEndpoint] = useState("");
   const [selectedCompany, setSelectedCompany] = useState("");
-  const [newCompanyName, setNewCompanyName] = useState("");
+  const [creatingInstance, setCreatingInstance] = useState(false);
 
   useEffect(() => {
     if (!settingsLoading) {
