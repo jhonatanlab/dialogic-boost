@@ -348,9 +348,12 @@ const Inbox = () => {
                                 )}
                               </div>
                             )}
-                            {message.content && !(isMedia && !message.content.trim()) && (
-                              <p className="text-sm">{message.content}</p>
-                            )}
+                            {message.content && (() => {
+                              const autoLabels = ["[image]", "[video]", "[audio]", "[document]", "Mídia enviada", "[mídia]"];
+                              const isAutoLabel = autoLabels.includes(message.content.trim());
+                              if (isMedia && mediaUrl && (isAutoLabel || !message.content.trim())) return null;
+                              return <p className="text-sm">{message.content}</p>;
+                            })()}
                             <div className="flex items-center justify-end gap-1 mt-1">
                               <span className="text-xs opacity-70">
                                 {format(new Date(message.created_at), "HH:mm")}
