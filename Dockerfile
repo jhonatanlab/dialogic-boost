@@ -1,16 +1,20 @@
-# 1. Usar uma imagem do Node.js
-FROM node:20-alpine
-
-# 2. Criar a pasta do app
+# 1. Fase de Construção (Build)
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-# 3. Copiar os arquivos de pacotes e instalar
 COPY package*.json ./
 RUN npm install
-
-# 4. Copiar o restante do código
 COPY . .
+RUN npm run build
 
-# 5. Abrir a porta e rodar o comando que você já tinha colocado
+# 2. Fase de Execução (Runtime)
+FROM node:20-alpine
+WORKDIR /app
+# Instalamos um servidor web leve chamado 'serve'
+RUN npm install -g serve
+# Copiamos apenas a pasta 'dist' que foi gerada no build
+COPY --from=builder /app/dist ./dist
+
 EXPOSE 8000
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8000", "--allowed-hosts", "all"]
+
+# O 'serve' não bloqueia hosts, então o erro de sslip.io some
+CMD ["serve", "-s", "dist", "-l", "8000"]
