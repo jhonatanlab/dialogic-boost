@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,7 @@ const AdminWhatsapp = () => {
   const [deleteEndpoint, setDeleteEndpoint] = useState("");
   const [sendEndpoint, setSendEndpoint] = useState("");
   const [selectedCompany, setSelectedCompany] = useState("");
-  const [newCompanyName, setNewCompanyName] = useState("");
+  const [creatingInstance, setCreatingInstance] = useState(false);
 
   useEffect(() => {
     if (!settingsLoading) {
@@ -67,11 +68,32 @@ const AdminWhatsapp = () => {
     });
   };
 
-  const handleCreateInstance = () => {
-    const name = newCompanyName.trim();
-    if (!name) return;
-    createInstance.mutate(name);
-    setNewCompanyName("");
+  const { toast } = useToast();
+
+  const handleCreateInstanceWebhook = async (instance: NonNullable<typeof instances>[number]) => {
+    if (!createEndpoint) {
+      toast({ title: "Endpoint não configurado", description: "Configure o Create Instance Endpoint primeiro.", variant: "destructive" });
+      return;
+    }
+    setCreatingInstance(true);
+    try {
+      const response = await fetch(createEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: instance.company_name,
+          instance_db_id: instance.id,
+          ...(webhookSecret ? { secret: webhookSecret } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(`Erro ${response.status}`);
+      toast({ title: "Instância criada com sucesso!" });
+      console.log("Webhook Create Instance acionado para:", instance.company_name);
+    } catch (error: any) {
+      toast({ title: "Erro ao criar instância", description: error.message, variant: "destructive" });
+    } finally {
+      setCreatingInstance(false);
+    }
   };
 
   const handleDeleteInstance = () => {
@@ -188,18 +210,10 @@ const AdminWhatsapp = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Nova Empresa</Label>
-                  <Input
-                    value={newCompanyName}
-                    onChange={(e) => setNewCompanyName(e.target.value)}
-                    placeholder="Nome da empresa"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Instância existente</Label>
+                  <Label>Selecione a Empresa</Label>
                   <Select value={selectedCompany} onValueChange={setSelectedCompany}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma instância" />
+                      <SelectValue placeholder="Selecione uma empresa" />
                     </SelectTrigger>
                     <SelectContent>
                       {instances?.map((inst) => (
@@ -210,24 +224,57 @@ const AdminWhatsapp = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={handleCreateInstance}
-                    disabled={!newCompanyName.trim() || createInstance.isPending}
-                    className="bg-orange-500 hover:bg-orange-600 text-white"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar/Join
-                  </Button>
-                  <Button
-                    onClick={handleDeleteInstance}
-                    disabled={!selectedCompany || deleteInstance.isPending}
-                    variant="destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Apagar
-                  </Button>
-                </div>
+
+                {selectedCompany && (() => {
+                  const selected = instances?.find((i) => i.id === selectedCompany);
+                  if (!selected) return null;
+                  const hasInstance = selected.instance_id && !selected.instance_id.startsWith("inst_");
+                  return (
+                    <div className="border-t pt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{selected.company_name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {hasInstance ? selected.instance_id : "Sem instância criada"}
+                          </p>
+                        </div>
+                        {hasInstance ? (
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                            <Wifi className="h-3 w-3 mr-1" /> Instância ativa
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-yellow-400 border-yellow-500/30">
+                            Sem instância
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3">
+                        {!hasInstance && (
+                          <Button
+                            onClick={() => handleCreateInstanceWebhook(selected)}
+                            disabled={creatingInstance}
+                            className="bg-orange-500 hover:bg-orange-600 text-white"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            {creatingInstance ? "Criando..." : "Criar Instância"}
+                          </Button>
+                        )}
+                        <Button
+                          onClick={() => {
+                            deleteInstance.mutate(selected.id);
+                            setSelectedCompany("");
+                          }}
+                          disabled={deleteInstance.isPending}
+                          variant="destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Apagar
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
 
