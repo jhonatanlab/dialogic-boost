@@ -399,6 +399,19 @@ const AdminWhatsapp = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                title="Gerar QR Code"
+                                onClick={() => handleGenerateQr(inst)}
+                                disabled={generatingQr === inst.id || !inst.instance_id}
+                              >
+                                {generatingQr === inst.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <QrCode className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => handleRefreshInstance(inst.id)}
                               >
                                 <RefreshCw className="h-4 w-4" />
