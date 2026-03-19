@@ -123,6 +123,42 @@ const AdminWhatsapp = () => {
     console.log("Integração com n8n será feita via Webhook - Atualizar status:", id);
   };
 
+  const handleGenerateQr = async (inst: { id: string; instance_id: string | null; instance_token: string | null; company_id: string | null }) => {
+    if (!qrEndpoint) {
+      toast({ title: "Endpoint não configurado", description: "Configure o Generate QR Code Endpoint primeiro.", variant: "destructive" });
+      return;
+    }
+    if (!inst.instance_id) {
+      toast({ title: "Sem instance_id", description: "Esta instância não possui instance_id.", variant: "destructive" });
+      return;
+    }
+    setGeneratingQr(inst.id);
+    try {
+      const response = await fetch(qrEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_id: inst.company_id,
+          instance_id: inst.instance_id,
+          instance_token: inst.instance_token,
+          ...(webhookSecret ? { secret: webhookSecret } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(`Erro ${response.status}`);
+      const result = await response.json();
+      if (result.qrcode || result.base64 || result.code) {
+        setQrCodeData(result.qrcode || result.base64 || result.code);
+        setQrDialogOpen(true);
+      } else {
+        toast({ title: "QR Code gerado", description: "Verifique o n8n para visualizar o QR Code." });
+      }
+    } catch (error: any) {
+      toast({ title: "Erro ao gerar QR Code", description: error.message, variant: "destructive" });
+    } finally {
+      setGeneratingQr(null);
+    }
+  };
+
   const isConnected = n8nBaseUrl.trim().length > 0;
 
   return (
