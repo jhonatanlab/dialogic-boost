@@ -481,6 +481,26 @@ const AdminWhatsapp = () => {
             </Card>
           </div>
         </div>
+
+        {/* QR Code Dialog */}
+        <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>QR Code WhatsApp</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center p-4">
+              {qrCodeData && (
+                qrCodeData.startsWith("data:") ? (
+                  <img src={qrCodeData} alt="QR Code" className="max-w-full" />
+                ) : (
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <p className="text-sm font-mono break-all">{qrCodeData}</p>
+                  </div>
+                )
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
