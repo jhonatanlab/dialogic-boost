@@ -17,6 +17,7 @@ export type Database = {
       activity_logs: {
         Row: {
           action: string
+          company_id: string | null
           contact_id: string | null
           conversation_id: string | null
           created_at: string
@@ -26,6 +27,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          company_id?: string | null
           contact_id?: string | null
           conversation_id?: string | null
           created_at?: string
@@ -35,6 +37,7 @@ export type Database = {
         }
         Update: {
           action?: string
+          company_id?: string | null
           contact_id?: string | null
           conversation_id?: string | null
           created_at?: string
@@ -43,6 +46,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "activity_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "activity_logs_contact_id_fkey"
             columns: ["contact_id"]
@@ -61,6 +71,7 @@ export type Database = {
       }
       admin_settings: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           setting_key: string
@@ -69,6 +80,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           setting_key: string
@@ -77,6 +89,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           setting_key?: string
@@ -84,11 +97,20 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "admin_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       campaign_contacts: {
         Row: {
           campaign_id: string
+          company_id: string | null
           contact_id: string
           created_at: string
           error_message: string | null
@@ -98,6 +120,7 @@ export type Database = {
         }
         Insert: {
           campaign_id: string
+          company_id?: string | null
           contact_id: string
           created_at?: string
           error_message?: string | null
@@ -107,6 +130,7 @@ export type Database = {
         }
         Update: {
           campaign_id?: string
+          company_id?: string | null
           contact_id?: string
           created_at?: string
           error_message?: string | null
@@ -114,10 +138,19 @@ export type Database = {
           sent_at?: string | null
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "campaign_contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       campaigns: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           message: string
@@ -129,6 +162,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           message: string
@@ -140,6 +174,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           message?: string
@@ -150,10 +185,19 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       checkin_links: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           name: string
@@ -161,6 +205,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           name: string
@@ -168,17 +213,27 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           name?: string
           url_token?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "checkin_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       checkin_records: {
         Row: {
           checkin_link_id: string
+          company_id: string | null
           contact_id: string | null
           fidelity_progress: number
           id: string
@@ -190,6 +245,7 @@ export type Database = {
         }
         Insert: {
           checkin_link_id: string
+          company_id?: string | null
           contact_id?: string | null
           fidelity_progress?: number
           id?: string
@@ -201,6 +257,7 @@ export type Database = {
         }
         Update: {
           checkin_link_id?: string
+          company_id?: string | null
           contact_id?: string | null
           fidelity_progress?: number
           id?: string
@@ -219,6 +276,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "checkin_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "checkin_records_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
@@ -227,8 +291,36 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          cnpj: string | null
+          created_at: string
+          id: string
+          name: string
+          plan: string
+          updated_at: string
+        }
+        Insert: {
+          cnpj?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          plan?: string
+          updated_at?: string
+        }
+        Update: {
+          cnpj?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          plan?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contact_custom_fields: {
         Row: {
+          company_id: string | null
           contact_id: string
           created_at: string
           custom_field_id: string
@@ -237,6 +329,7 @@ export type Database = {
           value: string | null
         }
         Insert: {
+          company_id?: string | null
           contact_id: string
           created_at?: string
           custom_field_id: string
@@ -245,6 +338,7 @@ export type Database = {
           value?: string | null
         }
         Update: {
+          company_id?: string | null
           contact_id?: string
           created_at?: string
           custom_field_id?: string
@@ -253,6 +347,13 @@ export type Database = {
           value?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contact_custom_fields_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contact_custom_fields_contact_id_fkey"
             columns: ["contact_id"]
@@ -271,6 +372,7 @@ export type Database = {
       }
       contact_notes: {
         Row: {
+          company_id: string | null
           contact_id: string
           content: string
           created_at: string
@@ -279,6 +381,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           contact_id: string
           content: string
           created_at?: string
@@ -287,6 +390,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           contact_id?: string
           content?: string
           created_at?: string
@@ -295,6 +399,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "contact_notes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contact_notes_contact_id_fkey"
             columns: ["contact_id"]
@@ -306,24 +417,34 @@ export type Database = {
       }
       contact_tags: {
         Row: {
+          company_id: string | null
           contact_id: string
           created_at: string
           id: string
           tag_id: string
         }
         Insert: {
+          company_id?: string | null
           contact_id: string
           created_at?: string
           id?: string
           tag_id: string
         }
         Update: {
+          company_id?: string | null
           contact_id?: string
           created_at?: string
           id?: string
           tag_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "contact_tags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contact_tags_contact_id_fkey"
             columns: ["contact_id"]
@@ -343,6 +464,7 @@ export type Database = {
       contacts: {
         Row: {
           avatar_url: string | null
+          company_id: string | null
           created_at: string
           custom_fields: Json | null
           email: string | null
@@ -356,6 +478,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          company_id?: string | null
           created_at?: string
           custom_fields?: Json | null
           email?: string | null
@@ -369,6 +492,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          company_id?: string | null
           created_at?: string
           custom_fields?: Json | null
           email?: string | null
@@ -380,13 +504,22 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversations: {
         Row: {
           assigned_team: string | null
           assigned_to: string | null
           channel: string
+          company_id: string | null
           contact_id: string
           created_at: string
           id: string
@@ -402,6 +535,7 @@ export type Database = {
           assigned_team?: string | null
           assigned_to?: string | null
           channel?: string
+          company_id?: string | null
           contact_id: string
           created_at?: string
           id?: string
@@ -417,6 +551,7 @@ export type Database = {
           assigned_team?: string | null
           assigned_to?: string | null
           channel?: string
+          company_id?: string | null
           contact_id?: string
           created_at?: string
           id?: string
@@ -437,6 +572,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "conversations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "conversations_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
@@ -447,6 +589,7 @@ export type Database = {
       }
       custom_fields: {
         Row: {
+          company_id: string | null
           created_at: string
           field_type: string
           id: string
@@ -454,6 +597,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           field_type?: string
           id?: string
@@ -461,16 +605,26 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           field_type?: string
           id?: string
           name?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "custom_fields_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fidelity_cards: {
         Row: {
+          company_id: string | null
           contact_id: string
           created_at: string
           current_stamps: number
@@ -482,6 +636,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           contact_id: string
           created_at?: string
           current_stamps?: number
@@ -493,6 +648,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           contact_id?: string
           created_at?: string
           current_stamps?: number
@@ -504,6 +660,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fidelity_cards_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fidelity_cards_contact_id_fkey"
             columns: ["contact_id"]
@@ -529,6 +692,7 @@ export type Database = {
       }
       fidelity_programs: {
         Row: {
+          company_id: string | null
           congratulations_message: string
           created_at: string
           goal: number
@@ -540,6 +704,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           congratulations_message: string
           created_at?: string
           goal?: number
@@ -551,6 +716,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           congratulations_message?: string
           created_at?: string
           goal?: number
@@ -561,10 +727,19 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fidelity_programs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       incoming_messages: {
         Row: {
+          company_id: string | null
           created_at: string
           from_phone: string
           id: string
@@ -575,6 +750,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           from_phone: string
           id?: string
@@ -585,6 +761,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           from_phone?: string
           id?: string
@@ -594,12 +771,21 @@ export type Database = {
           raw_data?: Json | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "incoming_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       message_templates: {
         Row: {
           attachment_url: string | null
           category: string | null
+          company_id: string | null
           created_at: string
           id: string
           message: string
@@ -614,6 +800,7 @@ export type Database = {
         Insert: {
           attachment_url?: string | null
           category?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           message: string
@@ -628,6 +815,7 @@ export type Database = {
         Update: {
           attachment_url?: string | null
           category?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           message?: string
@@ -639,11 +827,20 @@ export type Database = {
           user_id?: string
           variables_used?: string[] | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "message_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
           channel: string
+          company_id: string | null
           contact_id: string
           content: string
           conversation_id: string
@@ -658,6 +855,7 @@ export type Database = {
         }
         Insert: {
           channel?: string
+          company_id?: string | null
           contact_id: string
           content: string
           conversation_id: string
@@ -672,6 +870,7 @@ export type Database = {
         }
         Update: {
           channel?: string
+          company_id?: string | null
           contact_id?: string
           content?: string
           conversation_id?: string
@@ -685,6 +884,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_contact_id_fkey"
             columns: ["contact_id"]
@@ -701,8 +907,47 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          company_id: string
+          created_at: string
+          full_name: string | null
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quick_replies: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           name: string
@@ -711,6 +956,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           name: string
@@ -719,6 +965,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -726,11 +973,20 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quick_replies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tags: {
         Row: {
           color: string
+          company_id: string | null
           created_at: string
           id: string
           name: string
@@ -738,6 +994,7 @@ export type Database = {
         }
         Insert: {
           color?: string
+          company_id?: string | null
           created_at?: string
           id?: string
           name: string
@@ -745,33 +1002,52 @@ export type Database = {
         }
         Update: {
           color?: string
+          company_id?: string | null
           created_at?: string
           id?: string
           name?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_members: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           member_user_id: string
           team_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           member_user_id: string
           team_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           member_user_id?: string
           team_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "team_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_members_team_id_fkey"
             columns: ["team_id"]
@@ -783,6 +1059,7 @@ export type Database = {
       }
       teams: {
         Row: {
+          company_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -791,6 +1068,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -799,6 +1077,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -806,7 +1085,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teams_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -831,6 +1118,7 @@ export type Database = {
       }
       whatsapp_instances: {
         Row: {
+          company_id: string | null
           company_name: string
           created_at: string
           id: string
@@ -840,6 +1128,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           company_name: string
           created_at?: string
           id?: string
@@ -849,6 +1138,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           company_name?: string
           created_at?: string
           id?: string
@@ -857,13 +1147,22 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_integrations: {
         Row: {
           access_token: string | null
           api_token: string | null
           business_id: string | null
+          company_id: string | null
           created_at: string
           id: string
           instance_id: string | null
@@ -877,6 +1176,7 @@ export type Database = {
           access_token?: string | null
           api_token?: string | null
           business_id?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           instance_id?: string | null
@@ -890,6 +1190,7 @@ export type Database = {
           access_token?: string | null
           api_token?: string | null
           business_id?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           instance_id?: string | null
@@ -899,13 +1200,22 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_integrations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_user_company_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
