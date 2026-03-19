@@ -14,7 +14,10 @@ export interface Message {
   message_type: string;
   status: string;
   created_at: string;
+  metadata?: Record<string, unknown> | null;
 }
+
+const N8N_SEND_URL = "https://primary-production-b2b0f.up.railway.app/webhook/send-message";
 
 export const useMessages = (conversationId: string | null) => {
   const { toast } = useToast();
@@ -43,16 +46,27 @@ export const useMessages = (conversationId: string | null) => {
       contactId,
       content,
       phone,
+      companyId,
+      mediaType,
+      mediaUrl,
+      mimetype,
     }: {
       conversationId: string;
       contactId: string;
       content: string;
       phone: string;
+      companyId: string;
+      mediaType?: string;
+      mediaUrl?: string;
+      mimetype?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Save message to database
+      const effectiveMediaType = mediaType || "text";
+      const messageMetadata = mediaUrl ? { media_url: mediaUrl, mimetype: mimetype || null } : null;
+
+      // Save message to database with status "sending"
       const { data: message, error: msgError } = await supabase
         .from("messages")
         .insert({
@@ -61,38 +75,62 @@ export const useMessages = (conversationId: string | null) => {
           user_id: user.id,
           channel: "whatsapp",
           direction: "outbound",
-          content: content,
-          message_type: "text",
-          status: "sent",
+          content: content || (mediaUrl ? `[${effectiveMediaType}]` : ""),
+          message_type: effectiveMediaType,
+          status: "sending",
+          metadata: messageMetadata,
         })
         .select()
         .single();
 
       if (msgError) throw msgError;
 
-      // Send via WhatsApp API
-      const { error: sendError } = await supabase.functions.invoke("send-message", {
-        body: {
-          user_id: user.id,
-          phone: phone,
-          message: content,
-        },
-      });
+      // Send via n8n production endpoint
+      const payload: Record<string, string> = {
+        company_id: companyId,
+        number: phone,
+        text: content,
+        media_type: effectiveMediaType,
+      };
 
-      if (sendError) {
+      if (mediaUrl) {
+        payload.media_url = mediaUrl;
+      }
+      if (mimetype) {
+        payload.mimetype = mimetype;
+      }
+
+      try {
+        const response = await fetch(N8N_SEND_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || result.success === false) {
+          // Update message status to failed
+          await supabase
+            .from("messages")
+            .update({ status: "failed" })
+            .eq("id", message.id);
+          throw new Error(result.error || `n8n error: ${response.status}`);
+        }
+
+        // Update message status to sent
+        await supabase
+          .from("messages")
+          .update({ status: "sent" })
+          .eq("id", message.id);
+      } catch (sendErr) {
         // Update message status to failed
         await supabase
           .from("messages")
           .update({ status: "failed" })
           .eq("id", message.id);
-        throw sendError;
+        throw sendErr;
       }
-
-      // Update message status to delivered
-      await supabase
-        .from("messages")
-        .update({ status: "delivered" })
-        .eq("id", message.id);
 
       // Update conversation
       await supabase
@@ -114,6 +152,7 @@ export const useMessages = (conversationId: string | null) => {
     },
     onError: (error: Error) => {
       console.error("Error sending message:", error);
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
       toast({
         title: "Erro ao enviar mensagem",
         description: error.message || "Não foi possível enviar a mensagem.",
@@ -145,7 +184,7 @@ export const useMessages = (conversationId: string | null) => {
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
