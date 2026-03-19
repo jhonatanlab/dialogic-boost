@@ -13,4 +13,4 @@ COPY . .
 
 # 5. Abrir a porta e rodar o comando que você já tinha colocado
 EXPOSE 8000
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "8000", "--allowed-hosts", "all"]
