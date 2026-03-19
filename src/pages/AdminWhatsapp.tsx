@@ -227,9 +227,9 @@ const AdminWhatsapp = () => {
                       <SelectValue placeholder="Selecione uma empresa" />
                     </SelectTrigger>
                     <SelectContent>
-                      {instances?.map((inst) => (
-                        <SelectItem key={inst.id} value={inst.id}>
-                          {inst.company_name}
+                      {companies?.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -237,16 +237,17 @@ const AdminWhatsapp = () => {
                 </div>
 
                 {selectedCompany && (() => {
-                  const selected = instances?.find((i) => i.id === selectedCompany);
+                  const selected = companies?.find((c) => c.id === selectedCompany);
                   if (!selected) return null;
-                  const hasInstance = selected.instance_id && !selected.instance_id.startsWith("inst_");
+                  const companyInstance = instances?.find((i) => i.company_id === selected.id);
+                  const hasInstance = !!companyInstance?.instance_id;
                   return (
                     <div className="border-t pt-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">{selected.company_name}</p>
+                          <p className="font-medium">{selected.name}</p>
                           <p className="text-xs text-muted-foreground font-mono">
-                            {hasInstance ? selected.instance_id : "Sem instância criada"}
+                            {hasInstance ? companyInstance.instance_id : "Sem instância criada"}
                           </p>
                         </div>
                         {hasInstance ? (
@@ -263,7 +264,7 @@ const AdminWhatsapp = () => {
                       <div className="flex gap-3">
                         {!hasInstance && (
                           <Button
-                            onClick={() => handleCreateInstanceWebhook(selected)}
+                            onClick={() => handleCreateInstanceWebhook({ id: selected.id, company_name: selected.name })}
                             disabled={creatingInstance}
                             className="bg-orange-500 hover:bg-orange-600 text-white"
                           >
@@ -271,17 +272,19 @@ const AdminWhatsapp = () => {
                             {creatingInstance ? "Criando..." : "Criar Instância"}
                           </Button>
                         )}
-                        <Button
-                          onClick={() => {
-                            deleteInstance.mutate(selected.id);
-                            setSelectedCompany("");
-                          }}
-                          disabled={deleteInstance.isPending}
-                          variant="destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Apagar
-                        </Button>
+                        {companyInstance && (
+                          <Button
+                            onClick={() => {
+                              deleteInstance.mutate(companyInstance.id);
+                              setSelectedCompany("");
+                            }}
+                            disabled={deleteInstance.isPending}
+                            variant="destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Apagar Instância
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
