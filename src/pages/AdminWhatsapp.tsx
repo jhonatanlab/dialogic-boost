@@ -39,6 +39,15 @@ const AdminWhatsapp = () => {
   const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
   const { instances, isLoading: instancesLoading, createInstance, deleteInstance } = useWhatsappInstances();
 
+  const { data: companies, isLoading: companiesLoading } = useQuery({
+    queryKey: ["all-companies"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("companies").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const [n8nBaseUrl, setN8nBaseUrl] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
   const [createEndpoint, setCreateEndpoint] = useState("");
