@@ -17,7 +17,7 @@ export interface Message {
   metadata?: Record<string, unknown> | null;
 }
 
-const N8N_SEND_URL = "https://primary-production-b2b0f.up.railway.app/webhook/send-message";
+
 
 export const useMessages = (conversationId: string | null) => {
   const { toast } = useToast();
