@@ -6,11 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { MessageSquare, Copy, Check, Zap } from "lucide-react";
+import { MessageSquare, Copy, Check, Zap, QrCode, Loader2 } from "lucide-react";
 import { useWhatsappIntegrations, MetaCredentials, ZapiCredentials } from "@/hooks/useWhatsappIntegrations";
 import { useAdminSettings } from "@/hooks/useAdminSettings";
+import { useCompany } from "@/hooks/useCompany";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const WhatsappIntegrations = () => {
   const { integrations, isLoading, saveIntegration, testConnection, getIntegration } = useWhatsappIntegrations();
