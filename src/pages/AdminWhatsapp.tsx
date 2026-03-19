@@ -99,7 +99,7 @@ const AdminWhatsapp = () => {
       });
       if (!response.ok) throw new Error(`Erro ${response.status}`);
       toast({ title: "Instância criada com sucesso!" });
-      console.log("Webhook Create Instance acionado para:", instance.company_name);
+      console.log("Webhook Create Instance acionado para:", company.company_name);
     } catch (error: any) {
       toast({ title: "Erro ao criar instância", description: error.message, variant: "destructive" });
     } finally {
