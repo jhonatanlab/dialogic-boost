@@ -94,16 +94,17 @@ const AdminWhatsapp = () => {
     }
     setCreatingInstance(true);
     try {
-      const response = await fetch(createEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: company.company_name,
-          company_id: company.id,
-          ...(webhookSecret ? { secret: webhookSecret } : {}),
-        }),
+      const response = await supabase.functions.invoke("proxy-n8n", {
+        body: {
+          endpoint: createEndpoint,
+          payload: {
+            company_name: company.company_name,
+            company_id: company.id,
+            ...(webhookSecret ? { secret: webhookSecret } : {}),
+          },
+        },
       });
-      if (!response.ok) throw new Error(`Erro ${response.status}`);
+      if (response.error) throw new Error(response.error.message);
       toast({ title: "Instância criada com sucesso!" });
       console.log("Webhook Create Instance acionado para:", company.company_name);
     } catch (error: any) {
