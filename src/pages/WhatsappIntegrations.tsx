@@ -115,6 +115,45 @@ const WhatsappIntegrations = () => {
     setTimeout(() => setCopiedWebhook(false), 2000);
   };
 
+  const handleGenerateQrCode = async () => {
+    const qrEndpoint = getSettingValue("n8n_generate_qr");
+    if (!qrEndpoint) {
+      toast({ title: "Endpoint não configurado", description: "O endpoint de QR Code não está configurado.", variant: "destructive" });
+      return;
+    }
+    if (!companyInstance?.instance_id) {
+      toast({ title: "Sem instância", description: "Nenhuma instância ativa encontrada para sua empresa.", variant: "destructive" });
+      return;
+    }
+    setGeneratingQr(true);
+    try {
+      const webhookSecret = getSettingValue("n8n_webhook_secret");
+      const response = await fetch(qrEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_id: companyId,
+          instance_id: companyInstance.instance_id,
+          instance_token: companyInstance.instance_token,
+          ...(webhookSecret ? { secret: webhookSecret } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(`Erro ${response.status}`);
+      const result = await response.json();
+      if (result.qrcode || result.base64 || result.code) {
+        setQrCodeData(result.qrcode || result.base64 || result.code);
+        setQrDialogOpen(true);
+      } else {
+        toast({ title: "QR Code gerado", description: "Verifique o n8n para visualizar o QR Code." });
+      }
+    } catch (error: any) {
+      toast({ title: "Erro ao gerar QR Code", description: error.message, variant: "destructive" });
+    } finally {
+      setGeneratingQr(false);
+    }
+  };
+  };
+
   if (isLoading) {
     return (
       <DashboardLayout>
