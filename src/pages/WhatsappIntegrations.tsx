@@ -6,11 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { MessageSquare, Copy, Check, Zap } from "lucide-react";
+import { MessageSquare, Copy, Check, Zap, QrCode, Loader2 } from "lucide-react";
 import { useWhatsappIntegrations, MetaCredentials, ZapiCredentials } from "@/hooks/useWhatsappIntegrations";
 import { useAdminSettings } from "@/hooks/useAdminSettings";
+import { useCompany } from "@/hooks/useCompany";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const WhatsappIntegrations = () => {
   const { integrations, isLoading, saveIntegration, testConnection, getIntegration } = useWhatsappIntegrations();
@@ -18,6 +22,25 @@ const WhatsappIntegrations = () => {
   const { toast } = useToast();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [nativeEnabled, setNativeEnabled] = useState(false);
+  const [generatingQr, setGeneratingQr] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const { companyId } = useCompany();
+
+  const { data: companyInstance } = useQuery({
+    queryKey: ["my-whatsapp-instance", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("whatsapp_instances")
+        .select("*")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const zapiWebhookUrl = `${supabaseUrl}/functions/v1/webhook-zapi`;
@@ -90,6 +113,45 @@ const WhatsappIntegrations = () => {
       description: "A URL do webhook foi copiada para a área de transferência.",
     });
     setTimeout(() => setCopiedWebhook(false), 2000);
+  };
+
+  const handleGenerateQrCode = async () => {
+    const qrEndpoint = getSettingValue("n8n_generate_qr");
+    if (!qrEndpoint) {
+      toast({ title: "Endpoint não configurado", description: "O endpoint de QR Code não está configurado.", variant: "destructive" });
+      return;
+    }
+    if (!companyInstance?.instance_id) {
+      toast({ title: "Sem instância", description: "Nenhuma instância ativa encontrada para sua empresa.", variant: "destructive" });
+      return;
+    }
+    setGeneratingQr(true);
+    try {
+      const webhookSecret = getSettingValue("n8n_webhook_secret");
+      const response = await fetch(qrEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_id: companyId,
+          instance_id: companyInstance.instance_id,
+          instance_token: companyInstance.instance_token,
+          ...(webhookSecret ? { secret: webhookSecret } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(`Erro ${response.status}`);
+      const result = await response.json();
+      if (result.qrcode || result.base64 || result.code) {
+        setQrCodeData(result.qrcode || result.base64 || result.code);
+        setQrDialogOpen(true);
+      } else {
+        toast({ title: "QR Code gerado", description: "Verifique o n8n para visualizar o QR Code." });
+      }
+    } catch (error: any) {
+      toast({ title: "Erro ao gerar QR Code", description: error.message, variant: "destructive" });
+    } finally {
+      setGeneratingQr(false);
+    }
+  };
   };
 
   if (isLoading) {
@@ -386,6 +448,21 @@ const WhatsappIntegrations = () => {
                           </p>
                         </CardContent>
                       </Card>
+
+                      {companyInstance?.instance_id && (
+                        <Button
+                          onClick={handleGenerateQrCode}
+                          disabled={generatingQr}
+                          className="w-full"
+                        >
+                          {generatingQr ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <QrCode className="h-4 w-4 mr-2" />
+                          )}
+                          {generatingQr ? "Gerando QR Code..." : "Gerar QR Code"}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -393,6 +470,26 @@ const WhatsappIntegrations = () => {
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* QR Code Dialog */}
+        <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>QR Code WhatsApp</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center p-4">
+              {qrCodeData && (
+                qrCodeData.startsWith("data:") ? (
+                  <img src={qrCodeData} alt="QR Code" className="max-w-full" />
+                ) : (
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <p className="text-sm font-mono break-all">{qrCodeData}</p>
+                  </div>
+                )
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

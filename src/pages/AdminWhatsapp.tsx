@@ -32,8 +32,11 @@ import {
   Plus,
   Link,
   Save,
+  QrCode,
+  Loader2,
 } from "lucide-react";
 import { useAdminSettings, useWhatsappInstances } from "@/hooks/useAdminSettings";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const AdminWhatsapp = () => {
   const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
@@ -56,6 +59,9 @@ const AdminWhatsapp = () => {
   const [sendEndpoint, setSendEndpoint] = useState("");
   const [selectedCompany, setSelectedCompany] = useState("");
   const [creatingInstance, setCreatingInstance] = useState(false);
+  const [generatingQr, setGeneratingQr] = useState<string | null>(null);
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!settingsLoading) {
@@ -115,6 +121,42 @@ const AdminWhatsapp = () => {
 
   const handleRefreshInstance = (id: string) => {
     console.log("Integração com n8n será feita via Webhook - Atualizar status:", id);
+  };
+
+  const handleGenerateQr = async (inst: { id: string; instance_id: string | null; instance_token: string | null; company_id: string | null }) => {
+    if (!qrEndpoint) {
+      toast({ title: "Endpoint não configurado", description: "Configure o Generate QR Code Endpoint primeiro.", variant: "destructive" });
+      return;
+    }
+    if (!inst.instance_id) {
+      toast({ title: "Sem instance_id", description: "Esta instância não possui instance_id.", variant: "destructive" });
+      return;
+    }
+    setGeneratingQr(inst.id);
+    try {
+      const response = await fetch(qrEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_id: inst.company_id,
+          instance_id: inst.instance_id,
+          instance_token: inst.instance_token,
+          ...(webhookSecret ? { secret: webhookSecret } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(`Erro ${response.status}`);
+      const result = await response.json();
+      if (result.qrcode || result.base64 || result.code) {
+        setQrCodeData(result.qrcode || result.base64 || result.code);
+        setQrDialogOpen(true);
+      } else {
+        toast({ title: "QR Code gerado", description: "Verifique o n8n para visualizar o QR Code." });
+      }
+    } catch (error: any) {
+      toast({ title: "Erro ao gerar QR Code", description: error.message, variant: "destructive" });
+    } finally {
+      setGeneratingQr(null);
+    }
   };
 
   const isConnected = n8nBaseUrl.trim().length > 0;
@@ -272,6 +314,20 @@ const AdminWhatsapp = () => {
                             {creatingInstance ? "Criando..." : "Criar Instância"}
                           </Button>
                         )}
+                        {hasInstance && (
+                          <Button
+                            onClick={() => handleGenerateQr(companyInstance!)}
+                            disabled={generatingQr === companyInstance!.id}
+                            variant="outline"
+                          >
+                            {generatingQr === companyInstance!.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <QrCode className="h-4 w-4 mr-2" />
+                            )}
+                            Gerar QR Code
+                          </Button>
+                        )}
                         {companyInstance && (
                           <Button
                             onClick={() => {
@@ -340,6 +396,19 @@ const AdminWhatsapp = () => {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Gerar QR Code"
+                                onClick={() => handleGenerateQr(inst)}
+                                disabled={generatingQr === inst.id || !inst.instance_id}
+                              >
+                                {generatingQr === inst.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <QrCode className="h-4 w-4" />
+                                )}
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -412,6 +481,26 @@ const AdminWhatsapp = () => {
             </Card>
           </div>
         </div>
+
+        {/* QR Code Dialog */}
+        <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>QR Code WhatsApp</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center p-4">
+              {qrCodeData && (
+                qrCodeData.startsWith("data:") ? (
+                  <img src={qrCodeData} alt="QR Code" className="max-w-full" />
+                ) : (
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <p className="text-sm font-mono break-all">{qrCodeData}</p>
+                  </div>
+                )
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
