@@ -14,8 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 
 const WhatsappIntegrations = () => {
   const { integrations, isLoading, saveIntegration, testConnection, getIntegration } = useWhatsappIntegrations();
+  const { getSettingValue, isLoading: settingsLoading } = useAdminSettings();
   const { toast } = useToast();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [nativeEnabled, setNativeEnabled] = useState(false);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const zapiWebhookUrl = `${supabaseUrl}/functions/v1/webhook-zapi`;
