@@ -12,7 +12,27 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    console.log("Raw body received:", rawBody?.substring(0, 500));
+    console.log("Content-Type:", req.headers.get("content-type"));
+
+    if (!rawBody || rawBody.trim() === "") {
+      return new Response(
+        JSON.stringify({ error: "Empty request body. Send a JSON with 'action' and 'data' fields." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON in request body", received: rawBody.substring(0, 200) }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { action, data } = body;
 
     if (!action || !data) {
