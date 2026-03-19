@@ -152,7 +152,6 @@ const WhatsappIntegrations = () => {
       setGeneratingQr(false);
     }
   };
-  };
 
   if (isLoading) {
     return (
