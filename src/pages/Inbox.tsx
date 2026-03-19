@@ -379,7 +379,6 @@ const Inbox = () => {
                         </div>
                       );
                     })
-                    )
                   )}
                 </div>
 
