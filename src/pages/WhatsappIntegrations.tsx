@@ -448,6 +448,21 @@ const WhatsappIntegrations = () => {
                           </p>
                         </CardContent>
                       </Card>
+
+                      {companyInstance?.instance_id && (
+                        <Button
+                          onClick={handleGenerateQrCode}
+                          disabled={generatingQr}
+                          className="w-full"
+                        >
+                          {generatingQr ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <QrCode className="h-4 w-4 mr-2" />
+                          )}
+                          {generatingQr ? "Gerando QR Code..." : "Gerar QR Code"}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -455,6 +470,26 @@ const WhatsappIntegrations = () => {
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* QR Code Dialog */}
+        <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>QR Code WhatsApp</DialogTitle>
+            </DialogHeader>
+            <div className="flex items-center justify-center p-4">
+              {qrCodeData && (
+                qrCodeData.startsWith("data:") ? (
+                  <img src={qrCodeData} alt="QR Code" className="max-w-full" />
+                ) : (
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <p className="text-sm font-mono break-all">{qrCodeData}</p>
+                  </div>
+                )
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
