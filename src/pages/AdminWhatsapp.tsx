@@ -1,0 +1,359 @@
+import { useState, useEffect } from "react";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Settings,
+  Trash2,
+  RefreshCw,
+  Wifi,
+  WifiOff,
+  Plus,
+  Link,
+  Save,
+} from "lucide-react";
+import { useAdminSettings, useWhatsappInstances } from "@/hooks/useAdminSettings";
+
+const AdminWhatsapp = () => {
+  const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
+  const { instances, isLoading: instancesLoading, createInstance, deleteInstance } = useWhatsappInstances();
+
+  const [n8nBaseUrl, setN8nBaseUrl] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [createEndpoint, setCreateEndpoint] = useState("");
+  const [qrEndpoint, setQrEndpoint] = useState("");
+  const [deleteEndpoint, setDeleteEndpoint] = useState("");
+  const [sendEndpoint, setSendEndpoint] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState("");
+  const [newCompanyName, setNewCompanyName] = useState("");
+
+  useEffect(() => {
+    if (!settingsLoading) {
+      setN8nBaseUrl(getSettingValue("n8n_base_url") || "https://seu-n8n.app.n8n.cloud");
+      setWebhookSecret(getSettingValue("n8n_webhook_secret"));
+      setCreateEndpoint(getSettingValue("n8n_create_instance") || "https://seu-n8n.app.n8n.cloud/webhook/create-instance");
+      setQrEndpoint(getSettingValue("n8n_generate_qr") || "https://seu-n8n.app.n8n.cloud/webhook/generate-qrcode");
+      setDeleteEndpoint(getSettingValue("n8n_delete_instance") || "https://seu-n8n.app.n8n.cloud/webhook/delete-instance");
+      setSendEndpoint(getSettingValue("n8n_send_message") || "https://seu-n8n.app.n8n.cloud/webhook/send-message");
+    }
+  }, [settingsLoading]);
+
+  const handleSave = () => {
+    saveSettings.mutate({
+      n8n_base_url: n8nBaseUrl,
+      n8n_webhook_secret: webhookSecret,
+      n8n_create_instance: createEndpoint,
+      n8n_generate_qr: qrEndpoint,
+      n8n_delete_instance: deleteEndpoint,
+      n8n_send_message: sendEndpoint,
+    });
+  };
+
+  const handleCreateInstance = () => {
+    const name = newCompanyName.trim();
+    if (!name) return;
+    createInstance.mutate(name);
+    setNewCompanyName("");
+  };
+
+  const handleDeleteInstance = () => {
+    if (!selectedCompany) return;
+    deleteInstance.mutate(selectedCompany);
+    setSelectedCompany("");
+  };
+
+  const handleRefreshInstance = (id: string) => {
+    console.log("Integração com n8n será feita via Webhook - Atualizar status:", id);
+  };
+
+  const isConnected = n8nBaseUrl.trim().length > 0;
+
+  return (
+    <DashboardLayout>
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-2xl bg-orange-500/20">
+            <Settings className="h-8 w-8 text-orange-500" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Admin SaaS</h1>
+            <p className="text-muted-foreground">WhatsApp - n8n Webhooks</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - 2/3 */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Conexão com n8n */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Link className="h-5 w-5 text-orange-500" />
+                  Conexão com n8n
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>N8N Base URL</Label>
+                    <Input
+                      value={n8nBaseUrl}
+                      onChange={(e) => setN8nBaseUrl(e.target.value)}
+                      placeholder="https://seu-n8n.app.n8n.cloud"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Webhook Secret (opcional)</Label>
+                    <Input
+                      value={webhookSecret}
+                      onChange={(e) => setWebhookSecret(e.target.value)}
+                      placeholder="seu-webhook-secret"
+                      type="password"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Endpoints</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Create Instance Endpoint</Label>
+                      <Input
+                        value={createEndpoint}
+                        onChange={(e) => setCreateEndpoint(e.target.value)}
+                        placeholder="https://seu-n8n.app.n8n.cloud/webhook/create-instance"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Generate QR Code Endpoint</Label>
+                      <Input
+                        value={qrEndpoint}
+                        onChange={(e) => setQrEndpoint(e.target.value)}
+                        placeholder="https://seu-n8n.app.n8n.cloud/webhook/generate-qrcode"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Delete Instance Endpoint</Label>
+                      <Input
+                        value={deleteEndpoint}
+                        onChange={(e) => setDeleteEndpoint(e.target.value)}
+                        placeholder="https://seu-n8n.app.n8n.cloud/webhook/delete-instance"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Send Message Endpoint</Label>
+                      <Input
+                        value={sendEndpoint}
+                        onChange={(e) => setSendEndpoint(e.target.value)}
+                        placeholder="https://seu-n8n.app.n8n.cloud/webhook/send-message"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleSave}
+                  disabled={saveSettings.isPending}
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {saveSettings.isPending ? "Salvando..." : "Salvar Configuração"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Instância por Empresa */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Instância por Empresa</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nova Empresa</Label>
+                  <Input
+                    value={newCompanyName}
+                    onChange={(e) => setNewCompanyName(e.target.value)}
+                    placeholder="Nome da empresa"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Instância existente</Label>
+                  <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma instância" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {instances?.map((inst) => (
+                        <SelectItem key={inst.id} value={inst.id}>
+                          {inst.company_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    onClick={handleCreateInstance}
+                    disabled={!newCompanyName.trim() || createInstance.isPending}
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Criar/Join
+                  </Button>
+                  <Button
+                    onClick={handleDeleteInstance}
+                    disabled={!selectedCompany || deleteInstance.isPending}
+                    variant="destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Apagar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Instâncias Ativas */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Instâncias Ativas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome da Empresa</TableHead>
+                      <TableHead>ID da Instância</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {instancesLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          Carregando...
+                        </TableCell>
+                      </TableRow>
+                    ) : !instances?.length ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                          Nenhuma instância cadastrada
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      instances.map((inst) => (
+                        <TableRow key={inst.id}>
+                          <TableCell className="font-medium">{inst.company_name}</TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-xs">
+                            {inst.instance_id || "—"}
+                          </TableCell>
+                          <TableCell>
+                            {inst.status === "connected" ? (
+                              <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                                <Wifi className="h-3 w-3 mr-1" /> Conectado
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-red-400 border-red-500/30">
+                                <WifiOff className="h-3 w-3 mr-1" /> Desconectado
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRefreshInstance(inst.id)}
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteInstance.mutate(inst.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column - 1/3 */}
+          <div>
+            <Card className="sticky top-6">
+              <CardHeader>
+                <CardTitle className="text-lg">Status da Configuração</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-3">
+                  {isConnected ? (
+                    <div className="p-2 rounded-full bg-green-500/20">
+                      <Wifi className="h-5 w-5 text-green-400" />
+                    </div>
+                  ) : (
+                    <div className="p-2 rounded-full bg-red-500/20">
+                      <WifiOff className="h-5 w-5 text-red-400" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium">
+                      {isConnected ? "Conectado" : "Não configurado"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {isConnected ? "n8n ativo" : "Configure a URL do n8n"}
+                    </p>
+                  </div>
+                </div>
+
+                {isConnected && (
+                  <div className="border-t pt-4 space-y-2">
+                    <p className="text-sm text-muted-foreground">URL Ativa</p>
+                    <p className="text-sm font-mono bg-muted p-2 rounded break-all">
+                      {n8nBaseUrl}
+                    </p>
+                  </div>
+                )}
+
+                <div className="border-t pt-4 space-y-2">
+                  <p className="text-sm text-muted-foreground">Instâncias</p>
+                  <p className="text-2xl font-bold">{instances?.length ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {instances?.filter((i) => i.status === "connected").length ?? 0} conectadas
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default AdminWhatsapp;

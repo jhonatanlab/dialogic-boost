@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon } from "lucide-react";
+import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Settings = () => {
@@ -46,6 +46,14 @@ const Settings = () => {
       action: () => console.log("Gerenciar equipes"),
       actionLabel: "Gerenciar equipes",
       color: "text-cyan-500",
+    },
+    {
+      icon: Shield,
+      title: "Admin SaaS - WhatsApp",
+      description: "Gerencie instâncias WhatsApp via n8n Webhooks.",
+      action: () => navigate("/settings/admin-whatsapp"),
+      actionLabel: "Abrir Admin",
+      color: "text-orange-500",
     },
   ];
 

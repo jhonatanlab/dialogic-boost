@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import ModeloMessages from "./pages/ModeloMessages";
 import Settings from "./pages/Settings";
 import WhatsappIntegrations from "./pages/WhatsappIntegrations";
+import AdminWhatsapp from "./pages/AdminWhatsapp";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/modelo-messages" element={<ModeloMessages />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/whatsapp-integrations" element={<WhatsappIntegrations />} />
+          <Route path="/settings/admin-whatsapp" element={<AdminWhatsapp />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
