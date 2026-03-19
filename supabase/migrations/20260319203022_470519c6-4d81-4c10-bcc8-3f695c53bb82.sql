@@ -1,0 +1,1 @@
+UPDATE whatsapp_instances SET status = 'connected' WHERE instance_id IS NOT NULL AND status != 'connected';

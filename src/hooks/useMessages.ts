@@ -17,7 +17,7 @@ export interface Message {
   metadata?: Record<string, unknown> | null;
 }
 
-const N8N_SEND_URL = "https://primary-production-b2b0f.up.railway.app/webhook/send-message";
+
 
 export const useMessages = (conversationId: string | null) => {
   const { toast } = useToast();
@@ -85,7 +85,7 @@ export const useMessages = (conversationId: string | null) => {
 
       if (msgError) throw msgError;
 
-      // Send via n8n production endpoint
+      // Send via proxy-n8n edge function to avoid CORS
       const payload: Record<string, string> = {
         company_id: companyId,
         number: phone,
@@ -101,21 +101,38 @@ export const useMessages = (conversationId: string | null) => {
       }
 
       try {
-        const response = await fetch(N8N_SEND_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+        // Fetch the send message endpoint from admin_settings
+        const { data: settingsData } = await supabase
+          .from("admin_settings")
+          .select("setting_value")
+          .eq("setting_key", "n8n_send_message")
+          .maybeSingle();
+
+        const sendEndpoint = settingsData?.setting_value || "https://primary-production-b2b0f.up.railway.app/webhook/send-message";
+
+        const response = await supabase.functions.invoke("proxy-n8n", {
+          body: {
+            endpoint: sendEndpoint,
+            payload,
+          },
         });
 
-        const result = await response.json();
-
-        if (!response.ok || result.success === false) {
-          // Update message status to failed
+        if (response.error) {
           await supabase
             .from("messages")
             .update({ status: "failed" })
             .eq("id", message.id);
-          throw new Error(result.error || `n8n error: ${response.status}`);
+          throw new Error(response.error.message);
+        }
+
+        const result = response.data;
+
+        if (result?.success === false) {
+          await supabase
+            .from("messages")
+            .update({ status: "failed" })
+            .eq("id", message.id);
+          throw new Error(result.error || "Erro no envio via n8n");
         }
 
         // Update message status to sent
