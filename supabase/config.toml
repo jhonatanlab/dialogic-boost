@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.webhook-zapi]
 verify_jwt = false
+
+[functions.webhook-n8n-instance]
+verify_jwt = false

@@ -1121,8 +1121,10 @@ export type Database = {
           company_id: string | null
           company_name: string
           created_at: string
+          hash: string | null
           id: string
           instance_id: string | null
+          instance_token: string | null
           status: string
           updated_at: string
           user_id: string
@@ -1131,8 +1133,10 @@ export type Database = {
           company_id?: string | null
           company_name: string
           created_at?: string
+          hash?: string | null
           id?: string
           instance_id?: string | null
+          instance_token?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -1141,8 +1145,10 @@ export type Database = {
           company_id?: string | null
           company_name?: string
           created_at?: string
+          hash?: string | null
           id?: string
           instance_id?: string | null
+          instance_token?: string | null
           status?: string
           updated_at?: string
           user_id?: string
