@@ -124,7 +124,7 @@ const WhatsappIntegrations = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="meta" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="meta" className="flex items-center gap-2">
                   API Oficial Meta
                   {metaIntegration?.status === 'connected' ? (
@@ -146,6 +146,19 @@ const WhatsappIntegrations = () => {
                   ) : (
                     <Badge variant="secondary" className="ml-2">
                       Não conectado ❌
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="native" className="flex items-center gap-2">
+                  <Zap className="h-4 w-4" />
+                  API Nativa
+                  {nativeEnabled ? (
+                    <Badge variant="default" className="ml-2">
+                      Ativo ✅
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="ml-2">
+                      Inativo
                     </Badge>
                   )}
                 </TabsTrigger>
