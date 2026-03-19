@@ -323,6 +323,73 @@ const WhatsappIntegrations = () => {
                   </div>
                 </form>
               </TabsContent>
+              <TabsContent value="native" className="space-y-4 mt-6">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50">
+                    <div className="space-y-1">
+                      <h4 className="font-medium">Ativar API Nativa</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Use nossa API interna gerenciada via n8n Webhooks para enviar e receber mensagens.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={nativeEnabled}
+                      onCheckedChange={(checked) => {
+                        setNativeEnabled(checked);
+                        toast({
+                          title: checked ? "API Nativa ativada" : "API Nativa desativada",
+                          description: checked
+                            ? "As mensagens serão enviadas pela API Nativa."
+                            : "A API Nativa foi desativada.",
+                        });
+                        console.log("API Nativa:", checked ? "ativada" : "desativada");
+                      }}
+                    />
+                  </div>
+
+                  {nativeEnabled && (
+                    <div className="space-y-4">
+                      <Card className="border-orange-500/30">
+                        <CardContent className="pt-6 space-y-4">
+                          <div className="flex items-center gap-2 text-orange-500">
+                            <Zap className="h-5 w-5" />
+                            <span className="font-medium">Endpoints Configurados</span>
+                          </div>
+
+                          <div className="space-y-3">
+                            {[
+                              { label: "Enviar Mensagem", key: "n8n_send_message" as const },
+                              { label: "Criar Instância", key: "n8n_create_instance" as const },
+                              { label: "Gerar QR Code", key: "n8n_generate_qr" as const },
+                              { label: "Deletar Instância", key: "n8n_delete_instance" as const },
+                            ].map((ep) => {
+                              const value = getSettingValue(ep.key);
+                              return (
+                                <div key={ep.key} className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">{ep.label}</span>
+                                  {value ? (
+                                    <Badge variant="outline" className="font-mono text-xs max-w-[300px] truncate">
+                                      {value}
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="destructive" className="text-xs">
+                                      Não configurado
+                                    </Badge>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <p className="text-xs text-muted-foreground border-t pt-3">
+                            Os endpoints são gerenciados pelo administrador do sistema. Caso algum endpoint esteja como "Não configurado", entre em contato com o suporte.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
