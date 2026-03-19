@@ -312,35 +312,73 @@ const Inbox = () => {
                   ) : !messages || messages.length === 0 ? (
                     <div className="text-center text-muted-foreground">Sem mensagens</div>
                   ) : (
-                    messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${
-                          message.direction === "outbound" ? "justify-end" : "justify-start"
-                        }`}
-                      >
+                    messages.map((message) => {
+                      const isMedia = message.message_type && message.message_type !== "text";
+                      const mediaUrl = (message.metadata as Record<string, unknown>)?.media_url as string | undefined;
+
+                      return (
                         <div
-                          className={`max-w-[70%] p-3 rounded-lg ${
-                            message.direction === "outbound"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted"
+                          key={message.id}
+                          className={`flex ${
+                            message.direction === "outbound" ? "justify-end" : "justify-start"
                           }`}
                         >
-                          <p className="text-sm">{message.content}</p>
-                          <div className="flex items-center gap-1 mt-1">
-                            <span className="text-xs opacity-70">
-                              {format(new Date(message.created_at), "HH:mm")}
-                            </span>
-                            {message.direction === "outbound" && message.status === "sending" && (
-                              <Loader2 className="h-3 w-3 animate-spin opacity-70" />
+                          <div
+                            className={`max-w-[70%] p-3 rounded-lg ${
+                              message.direction === "outbound"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted"
+                            }`}
+                          >
+                            {isMedia && mediaUrl && (
+                              <div className="mb-1">
+                                {message.message_type === "image" && (
+                                  <img src={mediaUrl} alt="" className="rounded max-w-full max-h-60 object-cover" />
+                                )}
+                                {message.message_type === "video" && (
+                                  <video src={mediaUrl} controls className="rounded max-w-full max-h-60" />
+                                )}
+                                {message.message_type === "audio" && (
+                                  <audio src={mediaUrl} controls className="w-full" />
+                                )}
+                                {message.message_type === "document" && (
+                                  <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="underline text-sm flex items-center gap-1">
+                                    <Paperclip className="h-3 w-3" /> Documento
+                                  </a>
+                                )}
+                              </div>
                             )}
-                            {message.direction === "outbound" && message.status === "failed" && (
-                              <span className="text-xs text-destructive font-medium">✕</span>
+                            {message.content && !(isMedia && !message.content.trim()) && (
+                              <p className="text-sm">{message.content}</p>
                             )}
+                            <div className="flex items-center justify-end gap-1 mt-1">
+                              <span className="text-xs opacity-70">
+                                {format(new Date(message.created_at), "HH:mm")}
+                              </span>
+                              {message.direction === "outbound" && (
+                                <>
+                                  {message.status === "sending" && (
+                                    <Loader2 className="h-3 w-3 animate-spin opacity-70" />
+                                  )}
+                                  {message.status === "failed" && (
+                                    <span className="text-xs text-destructive font-medium">✕</span>
+                                  )}
+                                  {message.status === "sent" && (
+                                    <span className="text-xs opacity-70">✓</span>
+                                  )}
+                                  {message.status === "delivered" && (
+                                    <span className="text-xs opacity-70">✓✓</span>
+                                  )}
+                                  {message.status === "read" && (
+                                    <span className="text-xs text-blue-500 font-bold">✓✓</span>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
