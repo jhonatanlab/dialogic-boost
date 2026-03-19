@@ -32,8 +32,11 @@ import {
   Plus,
   Link,
   Save,
+  QrCode,
+  Loader2,
 } from "lucide-react";
 import { useAdminSettings, useWhatsappInstances } from "@/hooks/useAdminSettings";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const AdminWhatsapp = () => {
   const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
