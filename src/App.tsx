@@ -49,7 +49,7 @@ const App = () => (
           <Route path="/modelo-messages" element={<ModeloMessages />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/whatsapp-integrations" element={<WhatsappIntegrations />} />
-          <Route path="/settings/admin-whatsapp" element={<AdminWhatsapp />} />
+          <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

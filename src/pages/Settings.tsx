@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shield } from "lucide-react";
+import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Settings = () => {
