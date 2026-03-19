@@ -327,9 +327,17 @@ const Inbox = () => {
                           }`}
                         >
                           <p className="text-sm">{message.content}</p>
-                          <span className="text-xs opacity-70 mt-1 block">
-                            {format(new Date(message.created_at), "HH:mm")}
-                          </span>
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-xs opacity-70">
+                              {format(new Date(message.created_at), "HH:mm")}
+                            </span>
+                            {message.direction === "outbound" && message.status === "sending" && (
+                              <Loader2 className="h-3 w-3 animate-spin opacity-70" />
+                            )}
+                            {message.direction === "outbound" && message.status === "failed" && (
+                              <span className="text-xs text-destructive font-medium">✕</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))
