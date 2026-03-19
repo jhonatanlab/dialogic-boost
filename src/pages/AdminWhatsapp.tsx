@@ -81,7 +81,7 @@ const AdminWhatsapp = () => {
 
   const { toast } = useToast();
 
-  const handleCreateInstanceWebhook = async (instance: NonNullable<typeof instances>[number]) => {
+  const handleCreateInstanceWebhook = async (company: { id: string; company_name: string }) => {
     if (!createEndpoint) {
       toast({ title: "Endpoint não configurado", description: "Configure o Create Instance Endpoint primeiro.", variant: "destructive" });
       return;
@@ -92,8 +92,8 @@ const AdminWhatsapp = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          company_name: instance.company_name,
-          instance_db_id: instance.id,
+          company_name: company.company_name,
+          company_id: company.id,
           ...(webhookSecret ? { secret: webhookSecret } : {}),
         }),
       });
