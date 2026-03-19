@@ -129,6 +129,158 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (action === "upsert_message") {
+      const {
+        company_id,
+        instance_id,
+        message_id,
+        phone_number,
+        contact_name,
+        direction,
+        content,
+        media_type,
+        media_url,
+        mimetype,
+        status,
+        sent_at,
+      } = data;
+
+      if (!company_id || !message_id || !phone_number) {
+        return new Response(
+          JSON.stringify({ error: "company_id, message_id and phone_number are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Find a user for this company
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("company_id", company_id)
+        .limit(1)
+        .single();
+
+      if (!profile) {
+        return new Response(
+          JSON.stringify({ error: "No user found for this company" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const userId = profile.user_id;
+
+      // Find or create contact by phone
+      let contactId: string;
+      const { data: existingContact } = await supabase
+        .from("contacts")
+        .select("id")
+        .eq("company_id", company_id)
+        .eq("phone", phone_number)
+        .maybeSingle();
+
+      if (existingContact) {
+        contactId = existingContact.id;
+      } else {
+        const { data: newContact, error: contactErr } = await supabase
+          .from("contacts")
+          .insert({
+            user_id: userId,
+            company_id,
+            name: contact_name || phone_number,
+            phone: phone_number,
+            source: "whatsapp",
+          })
+          .select("id")
+          .single();
+
+        if (contactErr) throw contactErr;
+        contactId = newContact.id;
+      }
+
+      // Find or create conversation
+      let conversationId: string;
+      const { data: existingConv } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("company_id", company_id)
+        .eq("contact_id", contactId)
+        .eq("status", "open")
+        .maybeSingle();
+
+      if (existingConv) {
+        conversationId = existingConv.id;
+      } else {
+        const { data: newConv, error: convErr } = await supabase
+          .from("conversations")
+          .insert({
+            user_id: userId,
+            company_id,
+            contact_id: contactId,
+            channel: "whatsapp",
+            status: "open",
+            unread_count: direction === "inbound" ? 1 : 0,
+          })
+          .select("id")
+          .single();
+
+        if (convErr) throw convErr;
+        conversationId = newConv.id;
+      }
+
+      // Build message content and type
+      const messageType = media_type && media_type !== "text" ? media_type : "text";
+      const messageContent = content || media_url || "";
+      const messageDirection = direction === "outbound" ? "outbound" : "inbound";
+
+      // Upsert message using external_id
+      const { data: upserted, error: msgErr } = await supabase
+        .from("messages")
+        .upsert(
+          {
+            external_id: message_id,
+            conversation_id: conversationId,
+            contact_id: contactId,
+            user_id: userId,
+            company_id,
+            channel: "whatsapp",
+            direction: messageDirection,
+            content: messageContent,
+            message_type: messageType,
+            status: status || "received",
+            metadata: media_url ? { media_url, mimetype: mimetype || null } : null,
+            created_at: sent_at || new Date().toISOString(),
+          },
+          { onConflict: "external_id" }
+        )
+        .select("id")
+        .single();
+
+      if (msgErr) throw msgErr;
+
+      // Update conversation last_message_at and unread_count
+      const updateData: Record<string, unknown> = {
+        last_message_at: sent_at || new Date().toISOString(),
+      };
+      if (messageDirection === "inbound") {
+        // Increment unread
+        const { data: conv } = await supabase
+          .from("conversations")
+          .select("unread_count")
+          .eq("id", conversationId)
+          .single();
+        updateData.unread_count = (conv?.unread_count || 0) + 1;
+      }
+      await supabase
+        .from("conversations")
+        .update(updateData)
+        .eq("id", conversationId);
+
+      return new Response(
+        JSON.stringify({ success: true, action: "upserted_message", id: upserted.id }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (action === "get_instance_by_company") {
       const { company_id } = data;
 
