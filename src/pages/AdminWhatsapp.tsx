@@ -154,7 +154,7 @@ const AdminWhatsapp = () => {
       console.log("QR Code response from n8n:", JSON.stringify(result));
 
       // Try multiple possible response formats from n8n
-      const qrValue = result?.qrcode || result?.base64 || result?.code || result?.pairingCode || result?.raw;
+      const qrValue = result?.qr_code || result?.qrcode || result?.base64 || result?.code || result?.pairingCode || result?.raw;
       if (qrValue) {
         setQrCodeData(qrValue);
         setQrDialogOpen(true);

@@ -142,7 +142,7 @@ const WhatsappIntegrations = () => {
       if (response.error) throw new Error(response.error.message);
       const result = response.data;
       console.log("QR Code response:", JSON.stringify(result));
-      const qrValue = result?.qrcode || result?.base64 || result?.code || result?.pairingCode || result?.raw;
+      const qrValue = result?.qr_code || result?.qrcode || result?.base64 || result?.code || result?.pairingCode || result?.raw;
       if (qrValue) {
         setQrCodeData(qrValue);
         setQrDialogOpen(true);
