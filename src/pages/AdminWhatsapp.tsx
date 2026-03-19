@@ -188,18 +188,10 @@ const AdminWhatsapp = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Nova Empresa</Label>
-                  <Input
-                    value={newCompanyName}
-                    onChange={(e) => setNewCompanyName(e.target.value)}
-                    placeholder="Nome da empresa"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Instância existente</Label>
+                  <Label>Selecione a Empresa</Label>
                   <Select value={selectedCompany} onValueChange={setSelectedCompany}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma instância" />
+                      <SelectValue placeholder="Selecione uma empresa" />
                     </SelectTrigger>
                     <SelectContent>
                       {instances?.map((inst) => (
@@ -210,24 +202,57 @@ const AdminWhatsapp = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={handleCreateInstance}
-                    disabled={!newCompanyName.trim() || createInstance.isPending}
-                    className="bg-orange-500 hover:bg-orange-600 text-white"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar/Join
-                  </Button>
-                  <Button
-                    onClick={handleDeleteInstance}
-                    disabled={!selectedCompany || deleteInstance.isPending}
-                    variant="destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Apagar
-                  </Button>
-                </div>
+
+                {selectedCompany && (() => {
+                  const selected = instances?.find((i) => i.id === selectedCompany);
+                  if (!selected) return null;
+                  const hasInstance = selected.instance_id && !selected.instance_id.startsWith("inst_");
+                  return (
+                    <div className="border-t pt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{selected.company_name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {hasInstance ? selected.instance_id : "Sem instância criada"}
+                          </p>
+                        </div>
+                        {hasInstance ? (
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                            <Wifi className="h-3 w-3 mr-1" /> Instância ativa
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-yellow-400 border-yellow-500/30">
+                            Sem instância
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex gap-3">
+                        {!hasInstance && (
+                          <Button
+                            onClick={() => handleCreateInstanceWebhook(selected)}
+                            disabled={creatingInstance}
+                            className="bg-orange-500 hover:bg-orange-600 text-white"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            {creatingInstance ? "Criando..." : "Criar Instância"}
+                          </Button>
+                        )}
+                        <Button
+                          onClick={() => {
+                            deleteInstance.mutate(selected.id);
+                            setSelectedCompany("");
+                          }}
+                          disabled={deleteInstance.isPending}
+                          variant="destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Apagar
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
 
