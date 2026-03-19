@@ -68,11 +68,32 @@ const AdminWhatsapp = () => {
     });
   };
 
-  const handleCreateInstance = () => {
-    const name = newCompanyName.trim();
-    if (!name) return;
-    createInstance.mutate(name);
-    setNewCompanyName("");
+  const { toast } = useToast();
+
+  const handleCreateInstanceWebhook = async (instance: NonNullable<typeof instances>[number]) => {
+    if (!createEndpoint) {
+      toast({ title: "Endpoint não configurado", description: "Configure o Create Instance Endpoint primeiro.", variant: "destructive" });
+      return;
+    }
+    setCreatingInstance(true);
+    try {
+      const response = await fetch(createEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: instance.company_name,
+          instance_db_id: instance.id,
+          ...(webhookSecret ? { secret: webhookSecret } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(`Erro ${response.status}`);
+      toast({ title: "Instância criada com sucesso!" });
+      console.log("Webhook Create Instance acionado para:", instance.company_name);
+    } catch (error: any) {
+      toast({ title: "Erro ao criar instância", description: error.message, variant: "destructive" });
+    } finally {
+      setCreatingInstance(false);
+    }
   };
 
   const handleDeleteInstance = () => {
