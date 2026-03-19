@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,12 +22,17 @@ import {
   Edit,
   MessageSquare,
   Zap,
+  Paperclip,
+  X,
+  Loader2,
 } from "lucide-react";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useTags } from "@/hooks/useTags";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { useConversations } from "@/hooks/useConversations";
 import { useMessages } from "@/hooks/useMessages";
+import { useCompany } from "@/hooks/useCompany";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -38,7 +43,11 @@ const Inbox = () => {
   const [origin, setOrigin] = useState("whatsapp");
   const [searchQuery, setSearchQuery] = useState("");
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
   const { messages, isLoading: messagesLoading, sendMessage, markAsRead } = useMessages(selectedConversationId);
   const { quickReplies } = useQuickReplies();
@@ -118,16 +127,71 @@ const Inbox = () => {
     }
   };
 
-  const handleSendMessage = () => {
-    if (messageInput.trim() && selectedConversation) {
-      sendMessage.mutate({
-        conversationId: selectedConversation.id,
-        contactId: selectedConversation.contact_id,
-        content: messageInput,
-        phone: selectedConversation.contact.phone || "",
-      });
-      setMessageInput("");
+  const getMediaTypeFromFile = (file: File): string => {
+    if (file.type.startsWith("image/")) return "image";
+    if (file.type.startsWith("video/")) return "video";
+    if (file.type.startsWith("audio/")) return "audio";
+    return "document";
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAttachedFile(file);
     }
+  };
+
+  const removeAttachment = () => {
+    setAttachedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleSendMessage = async () => {
+    if ((!messageInput.trim() && !attachedFile) || !selectedConversation || !companyId) return;
+
+    let mediaUrl: string | undefined;
+    let mediaType: string | undefined;
+    let mimetype: string | undefined;
+
+    if (attachedFile) {
+      setIsUploading(true);
+      try {
+        const fileExt = attachedFile.name.split(".").pop();
+        const filePath = `${companyId}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("chat-attachments")
+          .upload(filePath, attachedFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from("chat-attachments")
+          .getPublicUrl(filePath);
+
+        mediaUrl = urlData.publicUrl;
+        mediaType = getMediaTypeFromFile(attachedFile);
+        mimetype = attachedFile.type;
+      } catch (err) {
+        console.error("Upload error:", err);
+        toast.error("Erro ao enviar arquivo");
+        setIsUploading(false);
+        return;
+      }
+      setIsUploading(false);
+    }
+
+    sendMessage.mutate({
+      conversationId: selectedConversation.id,
+      contactId: selectedConversation.contact_id,
+      content: messageInput,
+      phone: selectedConversation.contact.phone || "",
+      companyId,
+      mediaType,
+      mediaUrl,
+      mimetype,
+    });
+    setMessageInput("");
+    removeAttachment();
   };
 
   const insertQuickReply = (text: string) => {
@@ -263,9 +327,17 @@ const Inbox = () => {
                           }`}
                         >
                           <p className="text-sm">{message.content}</p>
-                          <span className="text-xs opacity-70 mt-1 block">
-                            {format(new Date(message.created_at), "HH:mm")}
-                          </span>
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-xs opacity-70">
+                              {format(new Date(message.created_at), "HH:mm")}
+                            </span>
+                            {message.direction === "outbound" && message.status === "sending" && (
+                              <Loader2 className="h-3 w-3 animate-spin opacity-70" />
+                            )}
+                            {message.direction === "outbound" && message.status === "failed" && (
+                              <span className="text-xs text-destructive font-medium">✕</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))
@@ -273,6 +345,22 @@ const Inbox = () => {
                 </div>
 
                 <div className="relative">
+                  {attachedFile && (
+                    <div className="flex items-center gap-2 mb-2 p-2 bg-muted rounded-lg text-sm">
+                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                      <span className="truncate flex-1">{attachedFile.name}</span>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={removeAttachment}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+                    onChange={handleFileSelect}
+                  />
                   <div className="flex gap-2">
                     <Button
                       type="button"
@@ -281,6 +369,14 @@ const Inbox = () => {
                       onClick={() => setShowQuickReplies(!showQuickReplies)}
                     >
                       <Zap className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Paperclip className="h-4 w-4" />
                     </Button>
                     <Input
                       placeholder="Digite sua mensagem..."
@@ -293,12 +389,16 @@ const Inbox = () => {
                         }
                       }}
                     />
-                    <Button 
-                      size="icon" 
+                    <Button
+                      size="icon"
                       onClick={handleSendMessage}
-                      disabled={sendMessage.isPending || !messageInput.trim()}
+                      disabled={sendMessage.isPending || isUploading || (!messageInput.trim() && !attachedFile)}
                     >
-                      <Send className="h-4 w-4" />
+                      {sendMessage.isPending || isUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
 
