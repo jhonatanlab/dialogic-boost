@@ -68,22 +68,41 @@ const Auth = () => {
     try {
       const validation = authSchema.parse({ email, password });
       
+      if (!companyName.trim()) {
+        toast.error("Nome da empresa é obrigatório");
+        setLoading(false);
+        return;
+      }
+
       const redirectUrl = `${window.location.origin}/dashboard`;
       
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email: validation.email,
         password: validation.password,
         options: {
           emailRedirectTo: redirectUrl,
-          data: {
-            name: name,
-          }
+          data: { name },
         }
       });
 
       if (error) throw error;
-      
-      toast.success("Cadastro realizado! Verifique seu email para confirmar.");
+
+      // If user was auto-confirmed (dev mode), create company immediately
+      if (signUpData.session) {
+        const { error: companyError } = await supabase.functions.invoke("create-company", {
+          body: {
+            company_name: companyName.trim(),
+            cnpj: cnpj.trim() || null,
+            full_name: name.trim() || null,
+          },
+        });
+
+        if (companyError) throw companyError;
+        toast.success("Cadastro realizado com sucesso!");
+        navigate("/dashboard");
+      } else {
+        toast.success("Cadastro realizado! Verifique seu email para confirmar.");
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
