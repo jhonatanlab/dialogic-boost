@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,12 +22,17 @@ import {
   Edit,
   MessageSquare,
   Zap,
+  Paperclip,
+  X,
+  Loader2,
 } from "lucide-react";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useTags } from "@/hooks/useTags";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { useConversations } from "@/hooks/useConversations";
 import { useMessages } from "@/hooks/useMessages";
+import { useCompany } from "@/hooks/useCompany";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
