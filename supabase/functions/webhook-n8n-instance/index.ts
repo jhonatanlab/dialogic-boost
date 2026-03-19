@@ -312,6 +312,46 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "update_message_status") {
+      const { message_id, status } = data;
+
+      if (!message_id || !status) {
+        return new Response(
+          JSON.stringify({ error: "message_id and status are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const validStatuses = ["sent", "delivered", "read", "failed"];
+      if (!validStatuses.includes(status)) {
+        return new Response(
+          JSON.stringify({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: updated, error } = await supabase
+        .from("messages")
+        .update({ status })
+        .eq("message_id", message_id)
+        .select("id")
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!updated) {
+        return new Response(
+          JSON.stringify({ error: "Message not found", message_id }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: "updated_status", id: updated.id, status }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
