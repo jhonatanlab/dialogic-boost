@@ -504,16 +504,23 @@ const AdminWhatsapp = () => {
             <DialogHeader>
               <DialogTitle>QR Code WhatsApp</DialogTitle>
             </DialogHeader>
-            <div className="flex items-center justify-center p-4">
+            <div className="flex flex-col items-center justify-center p-4 gap-4">
               {qrCodeData && (
-                qrCodeData.startsWith("data:") ? (
-                  <img src={qrCodeData} alt="QR Code" className="max-w-full" />
+                qrCodeData.startsWith("data:") || qrCodeData.startsWith("http") ? (
+                  <img src={qrCodeData} alt="QR Code" className="max-w-[300px] w-full rounded-lg" />
+                ) : qrCodeData.length > 200 ? (
+                  // Likely a base64 without prefix
+                  <img src={`data:image/png;base64,${qrCodeData}`} alt="QR Code" className="max-w-[300px] w-full rounded-lg" />
                 ) : (
-                  <div className="p-4 bg-muted rounded-lg text-center">
-                    <p className="text-sm font-mono break-all">{qrCodeData}</p>
+                  <div className="p-6 bg-muted rounded-lg text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">Código de pareamento:</p>
+                    <p className="text-2xl font-mono font-bold tracking-wider">{qrCodeData}</p>
                   </div>
                 )
               )}
+              <p className="text-xs text-muted-foreground text-center">
+                Escaneie o QR Code com o WhatsApp para conectar a instância
+              </p>
             </div>
           </DialogContent>
         </Dialog>
