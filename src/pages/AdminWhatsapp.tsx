@@ -134,23 +134,39 @@ const AdminWhatsapp = () => {
     }
     setGeneratingQr(inst.id);
     try {
-      const response = await fetch(qrEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_id: inst.company_id,
-          instance_id: inst.instance_id,
-          instance_token: inst.instance_token,
-          ...(webhookSecret ? { secret: webhookSecret } : {}),
-        }),
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+
+      const response = await supabase.functions.invoke("proxy-n8n", {
+        body: {
+          endpoint: qrEndpoint,
+          payload: {
+            company_id: inst.company_id,
+            instance_id: inst.instance_id,
+            instance_token: inst.instance_token,
+            ...(webhookSecret ? { secret: webhookSecret } : {}),
+          },
+        },
       });
-      if (!response.ok) throw new Error(`Erro ${response.status}`);
-      const result = await response.json();
-      if (result.qrcode || result.base64 || result.code) {
-        setQrCodeData(result.qrcode || result.base64 || result.code);
+
+      if (response.error) throw new Error(response.error.message);
+      const result = response.data;
+      console.log("QR Code response from n8n:", JSON.stringify(result));
+
+      // Try multiple possible response formats from n8n
+      const qrValue = result?.qrcode || result?.base64 || result?.code || result?.pairingCode || result?.raw;
+      if (qrValue) {
+        setQrCodeData(qrValue);
         setQrDialogOpen(true);
       } else {
-        toast({ title: "QR Code gerado", description: "Verifique o n8n para visualizar o QR Code." });
+        // If the result itself is a string, use it directly
+        if (typeof result === "string" && result.length > 10) {
+          setQrCodeData(result);
+          setQrDialogOpen(true);
+        } else {
+          toast({ title: "Resposta inesperada", description: "O n8n não retornou um QR Code reconhecido. Verifique os logs.", variant: "destructive" });
+          console.log("Full n8n response:", result);
+        }
       }
     } catch (error: any) {
       toast({ title: "Erro ao gerar QR Code", description: error.message, variant: "destructive" });
@@ -488,16 +504,23 @@ const AdminWhatsapp = () => {
             <DialogHeader>
               <DialogTitle>QR Code WhatsApp</DialogTitle>
             </DialogHeader>
-            <div className="flex items-center justify-center p-4">
+            <div className="flex flex-col items-center justify-center p-4 gap-4">
               {qrCodeData && (
-                qrCodeData.startsWith("data:") ? (
-                  <img src={qrCodeData} alt="QR Code" className="max-w-full" />
+                qrCodeData.startsWith("data:") || qrCodeData.startsWith("http") ? (
+                  <img src={qrCodeData} alt="QR Code" className="max-w-[300px] w-full rounded-lg" />
+                ) : qrCodeData.length > 200 ? (
+                  // Likely a base64 without prefix
+                  <img src={`data:image/png;base64,${qrCodeData}`} alt="QR Code" className="max-w-[300px] w-full rounded-lg" />
                 ) : (
-                  <div className="p-4 bg-muted rounded-lg text-center">
-                    <p className="text-sm font-mono break-all">{qrCodeData}</p>
+                  <div className="p-6 bg-muted rounded-lg text-center space-y-2">
+                    <p className="text-sm text-muted-foreground">Código de pareamento:</p>
+                    <p className="text-2xl font-mono font-bold tracking-wider">{qrCodeData}</p>
                   </div>
                 )
               )}
+              <p className="text-xs text-muted-foreground text-center">
+                Escaneie o QR Code com o WhatsApp para conectar a instância
+              </p>
             </div>
           </DialogContent>
         </Dialog>
