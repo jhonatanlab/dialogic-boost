@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import ModeloMessages from "./pages/ModeloMessages";
 import Settings from "./pages/Settings";
 import WhatsappIntegrations from "./pages/WhatsappIntegrations";
+import AdminWhatsapp from "./pages/AdminWhatsapp";
 
 const queryClient = new QueryClient();
 
