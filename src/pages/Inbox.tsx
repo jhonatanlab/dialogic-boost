@@ -345,6 +345,22 @@ const Inbox = () => {
                 </div>
 
                 <div className="relative">
+                  {attachedFile && (
+                    <div className="flex items-center gap-2 mb-2 p-2 bg-muted rounded-lg text-sm">
+                      <Paperclip className="h-4 w-4 text-muted-foreground" />
+                      <span className="truncate flex-1">{attachedFile.name}</span>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={removeAttachment}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+                    onChange={handleFileSelect}
+                  />
                   <div className="flex gap-2">
                     <Button
                       type="button"
@@ -353,6 +369,14 @@ const Inbox = () => {
                       onClick={() => setShowQuickReplies(!showQuickReplies)}
                     >
                       <Zap className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Paperclip className="h-4 w-4" />
                     </Button>
                     <Input
                       placeholder="Digite sua mensagem..."
@@ -365,12 +389,16 @@ const Inbox = () => {
                         }
                       }}
                     />
-                    <Button 
-                      size="icon" 
+                    <Button
+                      size="icon"
                       onClick={handleSendMessage}
-                      disabled={sendMessage.isPending || !messageInput.trim()}
+                      disabled={sendMessage.isPending || isUploading || (!messageInput.trim() && !attachedFile)}
                     >
-                      <Send className="h-4 w-4" />
+                      {sendMessage.isPending || isUploading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
 
