@@ -227,17 +227,24 @@ Deno.serve(async (req) => {
         conversationId = newConv.id;
       }
 
-      // Build message content and type
+      // Build message payload using message_id as the official WhatsApp message identifier
       const messageType = media_type && media_type !== "text" ? media_type : "text";
-      const messageContent = content || media_url || "";
+      const messageContent = typeof content === "string" ? content : "";
       const messageDirection = direction === "outbound" ? "outbound" : "inbound";
+      const messageMetadata =
+        media_url || mimetype || instance_id
+          ? {
+              instance_id: instance_id || null,
+              media_url: media_url || null,
+              mimetype: mimetype || null,
+            }
+          : null;
 
-      // Upsert message using external_id
       const { data: upserted, error: msgErr } = await supabase
         .from("messages")
         .upsert(
           {
-            external_id: message_id,
+            message_id,
             conversation_id: conversationId,
             contact_id: contactId,
             user_id: userId,
@@ -247,10 +254,10 @@ Deno.serve(async (req) => {
             content: messageContent,
             message_type: messageType,
             status: status || "received",
-            metadata: media_url ? { media_url, mimetype: mimetype || null } : null,
+            metadata: messageMetadata,
             created_at: sent_at || new Date().toISOString(),
           },
-          { onConflict: "external_id" }
+          { onConflict: "message_id" }
         )
         .select("id")
         .single();

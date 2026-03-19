@@ -133,7 +133,7 @@ serve(async (req) => {
                       content: content,
                       message_type: messageType,
                       status: 'delivered',
-                      external_id: message.id,
+                      message_id: message.id,
                       metadata: message,
                     });
                   }
