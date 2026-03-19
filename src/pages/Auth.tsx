@@ -24,28 +24,42 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [cnpj, setCnpj] = useState("");
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) {
-          navigate("/dashboard");
-        }
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        navigate("/dashboard");
-      }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
+
+  // Separate effect to handle navigation after profile check
+  useEffect(() => {
+    if (!user) return;
+    
+    const checkProfile = async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (profile) {
+        navigate("/dashboard");
+      }
+    };
+    checkProfile();
+  }, [user, navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,22 +68,41 @@ const Auth = () => {
     try {
       const validation = authSchema.parse({ email, password });
       
+      if (!companyName.trim()) {
+        toast.error("Nome da empresa é obrigatório");
+        setLoading(false);
+        return;
+      }
+
       const redirectUrl = `${window.location.origin}/dashboard`;
       
-      const { error } = await supabase.auth.signUp({
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email: validation.email,
         password: validation.password,
         options: {
           emailRedirectTo: redirectUrl,
-          data: {
-            name: name,
-          }
+          data: { name },
         }
       });
 
       if (error) throw error;
-      
-      toast.success("Cadastro realizado! Verifique seu email para confirmar.");
+
+      // If user was auto-confirmed (dev mode), create company immediately
+      if (signUpData.session) {
+        const { error: companyError } = await supabase.functions.invoke("create-company", {
+          body: {
+            company_name: companyName.trim(),
+            cnpj: cnpj.trim() || null,
+            full_name: name.trim() || null,
+          },
+        });
+
+        if (companyError) throw companyError;
+        toast.success("Cadastro realizado com sucesso!");
+        navigate("/dashboard");
+      } else {
+        toast.success("Cadastro realizado! Verifique seu email para confirmar.");
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
@@ -159,7 +192,28 @@ const Auth = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Nome</Label>
+                  <Label htmlFor="signup-company">Nome da Empresa</Label>
+                  <Input
+                    id="signup-company"
+                    type="text"
+                    placeholder="Nome da sua empresa"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-cnpj">CNPJ (opcional)</Label>
+                  <Input
+                    id="signup-cnpj"
+                    type="text"
+                    placeholder="00.000.000/0000-00"
+                    value={cnpj}
+                    onChange={(e) => setCnpj(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Seu Nome</Label>
                   <Input
                     id="signup-name"
                     type="text"
