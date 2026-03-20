@@ -1,17 +1,15 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Normalize phone number to international format
 const normalizePhone = (phone: string): string => {
   return phone.replace(/\D/g, '');
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -26,7 +24,13 @@ serve(async (req) => {
       const token = url.searchParams.get('hub.verify_token');
       const challenge = url.searchParams.get('hub.challenge');
 
-      if (mode === 'subscribe' && token === 'lovable_meta_webhook_token') {
+      const verifyToken = Deno.env.get('META_WEBHOOK_VERIFY_TOKEN');
+      if (!verifyToken) {
+        console.error("META_WEBHOOK_VERIFY_TOKEN not configured");
+        return new Response('Server configuration error', { status: 500, headers: corsHeaders });
+      }
+
+      if (mode === 'subscribe' && token === verifyToken) {
         return new Response(challenge, {
           headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
           status: 200,
@@ -43,7 +47,7 @@ serve(async (req) => {
 
       if (body.entry && body.entry[0]?.changes) {
         const changes = body.entry[0].changes;
-        
+
         for (const change of changes) {
           if (change.value?.messages) {
             const messages = change.value.messages;
@@ -67,7 +71,6 @@ serve(async (req) => {
                 const content = message.text?.body || '';
                 const messageType = message.type || 'text';
 
-                // Create or get contact
                 let { data: contact } = await supabase
                   .from('contacts')
                   .select('id')
@@ -89,7 +92,6 @@ serve(async (req) => {
                 }
 
                 if (contact) {
-                  // Create or get conversation
                   let { data: conversation } = await supabase
                     .from('conversations')
                     .select('id')
@@ -111,7 +113,6 @@ serve(async (req) => {
                       .single();
                     conversation = newConv;
                   } else {
-                    // Update conversation
                     await supabase
                       .from('conversations')
                       .update({
@@ -123,7 +124,6 @@ serve(async (req) => {
                   }
 
                   if (conversation) {
-                    // Save message
                     await supabase.from('messages').insert({
                       conversation_id: conversation.id,
                       contact_id: contact.id,
@@ -139,7 +139,6 @@ serve(async (req) => {
                   }
                 }
 
-                // Also save to incoming_messages for backup
                 await supabase.from('incoming_messages').insert({
                   user_id: integration.user_id,
                   provider: 'meta',

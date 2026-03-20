@@ -6,6 +6,28 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Allowlist of permitted n8n hostnames
+const ALLOWED_HOSTS = (() => {
+  const envHosts = Deno.env.get("N8N_ALLOWED_HOSTS");
+  const defaults = [
+    "primary-production-b2b0f.up.railway.app",
+  ];
+  if (envHosts) {
+    return [...defaults, ...envHosts.split(",").map(h => h.trim()).filter(Boolean)];
+  }
+  return defaults;
+})();
+
+const isAllowedEndpoint = (endpoint: string): boolean => {
+  try {
+    const url = new URL(endpoint);
+    if (url.protocol !== "https:") return false;
+    return ALLOWED_HOSTS.some(host => url.hostname === host || url.hostname.endsWith(`.${host}`));
+  } catch {
+    return false;
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -26,8 +48,9 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
       return new Response(
         JSON.stringify({ error: "Not authenticated" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -41,6 +64,15 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Missing 'endpoint' field" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // SSRF protection: validate endpoint against allowlist
+    if (!isAllowedEndpoint(endpoint)) {
+      console.error(`Blocked request to disallowed endpoint: ${endpoint}`);
+      return new Response(
+        JSON.stringify({ error: "Endpoint not allowed" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
