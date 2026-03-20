@@ -271,29 +271,80 @@ Deno.serve(async (req) => {
       if (instance_id) messageMetadata.instance_id = instance_id;
       if (media_url) messageMetadata.media_url = media_url;
       if (mimetype) messageMetadata.mimetype = mimetype;
+      const metaValue = Object.keys(messageMetadata).length > 0 ? messageMetadata : null;
 
-      const { data: upserted, error: msgErr } = await supabase
-        .from("messages")
-        .upsert(
-          {
-            message_id,
-            conversation_id: conversationId,
-            contact_id: contactId,
-            user_id: userId,
-            company_id,
-            channel: "whatsapp",
-            direction: messageDirection,
-            content: messageContent,
-            message_type: messageType,
-            status: mappedStatus,
-            metadata: Object.keys(messageMetadata).length > 0 ? messageMetadata : null,
-            created_at: sent_at || new Date().toISOString(),
-          },
-          { onConflict: "message_id" }
-        )
-        .select("id")
-        .single();
-      if (msgErr) throw msgErr;
+      let upsertedId: string;
+
+      // For outbound messages: try to match an existing app-generated message first
+      if (messageDirection === "outbound") {
+        // 1. Check if message_id already exists (standard upsert path)
+        const { data: existingById } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("message_id", message_id)
+          .maybeSingle();
+
+        if (existingById) {
+          // Update existing message
+          await supabase.from("messages")
+            .update({ status: mappedStatus, metadata: metaValue })
+            .eq("id", existingById.id);
+          upsertedId = existingById.id;
+        } else {
+          // 2. Try to find a recent app-originated message with matching content in same conversation
+          const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+          const { data: appMsg } = await supabase
+            .from("messages")
+            .select("id, message_id")
+            .eq("conversation_id", conversationId)
+            .eq("direction", "outbound")
+            .eq("content", messageContent)
+            .gte("created_at", oneMinuteAgo)
+            .like("message_id", "app-%")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (appMsg) {
+            // Update the app message with the real Evolution message_id + status
+            await supabase.from("messages")
+              .update({ message_id, status: mappedStatus, metadata: metaValue })
+              .eq("id", appMsg.id);
+            upsertedId = appMsg.id;
+          } else {
+            // 3. No match found — insert new
+            const { data: inserted, error: insErr } = await supabase
+              .from("messages")
+              .insert({
+                message_id, conversation_id: conversationId, contact_id: contactId,
+                user_id: userId, company_id, channel: "whatsapp",
+                direction: messageDirection, content: messageContent,
+                message_type: messageType, status: mappedStatus, metadata: metaValue,
+                created_at: sent_at || new Date().toISOString(),
+              })
+              .select("id").single();
+            if (insErr) throw insErr;
+            upsertedId = inserted.id;
+          }
+        }
+      } else {
+        // Inbound: standard upsert by message_id
+        const { data: upserted, error: msgErr } = await supabase
+          .from("messages")
+          .upsert(
+            {
+              message_id, conversation_id: conversationId, contact_id: contactId,
+              user_id: userId, company_id, channel: "whatsapp",
+              direction: messageDirection, content: messageContent,
+              message_type: messageType, status: mappedStatus, metadata: metaValue,
+              created_at: sent_at || new Date().toISOString(),
+            },
+            { onConflict: "message_id" }
+          )
+          .select("id").single();
+        if (msgErr) throw msgErr;
+        upsertedId = upserted.id;
+      }
 
       // ── Update conversation ──
       const updateData: Record<string, unknown> = {
@@ -309,7 +360,7 @@ Deno.serve(async (req) => {
       }
       await supabase.from("conversations").update(updateData).eq("id", conversationId);
 
-      return json({ success: true, action: "upserted_message", id: upserted.id });
+      return json({ success: true, action: "upserted_message", id: upsertedId });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);
