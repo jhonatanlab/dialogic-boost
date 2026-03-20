@@ -54,6 +54,7 @@ const App = () => (
           <Route path="/settings/whatsapp-integrations" element={<WhatsappIntegrations />} />
           <Route path="/settings/users" element={<Users />} />
           <Route path="/settings/teams" element={<Teams />} />
+          <Route path="/settings/company" element={<CompanyProfile />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
