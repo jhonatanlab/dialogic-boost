@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, Save, Loader2, Upload, Crown } from "lucide-react";
+import { ArrowLeft, Building2, Save, Loader2, Upload, Crown, Lock, Phone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/hooks/useCompany";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
