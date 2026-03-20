@@ -1,0 +1,461 @@
+import { useState } from "react";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  UsersRound, Plus, ArrowLeft, Trash2, Pencil, UserPlus, UserMinus,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/hooks/useCompany";
+import { toast } from "sonner";
+
+interface Team {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  members: TeamMember[];
+}
+
+interface TeamMember {
+  id: string;
+  member_user_id: string;
+  full_name: string | null;
+  email: string;
+  role: string;
+}
+
+interface CompanyUser {
+  user_id: string;
+  full_name: string | null;
+  email: string;
+  role: string;
+}
+
+const Teams = () => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { companyId, profile } = useCompany();
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editTeam, setEditTeam] = useState<Team | null>(null);
+  const [teamName, setTeamName] = useState("");
+  const [teamDesc, setTeamDesc] = useState("");
+
+  const [membersDialogTeam, setMembersDialogTeam] = useState<Team | null>(null);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+
+  // Fetch teams with members
+  const { data: teams = [], isLoading } = useQuery<Team[]>({
+    queryKey: ["company-teams", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+
+      const { data: teamsData, error } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      // Fetch members for each team
+      const teamsWithMembers: Team[] = [];
+      for (const team of teamsData || []) {
+        const { data: membersData } = await supabase
+          .from("team_members")
+          .select("id, member_user_id")
+          .eq("team_id", team.id);
+
+        // Get profile info for each member
+        const members: TeamMember[] = [];
+        for (const m of membersData || []) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("full_name, role, user_id")
+            .eq("user_id", m.member_user_id)
+            .maybeSingle();
+
+          members.push({
+            id: m.id,
+            member_user_id: m.member_user_id,
+            full_name: prof?.full_name || null,
+            email: "",
+            role: prof?.role || "agent",
+          });
+        }
+
+        teamsWithMembers.push({ ...team, members });
+      }
+
+      return teamsWithMembers;
+    },
+    enabled: !!companyId,
+  });
+
+  // Fetch all company users for the "add member" dialog
+  const { data: companyUsers = [] } = useQuery<CompanyUser[]>({
+    queryKey: ["company-users-for-teams", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, role")
+        .eq("company_id", companyId);
+      if (error) throw error;
+      return (data || []).map((p) => ({
+        user_id: p.user_id,
+        full_name: p.full_name,
+        email: "",
+        role: p.role,
+      }));
+    },
+    enabled: !!companyId,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("Não autenticado");
+
+      const { error } = await supabase.from("teams").insert({
+        name: teamName.trim(),
+        description: teamDesc.trim() || null,
+        user_id: userData.user.id,
+        company_id: companyId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Equipe criada!");
+      queryClient.invalidateQueries({ queryKey: ["company-teams"] });
+      setCreateOpen(false);
+      setTeamName("");
+      setTeamDesc("");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editTeam) return;
+      const { error } = await supabase
+        .from("teams")
+        .update({ name: teamName.trim(), description: teamDesc.trim() || null })
+        .eq("id", editTeam.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Equipe atualizada!");
+      queryClient.invalidateQueries({ queryKey: ["company-teams"] });
+      setEditTeam(null);
+      setTeamName("");
+      setTeamDesc("");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (teamId: string) => {
+      const { error } = await supabase.from("teams").delete().eq("id", teamId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Equipe removida.");
+      queryClient.invalidateQueries({ queryKey: ["company-teams"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const addMembersMutation = useMutation({
+    mutationFn: async ({ teamId, userIds }: { teamId: string; userIds: string[] }) => {
+      const inserts = userIds.map((uid) => ({
+        team_id: teamId,
+        member_user_id: uid,
+        company_id: companyId,
+      }));
+      const { error } = await supabase.from("team_members").insert(inserts);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Membros adicionados!");
+      queryClient.invalidateQueries({ queryKey: ["company-teams"] });
+      setMembersDialogTeam(null);
+      setSelectedUsers([]);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async (membershipId: string) => {
+      const { error } = await supabase.from("team_members").delete().eq("id", membershipId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Membro removido.");
+      queryClient.invalidateQueries({ queryKey: ["company-teams"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const openEdit = (team: Team) => {
+    setEditTeam(team);
+    setTeamName(team.name);
+    setTeamDesc(team.description || "");
+  };
+
+  const openAddMembers = (team: Team) => {
+    setMembersDialogTeam(team);
+    setSelectedUsers([]);
+  };
+
+  const existingMemberIds = membersDialogTeam?.members.map((m) => m.member_user_id) || [];
+  const availableUsers = companyUsers.filter((u) => !existingMemberIds.includes(u.user_id));
+
+  const toggleUser = (userId: string) => {
+    setSelectedUsers((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const roleBadge = (role: string) => {
+    switch (role) {
+      case "admin":
+        return <Badge className="bg-primary/15 text-primary border-primary/30 text-xs">Admin</Badge>;
+      case "manager":
+        return <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-xs">Gerente</Badge>;
+      default:
+        return <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-xs">Atendente</Badge>;
+    }
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="p-6 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-8">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <UsersRound className="h-6 w-6 text-primary" />
+              Equipes
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Organize seus atendentes em equipes de trabalho.
+            </p>
+          </div>
+        </div>
+
+        {/* Create button */}
+        <div className="flex justify-end mb-4">
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Equipe
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Criar equipe</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label>Nome *</Label>
+                  <Input placeholder="Ex: Suporte Nível 1" value={teamName} onChange={(e) => setTeamName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Textarea placeholder="Descrição da equipe..." value={teamDesc} onChange={(e) => setTeamDesc(e.target.value)} rows={3} />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancelar</Button>
+                </DialogClose>
+                <Button onClick={() => createMutation.mutate()} disabled={!teamName.trim() || createMutation.isPending}>
+                  {createMutation.isPending ? "Criando..." : "Criar"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Edit dialog */}
+        <Dialog open={!!editTeam} onOpenChange={(open) => { if (!open) setEditTeam(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar equipe</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Nome *</Label>
+                <Input value={teamName} onChange={(e) => setTeamName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Descrição</Label>
+                <Textarea value={teamDesc} onChange={(e) => setTeamDesc(e.target.value)} rows={3} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditTeam(null)}>Cancelar</Button>
+              <Button onClick={() => updateMutation.mutate()} disabled={!teamName.trim() || updateMutation.isPending}>
+                {updateMutation.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Members dialog */}
+        <Dialog open={!!membersDialogTeam} onOpenChange={(open) => { if (!open) setMembersDialogTeam(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar membros — {membersDialogTeam?.name}</DialogTitle>
+            </DialogHeader>
+            {availableUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Todos os usuários já fazem parte desta equipe.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto py-2">
+                {availableUsers.map((u) => (
+                  <label
+                    key={u.user_id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={selectedUsers.includes(u.user_id)}
+                      onCheckedChange={() => toggleUser(u.user_id)}
+                    />
+                    <span className="flex-1 text-sm font-medium">{u.full_name || "Sem nome"}</span>
+                    {roleBadge(u.role)}
+                  </label>
+                ))}
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMembersDialogTeam(null)}>Cancelar</Button>
+              <Button
+                disabled={selectedUsers.length === 0 || addMembersMutation.isPending}
+                onClick={() =>
+                  membersDialogTeam &&
+                  addMembersMutation.mutate({ teamId: membersDialogTeam.id, userIds: selectedUsers })
+                }
+              >
+                {addMembersMutation.isPending ? "Adicionando..." : `Adicionar (${selectedUsers.length})`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Teams list */}
+        {isLoading ? (
+          <div className="text-center text-muted-foreground py-12">Carregando...</div>
+        ) : teams.length === 0 ? (
+          <Card className="p-12 text-center">
+            <UsersRound className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-1">Nenhuma equipe criada</h3>
+            <p className="text-sm text-muted-foreground">Crie uma equipe para organizar seus atendentes.</p>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {teams.map((team) => (
+              <Card key={team.id} className="p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="text-lg font-semibold">{team.name}</h3>
+                    {team.description && (
+                      <p className="text-sm text-muted-foreground mt-0.5">{team.description}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(team)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir equipe?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            A equipe "{team.name}" e todos os seus vínculos serão removidos.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteMutation.mutate(team.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+
+                {/* Members */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Membros ({team.members.length})
+                  </span>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openAddMembers(team)}>
+                    <UserPlus className="h-3 w-3 mr-1" />
+                    Adicionar
+                  </Button>
+                </div>
+
+                {team.members.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">Nenhum membro ainda.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {team.members.map((member) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center gap-2 bg-accent/50 rounded-full pl-3 pr-1.5 py-1 text-sm"
+                      >
+                        <span className="font-medium">{member.full_name || "Sem nome"}</span>
+                        {roleBadge(member.role)}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 rounded-full text-muted-foreground hover:text-destructive"
+                          onClick={() => removeMemberMutation.mutate(member.id)}
+                        >
+                          <UserMinus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default Teams;
