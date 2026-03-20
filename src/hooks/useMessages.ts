@@ -48,9 +48,10 @@ export const useMessages = (conversationId: string | null) => {
 
       const effectiveMediaType = mediaType || "text";
       const messageMetadata = mediaUrl ? { media_url: mediaUrl, mimetype: mimetype || null } : null;
-
-      // Only use content for text, never auto-generate labels
       const messageContent = content || "";
+
+      // Generate a unique message_id so the webhook can match this message later
+      const generatedMessageId = `app-${crypto.randomUUID()}`;
 
       const { data: message, error: msgError } = await supabase
         .from("messages")
@@ -64,6 +65,7 @@ export const useMessages = (conversationId: string | null) => {
           message_type: effectiveMediaType,
           status: "sending",
           metadata: messageMetadata,
+          message_id: generatedMessageId,
         })
         .select()
         .single();
