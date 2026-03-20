@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
 
       const { data: updated, error } = await supabase
         .from("messages")
-        .update({ status })
+        .update({ status: mappedStatus })
         .eq("message_id", message_id)
         .select("id")
         .maybeSingle();
