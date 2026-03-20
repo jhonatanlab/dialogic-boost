@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
       if (existingContact) {
         contactId = existingContact.id;
         // Sync name if pushName provided and current name is just the phone
-        if (contact_name && contact_name.trim() && existingContact.name === phone_number) {
+        if (contact_name && contact_name.trim() && existingContact.name === normalizedPhone) {
           await supabase.from("contacts").update({ name: contact_name.trim() }).eq("id", contactId);
         }
       } else {
@@ -216,8 +216,8 @@ Deno.serve(async (req) => {
           .insert({
             user_id: userId,
             company_id,
-            name: contact_name?.trim() || phone_number,
-            phone: phone_number,
+            name: contact_name?.trim() || normalizedPhone,
+            phone: normalizedPhone,
             source: "whatsapp",
           })
           .select("id")
