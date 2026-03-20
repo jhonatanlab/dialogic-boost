@@ -22,6 +22,7 @@ const WhatsappIntegrations = () => {
   const { toast } = useToast();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [nativeEnabled, setNativeEnabled] = useState(false);
+  const [nativeInitialized, setNativeInitialized] = useState(false);
   const [generatingQr, setGeneratingQr] = useState(false);
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
@@ -78,6 +79,15 @@ const WhatsappIntegrations = () => {
       });
     }
   }, [zapiIntegration]);
+
+  // Sync nativeEnabled from DB instance
+  useEffect(() => {
+    if (!nativeInitialized && companyInstance !== undefined) {
+      setNativeEnabled(!!companyInstance);
+      setNativeInitialized(true);
+    }
+  }, [companyInstance, nativeInitialized]);
+
 
   const handleMetaSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,9 +229,13 @@ const WhatsappIntegrations = () => {
                 <TabsTrigger value="native" className="flex items-center gap-2">
                   <Zap className="h-4 w-4" />
                   API Nativa
-                  {nativeEnabled ? (
+                  {companyInstance?.status === 'connected' ? (
                     <Badge variant="default" className="ml-2">
-                      Ativo ✅
+                      Conectado ✅
+                    </Badge>
+                  ) : nativeEnabled ? (
+                    <Badge className="ml-2 bg-amber-500/15 text-amber-600 border-amber-500/30">
+                      {companyInstance?.status === 'connecting' ? 'Conectando...' : 'Desconectado'}
                     </Badge>
                   ) : (
                     <Badge variant="secondary" className="ml-2">
@@ -409,16 +423,38 @@ const WhatsappIntegrations = () => {
                             ? "As mensagens serão enviadas pela API Nativa."
                             : "A API Nativa foi desativada.",
                         });
-                        console.log("API Nativa:", checked ? "ativada" : "desativada");
                       }}
                     />
                   </div>
 
+                  {/* Connection status */}
+                  {nativeEnabled && companyInstance && (
+                    <div className="flex items-center gap-3 p-4 rounded-lg border">
+                      <div className={`h-3 w-3 rounded-full ${
+                        companyInstance.status === 'connected' ? 'bg-emerald-500' :
+                        companyInstance.status === 'connecting' ? 'bg-amber-500 animate-pulse' :
+                        'bg-destructive'
+                      }`} />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          {companyInstance.status === 'connected' ? 'Conectado' :
+                           companyInstance.status === 'connecting' ? 'Conectando...' : 'Desconectado'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Instância: {companyInstance.instance_id || 'N/A'}
+                        </p>
+                      </div>
+                      <Badge variant={companyInstance.status === 'connected' ? 'default' : 'secondary'}>
+                        {companyInstance.status}
+                      </Badge>
+                    </div>
+                  )}
+
                   {nativeEnabled && (
                     <div className="space-y-4">
-                      <Card className="border-orange-500/30">
+                      <Card>
                         <CardContent className="pt-6 space-y-4">
-                          <div className="flex items-center gap-2 text-orange-500">
+                          <div className="flex items-center gap-2 text-primary">
                             <Zap className="h-5 w-5" />
                             <span className="font-medium">Endpoints Configurados</span>
                           </div>
@@ -449,7 +485,7 @@ const WhatsappIntegrations = () => {
                           </div>
 
                           <p className="text-xs text-muted-foreground border-t pt-3">
-                            Os endpoints são gerenciados pelo administrador do sistema. Caso algum endpoint esteja como "Não configurado", entre em contato com o suporte.
+                            Os endpoints são gerenciados pelo administrador do sistema.
                           </p>
                         </CardContent>
                       </Card>
