@@ -360,7 +360,7 @@ Deno.serve(async (req) => {
       }
       await supabase.from("conversations").update(updateData).eq("id", conversationId);
 
-      return json({ success: true, action: "upserted_message", id: upserted.id });
+      return json({ success: true, action: "upserted_message", id: upsertedId });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);
