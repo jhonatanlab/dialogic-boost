@@ -15,14 +15,17 @@ const isGhostMediaLabelMessage = (message?: {
   content?: string | null;
   direction?: string | null;
   message_type?: string | null;
-  metadata?: Record<string, unknown> | null;
+  metadata?: unknown;
 }) => {
   if (!message || message.direction !== "outbound" || message.message_type !== "text") {
     return false;
   }
 
   const content = message.content?.trim();
-  const mediaUrl = typeof message.metadata?.media_url === "string" ? message.metadata.media_url : "";
+  const metadata = typeof message.metadata === "object" && message.metadata !== null
+    ? (message.metadata as { media_url?: unknown })
+    : null;
+  const mediaUrl = typeof metadata?.media_url === "string" ? metadata.media_url : "";
 
   return !!content && !mediaUrl && AUTO_MEDIA_LABELS.has(content);
 };
@@ -47,7 +50,7 @@ export interface Conversation {
     content: string;
     direction: string;
     message_type?: string;
-    metadata?: Record<string, unknown> | null;
+    metadata?: unknown;
   };
 }
 
