@@ -223,6 +223,22 @@ const CompanyProfile = () => {
                     placeholder="00.000.000/0000-00"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Telefone para contato</Label>
+                  <Input
+                    value={companyPhone}
+                    onChange={(e) => setCompanyPhone(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Endereço</Label>
+                  <Input
+                    value={companyAddress}
+                    onChange={(e) => setCompanyAddress(e.target.value)}
+                    placeholder="Rua, número, bairro, cidade - UF"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -244,11 +260,33 @@ const CompanyProfile = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    E-mail
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Label>
+                  <Input
+                    value={userEmail}
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    Telefone
+                  </Label>
+                  <Input
+                    value={userPhone}
+                    onChange={(e) => setUserPhone(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Papel</Label>
                   <Input
                     value={profile?.role === "admin" ? "Administrador" : profile?.role === "manager" ? "Gerente" : "Atendente"}
                     readOnly
-                    className="bg-muted"
+                    className="bg-muted cursor-not-allowed"
                   />
                 </div>
               </div>
