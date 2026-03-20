@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
-  X, Loader2, FileText, ChevronDown, Check, Save,
+  X, Loader2, FileText, ChevronDown, Save,
 } from "lucide-react";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
-import { useTags } from "@/hooks/useTags";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { useConversations } from "@/hooks/useConversations";
 import { useMessages, Message } from "@/hooks/useMessages";
@@ -25,7 +24,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
-// ── Helpers ──
+/* ─── Helpers ─── */
 
 const getMediaUrl = (msg: Message): string | null => {
   const meta = msg.metadata as Record<string, unknown> | null;
@@ -57,18 +56,23 @@ const getPreviewIcon = (type: string) => {
   return map[type] || "📎";
 };
 
-// ── Status Ticks (outbound only) ──
+/* ─── Status Ticks (outbound only) ─── */
 const StatusTicks = ({ status }: { status: string }) => {
   const s = status?.toLowerCase() ?? "";
-  if (s === "sending") return <Loader2 className="h-3 w-3 animate-spin opacity-60" />;
-  if (s === "failed") return <span className="text-[10px] font-bold text-destructive leading-none">✕</span>;
-  if (s === "sent" || s === "server_ack") return <span className="text-[10px] opacity-40 leading-none">✓</span>;
-  if (s === "delivered" || s === "received") return <span className="text-[10px] opacity-40 leading-none">✓✓</span>;
-  if (s === "read") return <span className="text-[10px] font-semibold text-chat-tick-read leading-none">✓✓</span>;
+  if (s === "sending")
+    return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/60" />;
+  if (s === "failed")
+    return <span className="text-[10px] font-bold text-destructive leading-none">✕</span>;
+  if (s === "sent" || s === "server_ack")
+    return <span className="text-[10px] text-muted-foreground/50 leading-none">✓</span>;
+  if (s === "delivered" || s === "received")
+    return <span className="text-[10px] text-muted-foreground/50 leading-none">✓✓</span>;
+  if (s === "read" || s === "played")
+    return <span className="text-[10px] font-semibold text-blue-500 leading-none">✓✓</span>;
   return null;
 };
 
-// ── Media Renderer ──
+/* ─── Media Renderer ─── */
 const MediaContent = ({ message }: { message: Message }) => {
   const mediaUrl = getMediaUrl(message);
   const mimetype = getMimetype(message);
@@ -100,18 +104,28 @@ const MediaContent = ({ message }: { message: Message }) => {
           </div>
         </a>
       );
-    default: return null;
+    default:
+      return null;
   }
 };
 
-// ── Chat Bubble ──
+/* ─── Chat Bubble ─── */
 const ChatBubble = ({ message }: { message: Message }) => {
   const isOutbound = message.direction?.toLowerCase() === "outbound";
   const mediaUrl = getMediaUrl(message);
   const hasMedia = !!mediaUrl && message.message_type !== "text";
-  const content = message.content?.trim() ?? "";
-  // Only show text if it's real content (not an auto media label)
-  const shouldShowText = content.length > 0 && message.message_type === "text";
+  const rawContent = message.content?.trim() ?? "";
+
+  // Determine if content should be shown as text
+  // Never show auto-generated labels like "Mídia enviada", "[image]", etc.
+  const autoLabels = new Set(["mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]"]);
+  const isAutoLabel = autoLabels.has(rawContent.toLowerCase());
+
+  // For text messages: show content always (unless it's an auto label with no real value)
+  // For media messages: show content as caption only if it's not an auto label
+  const showText = message.message_type === "text"
+    ? rawContent.length > 0 && !isAutoLabel
+    : rawContent.length > 0 && !isAutoLabel;
 
   return (
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"} px-4`}>
@@ -121,20 +135,13 @@ const ChatBubble = ({ message }: { message: Message }) => {
           : "bg-chat-inbound text-chat-inbound-foreground rounded-tl-sm"
       }`}>
         {hasMedia && (
-          <div className={`${content && message.message_type !== "text" ? "p-1 pb-0" : "p-1"}`}>
+          <div className="p-1">
             <MediaContent message={message} />
           </div>
         )}
-        {/* For media messages, show caption if content exists and isn't an auto label */}
-        {hasMedia && content && !shouldShowText && (
+        {showText && (
           <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words px-3 pt-2 pb-1">
-            {content}
-          </p>
-        )}
-        {/* For text messages, show content */}
-        {shouldShowText && (
-          <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words px-3 pt-2 pb-1">
-            {content}
+            {rawContent}
           </p>
         )}
         <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-0.5">
@@ -148,7 +155,7 @@ const ChatBubble = ({ message }: { message: Message }) => {
   );
 };
 
-// ── Date Separator ──
+/* ─── Date Separator ─── */
 const DateSeparator = ({ date }: { date: string }) => {
   const d = new Date(date);
   let label: string;
@@ -165,20 +172,23 @@ const DateSeparator = ({ date }: { date: string }) => {
   );
 };
 
-// ── Conversation List Item ──
+/* ─── Conversation List Item ─── */
 const ConversationItem = ({
   conv, isSelected, onSelect,
 }: {
-  conv: ReturnType<typeof useConversations>["conversations"] extends (infer T)[] | undefined ? T : never;
+  conv: {
+    id: string; contact: { name: string; phone: string | null; avatar_url: string | null };
+    last_message_at: string; unread_count: number;
+    last_message?: { content: string; message_type?: string };
+  };
   isSelected: boolean;
   onSelect: () => void;
 }) => {
   const lm = conv.last_message;
-  const rawContent = lm?.content?.trim() ?? "";
   const isMediaMsg = lm?.message_type && lm.message_type !== "text";
   const preview = isMediaMsg
     ? `${getPreviewIcon(lm?.message_type || "document")} ${(lm?.message_type || "mídia").charAt(0).toUpperCase() + (lm?.message_type || "mídia").slice(1)}`
-    : rawContent || "Sem mensagens";
+    : lm?.content?.trim() || "Sem mensagens";
 
   return (
     <div onClick={onSelect}
@@ -193,9 +203,7 @@ const ConversationItem = ({
       </Avatar>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
-          <span className="font-semibold text-sm text-foreground truncate">
-            {conv.contact.name}
-          </span>
+          <span className="font-semibold text-sm text-foreground truncate">{conv.contact.name}</span>
           <span className={`text-[11px] shrink-0 tabular-nums ${
             conv.unread_count > 0 ? "text-primary font-semibold" : "text-muted-foreground"
           }`}>
@@ -203,9 +211,7 @@ const ConversationItem = ({
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[13px] text-muted-foreground truncate flex-1">
-            {preview}
-          </p>
+          <p className="text-[13px] text-muted-foreground truncate flex-1">{preview}</p>
           {conv.unread_count > 0 && (
             <span className="bg-primary text-primary-foreground text-[11px] font-bold rounded-full h-5 min-w-5 flex items-center justify-center px-1.5 shrink-0">
               {conv.unread_count}
@@ -217,7 +223,9 @@ const ConversationItem = ({
   );
 };
 
-// ── Main Inbox Page ──
+/* ═══════════════════════════════════════════ */
+/* ─── MAIN INBOX ─── */
+/* ═══════════════════════════════════════════ */
 const Inbox = () => {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
@@ -246,9 +254,8 @@ const Inbox = () => {
   const { data: notes } = useContactNotes(selectedConversation?.contact_id || "");
   const createNote = useCreateContactNote();
   const deleteNote = useDeleteContactNote();
-  const { data: tags } = useTags();
 
-  // Merge real messages with optimistic ones
+  // Merge optimistic + real messages
   const allMessages = (() => {
     if (!messages) return optimisticMessages;
     const realIds = new Set(messages.map(m => m.id));
@@ -256,7 +263,7 @@ const Inbox = () => {
     return [...messages, ...pending];
   })();
 
-  // Clear optimistic messages when real ones arrive
+  // Clean up optimistic messages when real ones arrive
   useEffect(() => {
     if (messages && optimisticMessages.length > 0) {
       const realIds = new Set(messages.map(m => m.id));
@@ -264,29 +271,27 @@ const Inbox = () => {
     }
   }, [messages]);
 
-  // Auto-scroll
+  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [allMessages]);
 
-  // Scroll-to-bottom button
   const handleChatScroll = () => {
     if (!chatContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
     setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 200);
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
+  // Mark as read when selecting conversation
   useEffect(() => {
     if (selectedConversationId && selectedConversation?.unread_count && selectedConversation.unread_count > 0) {
       markAsRead.mutate(selectedConversationId);
     }
   }, [selectedConversationId]);
 
-  // Populate edit fields when conversation changes
+  // Populate edit fields
   useEffect(() => {
     if (selectedConversation) {
       setEditName(selectedConversation.contact.name || "");
@@ -329,11 +334,8 @@ const Inbox = () => {
       if (error) throw error;
       setIsEditingContact(false);
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      queryClient.invalidateQueries({ queryKey: ["contacts"] });
       toast.success("Contato atualizado!");
-    } catch {
-      toast.error("Erro ao atualizar contato");
-    }
+    } catch { toast.error("Erro ao atualizar contato"); }
   };
 
   const getMediaTypeFromFile = (file: File): string => {
@@ -381,7 +383,7 @@ const Inbox = () => {
       setIsUploading(false);
     }
 
-    // Create optimistic message
+    // Optimistic message
     const optimisticId = `opt-${Date.now()}`;
     const optimisticMsg: Message = {
       id: optimisticId,
@@ -390,7 +392,7 @@ const Inbox = () => {
       user_id: "",
       channel: "whatsapp",
       direction: "outbound",
-      content: textContent || (mediaUrl ? `[${mediaType}]` : ""),
+      content: textContent || "",
       message_type: mediaType || "text",
       status: "sending",
       created_at: new Date().toISOString(),
@@ -400,15 +402,25 @@ const Inbox = () => {
     setMessageInput("");
     removeAttachment();
 
-    // Send in background
-    sendMessage.mutate({
-      conversationId: selectedConversation.id,
-      contactId: selectedConversation.contact_id,
-      content: textContent,
-      phone: selectedConversation.contact.phone || "",
-      companyId,
-      mediaType, mediaUrl, mimetype,
-    });
+    // Send in background — no toast on success, only on failure
+    sendMessage.mutate(
+      {
+        conversationId: selectedConversation.id,
+        contactId: selectedConversation.contact_id,
+        content: textContent,
+        phone: selectedConversation.contact.phone || "",
+        companyId,
+        mediaType, mediaUrl, mimetype,
+      },
+      {
+        onError: () => {
+          // Mark optimistic message as failed
+          setOptimisticMessages(prev =>
+            prev.map(m => m.id === optimisticId ? { ...m, status: "failed" } : m)
+          );
+        },
+      }
+    );
   };
 
   const insertQuickReply = (text: string) => {
@@ -505,7 +517,7 @@ const Inbox = () => {
                 </Badge>
               </div>
 
-              {/* Messages area */}
+              {/* Messages */}
               <div ref={chatContainerRef} onScroll={handleChatScroll}
                 className="flex-1 overflow-y-auto relative"
                 style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
@@ -540,7 +552,7 @@ const Inbox = () => {
                 )}
               </div>
 
-              {/* Input area */}
+              {/* Input */}
               <div className="bg-card border-t border-border px-4 py-3 shrink-0">
                 {attachedFile && (
                   <div className="flex items-center gap-2 mb-2 p-2.5 bg-secondary rounded-lg">
@@ -632,7 +644,6 @@ const Inbox = () => {
 
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-5">
-                {/* Contact card */}
                 <div className="flex flex-col items-center text-center">
                   <Avatar className="h-16 w-16 mb-3">
                     <AvatarImage src={selectedConversation.contact.avatar_url || undefined} />
@@ -654,7 +665,6 @@ const Inbox = () => {
 
                 <Separator />
 
-                {/* Quick info */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-muted-foreground text-xs">Telefone</Label>
@@ -701,7 +711,6 @@ const Inbox = () => {
 
                 <Separator />
 
-                {/* Origin */}
                 <div>
                   <Label className="text-muted-foreground text-xs mb-2 block">Origem</Label>
                   <Select value={origin} onValueChange={setOrigin}>
@@ -718,7 +727,6 @@ const Inbox = () => {
 
                 <Separator />
 
-                {/* Notes */}
                 <div>
                   <Label className="text-muted-foreground text-xs mb-2 block">Notas internas</Label>
                   <Textarea placeholder="Adicione uma nota..." value={newNote}

@@ -12,6 +12,16 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+// Status mapping: 'played' → 'read' for display purposes
+const KNOWN_STATUSES = new Set([
+  "sending", "sent", "server_ack", "received", "delivered", "read", "failed", "played", "deleted",
+]);
+
+const normalizeStatus = (status: string): string => {
+  if (status === "played") return "read";
+  return status;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -120,11 +130,6 @@ Deno.serve(async (req) => {
       const { company_id, instance_id, status } = data as Record<string, string>;
       if (!company_id || !status) return json({ error: "company_id and status are required" }, 400);
 
-      const validStatuses = ["connected", "disconnected", "connecting"];
-      if (!validStatuses.includes(status)) {
-        return json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` }, 400);
-      }
-
       const updatePayload: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
       if (instance_id) updatePayload.instance_id = instance_id;
 
@@ -146,13 +151,12 @@ Deno.serve(async (req) => {
       const { message_id, status } = data as Record<string, string>;
       if (!message_id || !status) return json({ error: "message_id and status are required" }, 400);
 
-      const validStatuses = ["sending", "sent", "server_ack", "received", "delivered", "read", "failed", "played", "deleted"];
-      if (!validStatuses.includes(status)) {
-        return json({ success: true, action: "status_ignored", message: `Status '${status}' not recognized, ignored silently` });
+      // Unknown statuses: ignore silently, return 200
+      if (!KNOWN_STATUSES.has(status)) {
+        return json({ success: true, action: "status_ignored", message: `Status '${status}' not recognized, ignored` });
       }
 
-      // Map 'played' to 'read' so ticks show blue
-      const mappedStatus = status === "played" ? "read" : status;
+      const mappedStatus = normalizeStatus(status);
 
       const { data: updated, error } = await supabase
         .from("messages")
@@ -162,7 +166,8 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (error) throw error;
 
-      return json({ success: true, action: "updated_status", id: updated?.id || null, status });
+      // If message not found, return success silently
+      return json({ success: true, action: "updated_status", id: updated?.id || null, status: mappedStatus });
     }
 
     // ═══════════════════════════════════════════
@@ -182,7 +187,7 @@ Deno.serve(async (req) => {
       const userId = await getUserForCompany(company_id);
       if (!userId) return json({ error: "No user found for this company" }, 404);
 
-      // ── Find or create contact ──
+      // ── Find or create contact by phone_number + company_id ──
       let contactId: string;
       const { data: existingContact } = await supabase
         .from("contacts")
@@ -193,7 +198,7 @@ Deno.serve(async (req) => {
 
       if (existingContact) {
         contactId = existingContact.id;
-        // Sync contact name if pushName/contact_name provided and current name is just the phone number
+        // Sync name if pushName provided and current name is just the phone
         if (contact_name && contact_name.trim() && existingContact.name === phone_number) {
           await supabase.from("contacts").update({ name: contact_name.trim() }).eq("id", contactId);
         }
@@ -213,7 +218,7 @@ Deno.serve(async (req) => {
         contactId = newContact.id;
       }
 
-      // ── Find or create conversation (dedup by contact_id + company_id) ──
+      // ── Find or create conversation by contact_id + company_id ──
       let conversationId: string;
       const { data: existingConv } = await supabase
         .from("conversations")
@@ -250,6 +255,8 @@ Deno.serve(async (req) => {
       const messageType = media_type && media_type !== "text" ? media_type : "text";
       const messageContent = typeof content === "string" ? content : "";
       const messageDirection = direction === "outbound" ? "outbound" : "inbound";
+      const rawStatus = status || "received";
+      const mappedStatus = normalizeStatus(rawStatus);
       const messageMetadata: Record<string, unknown> = {};
       if (instance_id) messageMetadata.instance_id = instance_id;
       if (media_url) messageMetadata.media_url = media_url;
@@ -268,7 +275,7 @@ Deno.serve(async (req) => {
             direction: messageDirection,
             content: messageContent,
             message_type: messageType,
-            status: status || "received",
+            status: mappedStatus,
             metadata: Object.keys(messageMetadata).length > 0 ? messageMetadata : null,
             created_at: sent_at || new Date().toISOString(),
           },
