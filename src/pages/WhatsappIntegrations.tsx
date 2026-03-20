@@ -423,18 +423,32 @@ const WhatsappIntegrations = () => {
                             ? "As mensagens serão enviadas pela API Nativa."
                             : "A API Nativa foi desativada.",
                         });
-                        console.log("API Nativa:", checked ? "ativada" : "desativada");
                       }}
                     />
                   </div>
 
-                  {nativeEnabled && (
-                    <div className="space-y-4">
-                      <Card className="border-orange-500/30">
-                        <CardContent className="pt-6 space-y-4">
-                          <div className="flex items-center gap-2 text-orange-500">
-                            <Zap className="h-5 w-5" />
-                            <span className="font-medium">Endpoints Configurados</span>
+                  {/* Connection status */}
+                  {nativeEnabled && companyInstance && (
+                    <div className="flex items-center gap-3 p-4 rounded-lg border">
+                      <div className={`h-3 w-3 rounded-full ${
+                        companyInstance.status === 'connected' ? 'bg-emerald-500' :
+                        companyInstance.status === 'connecting' ? 'bg-amber-500 animate-pulse' :
+                        'bg-destructive'
+                      }`} />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          {companyInstance.status === 'connected' ? 'Conectado' :
+                           companyInstance.status === 'connecting' ? 'Conectando...' : 'Desconectado'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Instância: {companyInstance.instance_id || 'N/A'}
+                        </p>
+                      </div>
+                      <Badge variant={companyInstance.status === 'connected' ? 'default' : 'secondary'}>
+                        {companyInstance.status}
+                      </Badge>
+                    </div>
+                  )}
                           </div>
 
                           <div className="space-y-3">
