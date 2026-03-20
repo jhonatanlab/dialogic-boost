@@ -24,7 +24,9 @@ const normalizeStatus = (status: string): string => {
 
 // Normalize phone: strip everything except digits
 const normalizePhone = (phone: string): string => {
-  return phone.replace(/\D/g, "");
+  // Strip Evolution API device suffix (:XX) first, then remove non-digits
+  const basePhone = phone.split(':')[0];
+  return basePhone.replace(/\D/g, "");
 };
 
 Deno.serve(async (req) => {
