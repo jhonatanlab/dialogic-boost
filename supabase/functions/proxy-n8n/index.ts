@@ -11,6 +11,7 @@ const ALLOWED_HOSTS = (() => {
   const envHosts = Deno.env.get("N8N_ALLOWED_HOSTS");
   const defaults = [
     "primary-production-b2b0f.up.railway.app",
+    "sslip.io",
   ];
   if (envHosts) {
     return [...defaults, ...envHosts.split(",").map(h => h.trim()).filter(Boolean)];
@@ -21,7 +22,7 @@ const ALLOWED_HOSTS = (() => {
 const isAllowedEndpoint = (endpoint: string): boolean => {
   try {
     const url = new URL(endpoint);
-    if (url.protocol !== "https:") return false;
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
     return ALLOWED_HOSTS.some(host => url.hostname === host || url.hostname.endsWith(`.${host}`));
   } catch {
     return false;
