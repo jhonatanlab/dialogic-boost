@@ -24,6 +24,7 @@ import WhatsappIntegrations from "./pages/WhatsappIntegrations";
 import AdminWhatsapp from "./pages/AdminWhatsapp";
 import Users from "./pages/Users";
 import Teams from "./pages/Teams";
+import CompanyProfile from "./pages/CompanyProfile";
 
 const queryClient = new QueryClient();
 

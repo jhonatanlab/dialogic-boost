@@ -11,7 +11,7 @@ const Settings = () => {
       icon: Building2,
       title: "Perfil da Empresa",
       description: "Edite nome, logo e informações gerais.",
-      action: () => console.log("Editar perfil"),
+      action: () => navigate("/settings/company"),
       actionLabel: "Editar perfil",
       color: "text-blue-500",
     },
