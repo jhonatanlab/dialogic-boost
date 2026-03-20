@@ -36,6 +36,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
+const AUTO_MEDIA_LABELS = new Set([
+  "Mídia enviada",
+  "[mídia]",
+  "[image]",
+  "[video]",
+  "[audio]",
+  "[document]",
+]);
+
+const getNormalizedDirection = (direction?: string | null) => direction?.toLowerCase() ?? "";
+const getNormalizedStatus = (status?: string | null) => status?.toLowerCase() ?? "";
+
 const Inbox = () => {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
@@ -314,18 +326,26 @@ const Inbox = () => {
                   ) : (
                     messages.map((message) => {
                       const mediaUrl = (message.metadata as Record<string, unknown>)?.media_url as string | undefined;
+                      const normalizedDirection = getNormalizedDirection(message.direction);
+                      const normalizedStatus = getNormalizedStatus(message.status);
+                      const trimmedContent = message.content?.trim() ?? "";
                       const hasMedia = !!mediaUrl && message.message_type !== "text";
+                      const shouldHideAutoMediaLabel =
+                        normalizedDirection === "outbound" &&
+                        message.message_type === "text" &&
+                        !mediaUrl &&
+                        AUTO_MEDIA_LABELS.has(trimmedContent);
 
                       return (
                         <div
                           key={message.id}
                           className={`flex ${
-                            message.direction === "outbound" ? "justify-end" : "justify-start"
+                            normalizedDirection === "outbound" ? "justify-end" : "justify-start"
                           }`}
                         >
                           <div
                             className={`max-w-[70%] p-3 rounded-lg ${
-                              message.direction === "outbound"
+                              normalizedDirection === "outbound"
                                 ? "bg-primary text-primary-foreground"
                                 : "bg-muted"
                             }`}
@@ -349,29 +369,32 @@ const Inbox = () => {
                               </div>
                             )}
                             {(() => {
-                              if (!message.content || !message.content.trim()) return null;
-                              const autoLabels = ["[image]", "[video]", "[audio]", "[document]", "Mídia enviada", "[mídia]"];
-                              if (hasMedia && autoLabels.includes(message.content.trim())) return null;
+                              if (!trimmedContent || shouldHideAutoMediaLabel) return null;
+                              if (hasMedia && AUTO_MEDIA_LABELS.has(trimmedContent)) return null;
                               return <p className="text-sm">{message.content}</p>;
                             })()}
                             <div className="flex items-center justify-end gap-1 mt-1">
                               <span className="text-xs opacity-70">
                                 {format(new Date(message.created_at), "HH:mm")}
                               </span>
-                              {message.status === "sending" && (
-                                <Loader2 className="h-3 w-3 animate-spin opacity-70" />
-                              )}
-                              {message.status === "failed" && (
-                                <span className="text-xs text-red-500 font-bold">✕</span>
-                              )}
-                              {message.status === "sent" && (
-                                <span className="text-xs opacity-60">✓</span>
-                              )}
-                              {(message.status === "server_ack" || message.status === "received" || message.status === "delivered") && (
-                                <span className="text-xs opacity-60">✓✓</span>
-                              )}
-                              {message.status === "read" && (
-                                <span className="text-xs text-blue-500 font-bold">✓✓</span>
+                              {normalizedDirection === "outbound" && (
+                                <>
+                                  {normalizedStatus === "sending" && (
+                                    <Loader2 className="h-3 w-3 animate-spin opacity-70" />
+                                  )}
+                                  {normalizedStatus === "failed" && (
+                                    <span className="text-xs font-bold text-destructive">✕</span>
+                                  )}
+                                  {normalizedStatus === "sent" && (
+                                    <span className="text-xs opacity-60">✓</span>
+                                  )}
+                                  {(normalizedStatus === "server_ack" || normalizedStatus === "received" || normalizedStatus === "delivered") && (
+                                    <span className="text-xs opacity-60">✓✓</span>
+                                  )}
+                                  {normalizedStatus === "read" && (
+                                    <span className="text-xs font-bold text-foreground">✓✓</span>
+                                  )}
+                                </>
                               )}
                             </div>
                           </div>
