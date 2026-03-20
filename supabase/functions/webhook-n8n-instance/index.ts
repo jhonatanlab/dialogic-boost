@@ -22,6 +22,11 @@ const normalizeStatus = (status: string): string => {
   return status;
 };
 
+// Normalize phone: strip everything except digits
+const normalizePhone = (phone: string): string => {
+  return phone.replace(/\D/g, "");
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
