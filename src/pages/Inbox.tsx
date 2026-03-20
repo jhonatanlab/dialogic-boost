@@ -313,8 +313,8 @@ const Inbox = () => {
                     <div className="text-center text-muted-foreground">Sem mensagens</div>
                   ) : (
                     messages.map((message) => {
-                      const isMedia = message.message_type && message.message_type !== "text";
                       const mediaUrl = (message.metadata as Record<string, unknown>)?.media_url as string | undefined;
+                      const hasMedia = !!mediaUrl && message.message_type !== "text";
 
                       return (
                         <div
@@ -330,7 +330,7 @@ const Inbox = () => {
                                 : "bg-muted"
                             }`}
                           >
-                            {isMedia && mediaUrl && (
+                            {hasMedia && (
                               <div className="mb-1">
                                 {message.message_type === "image" && (
                                   <img src={mediaUrl} alt="" className="rounded max-w-full max-h-60 object-cover" />
@@ -348,34 +348,30 @@ const Inbox = () => {
                                 )}
                               </div>
                             )}
-                            {message.content && (() => {
+                            {(() => {
+                              if (!message.content || !message.content.trim()) return null;
                               const autoLabels = ["[image]", "[video]", "[audio]", "[document]", "Mídia enviada", "[mídia]"];
-                              const isAutoLabel = autoLabels.includes(message.content.trim());
-                              if (isMedia && mediaUrl && (isAutoLabel || !message.content.trim())) return null;
+                              if (hasMedia && autoLabels.includes(message.content.trim())) return null;
                               return <p className="text-sm">{message.content}</p>;
                             })()}
                             <div className="flex items-center justify-end gap-1 mt-1">
                               <span className="text-xs opacity-70">
                                 {format(new Date(message.created_at), "HH:mm")}
                               </span>
-                              {message.direction === "outbound" && (
-                                <>
-                                  {message.status === "sending" && (
-                                    <Loader2 className="h-3 w-3 animate-spin opacity-70" />
-                                  )}
-                                  {message.status === "failed" && (
-                                    <span className="text-xs text-destructive font-medium">✕</span>
-                                  )}
-                                  {message.status === "sent" && (
-                                    <span className="text-xs opacity-70">✓</span>
-                                  )}
-                                  {message.status === "delivered" && (
-                                    <span className="text-xs opacity-70">✓✓</span>
-                                  )}
-                                  {message.status === "read" && (
-                                    <span className="text-xs text-blue-500 font-bold">✓✓</span>
-                                  )}
-                                </>
+                              {message.status === "sending" && (
+                                <Loader2 className="h-3 w-3 animate-spin opacity-70" />
+                              )}
+                              {message.status === "failed" && (
+                                <span className="text-xs text-red-500 font-bold">✕</span>
+                              )}
+                              {message.status === "sent" && (
+                                <span className="text-xs opacity-60">✓</span>
+                              )}
+                              {(message.status === "server_ack" || message.status === "received" || message.status === "delivered") && (
+                                <span className="text-xs opacity-60">✓✓</span>
+                              )}
+                              {message.status === "read" && (
+                                <span className="text-xs text-blue-500 font-bold">✓✓</span>
                               )}
                             </div>
                           </div>
