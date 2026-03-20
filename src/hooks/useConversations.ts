@@ -2,6 +2,31 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 
+const AUTO_MEDIA_LABELS = new Set([
+  "Mídia enviada",
+  "[mídia]",
+  "[image]",
+  "[video]",
+  "[audio]",
+  "[document]",
+]);
+
+const isGhostMediaLabelMessage = (message?: {
+  content?: string | null;
+  direction?: string | null;
+  message_type?: string | null;
+  metadata?: Record<string, unknown> | null;
+}) => {
+  if (!message || message.direction !== "outbound" || message.message_type !== "text") {
+    return false;
+  }
+
+  const content = message.content?.trim();
+  const mediaUrl = typeof message.metadata?.media_url === "string" ? message.metadata.media_url : "";
+
+  return !!content && !mediaUrl && AUTO_MEDIA_LABELS.has(content);
+};
+
 export interface Conversation {
   id: string;
   user_id: string;
@@ -21,6 +46,8 @@ export interface Conversation {
   last_message?: {
     content: string;
     direction: string;
+    message_type?: string;
+    metadata?: Record<string, unknown> | null;
   };
 }
 
@@ -53,13 +80,14 @@ export const useConversations = () => {
       // Get last message for each conversation
       const conversationsWithMessages = await Promise.all(
         (data || []).map(async (conv) => {
-          const { data: lastMsg } = await supabase
+          const { data: lastMessages } = await supabase
             .from("messages")
-            .select("content, direction")
+            .select("content, direction, message_type, metadata")
             .eq("conversation_id", conv.id)
             .order("created_at", { ascending: false })
-            .limit(1)
-            .single();
+            .limit(5);
+
+          const lastMsg = lastMessages?.find((message) => !isGhostMediaLabelMessage(message)) || lastMessages?.[0];
 
           return {
             ...conv,
