@@ -151,7 +151,6 @@ Deno.serve(async (req) => {
         return json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` }, 400);
       }
 
-      // Update silently — if message doesn't exist, just return success
       const { data: updated, error } = await supabase
         .from("messages")
         .update({ status })
@@ -184,20 +183,24 @@ Deno.serve(async (req) => {
       let contactId: string;
       const { data: existingContact } = await supabase
         .from("contacts")
-        .select("id")
+        .select("id, name")
         .eq("company_id", company_id)
         .eq("phone", phone_number)
         .maybeSingle();
 
       if (existingContact) {
         contactId = existingContact.id;
+        // Sync contact name if pushName/contact_name provided and current name is just the phone number
+        if (contact_name && contact_name.trim() && existingContact.name === phone_number) {
+          await supabase.from("contacts").update({ name: contact_name.trim() }).eq("id", contactId);
+        }
       } else {
         const { data: newContact, error: contactErr } = await supabase
           .from("contacts")
           .insert({
             user_id: userId,
             company_id,
-            name: contact_name || phone_number,
+            name: contact_name?.trim() || phone_number,
             phone: phone_number,
             source: "whatsapp",
           })

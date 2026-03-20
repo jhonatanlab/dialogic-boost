@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
-  X, Loader2, FileText, SmilePlus, ChevronDown,
+  X, Loader2, FileText, ChevronDown, Check, Save,
 } from "lucide-react";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useTags } from "@/hooks/useTags";
@@ -23,12 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-
-// ── Constants ──
-
-const AUTO_MEDIA_LABELS = new Set([
-  "Mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]",
-]);
+import { useQueryClient } from "@tanstack/react-query";
 
 // ── Helpers ──
 
@@ -62,14 +57,13 @@ const getPreviewIcon = (type: string) => {
   return map[type] || "📎";
 };
 
-// ── Status Ticks ──
+// ── Status Ticks (outbound only) ──
 const StatusTicks = ({ status }: { status: string }) => {
   const s = status?.toLowerCase() ?? "";
   if (s === "sending") return <Loader2 className="h-3 w-3 animate-spin opacity-60" />;
   if (s === "failed") return <span className="text-[10px] font-bold text-destructive leading-none">✕</span>;
-  if (s === "sent") return <span className="text-[10px] opacity-40 leading-none">✓</span>;
-  if (["server_ack", "received", "delivered"].includes(s))
-    return <span className="text-[10px] opacity-40 leading-none">✓✓</span>;
+  if (s === "sent" || s === "server_ack") return <span className="text-[10px] opacity-40 leading-none">✓</span>;
+  if (s === "delivered" || s === "received") return <span className="text-[10px] opacity-40 leading-none">✓✓</span>;
   if (s === "read") return <span className="text-[10px] font-semibold text-chat-tick-read leading-none">✓✓</span>;
   return null;
 };
@@ -115,8 +109,9 @@ const ChatBubble = ({ message }: { message: Message }) => {
   const isOutbound = message.direction?.toLowerCase() === "outbound";
   const mediaUrl = getMediaUrl(message);
   const hasMedia = !!mediaUrl && message.message_type !== "text";
-  const trimmedContent = message.content?.trim() ?? "";
-  const shouldShowText = trimmedContent && !AUTO_MEDIA_LABELS.has(trimmedContent);
+  const content = message.content?.trim() ?? "";
+  // Only show text if it's real content (not an auto media label)
+  const shouldShowText = content.length > 0 && message.message_type === "text";
 
   return (
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"} px-4`}>
@@ -126,13 +121,20 @@ const ChatBubble = ({ message }: { message: Message }) => {
           : "bg-chat-inbound text-chat-inbound-foreground rounded-tl-sm"
       }`}>
         {hasMedia && (
-          <div className={`${shouldShowText ? "p-1 pb-0" : "p-1"}`}>
+          <div className={`${content && message.message_type !== "text" ? "p-1 pb-0" : "p-1"}`}>
             <MediaContent message={message} />
           </div>
         )}
+        {/* For media messages, show caption if content exists and isn't an auto label */}
+        {hasMedia && content && !shouldShowText && (
+          <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words px-3 pt-2 pb-1">
+            {content}
+          </p>
+        )}
+        {/* For text messages, show content */}
         {shouldShowText && (
           <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words px-3 pt-2 pb-1">
-            {message.content}
+            {content}
           </p>
         )}
         <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-0.5">
@@ -172,10 +174,11 @@ const ConversationItem = ({
   onSelect: () => void;
 }) => {
   const lm = conv.last_message;
-  const content = lm?.content?.trim() ?? "";
-  const preview = AUTO_MEDIA_LABELS.has(content)
+  const rawContent = lm?.content?.trim() ?? "";
+  const isMediaMsg = lm?.message_type && lm.message_type !== "text";
+  const preview = isMediaMsg
     ? `${getPreviewIcon(lm?.message_type || "document")} ${(lm?.message_type || "mídia").charAt(0).toUpperCase() + (lm?.message_type || "mídia").slice(1)}`
-    : content || "Sem mensagens";
+    : rawContent || "Sem mensagens";
 
   return (
     <div onClick={onSelect}
@@ -201,11 +204,6 @@ const ConversationItem = ({
         </div>
         <div className="flex items-center justify-between gap-2">
           <p className="text-[13px] text-muted-foreground truncate flex-1">
-            {lm?.direction === "outbound" && (
-              <span className="text-primary mr-1">
-                <StatusTicks status={lm?.message_type === "text" ? "sent" : "sent"} />
-              </span>
-            )}
             {preview}
           </p>
           {conv.unread_count > 0 && (
@@ -229,10 +227,15 @@ const Inbox = () => {
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
@@ -245,10 +248,26 @@ const Inbox = () => {
   const deleteNote = useDeleteContactNote();
   const { data: tags } = useTags();
 
+  // Merge real messages with optimistic ones
+  const allMessages = (() => {
+    if (!messages) return optimisticMessages;
+    const realIds = new Set(messages.map(m => m.id));
+    const pending = optimisticMessages.filter(m => !realIds.has(m.id));
+    return [...messages, ...pending];
+  })();
+
+  // Clear optimistic messages when real ones arrive
+  useEffect(() => {
+    if (messages && optimisticMessages.length > 0) {
+      const realIds = new Set(messages.map(m => m.id));
+      setOptimisticMessages(prev => prev.filter(m => !realIds.has(m.id)));
+    }
+  }, [messages]);
+
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [allMessages]);
 
   // Scroll-to-bottom button
   const handleChatScroll = () => {
@@ -262,8 +281,17 @@ const Inbox = () => {
   };
 
   useEffect(() => {
-    if (selectedConversationId && selectedConversation?.unread_count > 0) {
+    if (selectedConversationId && selectedConversation?.unread_count && selectedConversation.unread_count > 0) {
       markAsRead.mutate(selectedConversationId);
+    }
+  }, [selectedConversationId]);
+
+  // Populate edit fields when conversation changes
+  useEffect(() => {
+    if (selectedConversation) {
+      setEditName(selectedConversation.contact.name || "");
+      setEditEmail(selectedConversation.contact.email || "");
+      setIsEditingContact(false);
     }
   }, [selectedConversationId]);
 
@@ -291,6 +319,23 @@ const Inbox = () => {
     } catch { toast.error("Erro ao excluir nota"); }
   };
 
+  const handleSaveContact = async () => {
+    if (!selectedConversation) return;
+    try {
+      const { error } = await supabase
+        .from("contacts")
+        .update({ name: editName.trim(), email: editEmail.trim() || null })
+        .eq("id", selectedConversation.contact_id);
+      if (error) throw error;
+      setIsEditingContact(false);
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      toast.success("Contato atualizado!");
+    } catch {
+      toast.error("Erro ao atualizar contato");
+    }
+  };
+
   const getMediaTypeFromFile = (file: File): string => {
     if (file.type.startsWith("image/")) return "image";
     if (file.type.startsWith("video/")) return "video";
@@ -310,6 +355,8 @@ const Inbox = () => {
 
   const handleSendMessage = async () => {
     if ((!messageInput.trim() && !attachedFile) || !selectedConversation || !companyId) return;
+
+    const textContent = messageInput.trim();
     let mediaUrl: string | undefined;
     let mediaType: string | undefined;
     let mimetype: string | undefined;
@@ -334,16 +381,34 @@ const Inbox = () => {
       setIsUploading(false);
     }
 
+    // Create optimistic message
+    const optimisticId = `opt-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      conversation_id: selectedConversation.id,
+      contact_id: selectedConversation.contact_id,
+      user_id: "",
+      channel: "whatsapp",
+      direction: "outbound",
+      content: textContent || (mediaUrl ? `[${mediaType}]` : ""),
+      message_type: mediaType || "text",
+      status: "sending",
+      created_at: new Date().toISOString(),
+      metadata: mediaUrl ? { media_url: mediaUrl, mimetype: mimetype || null } : null,
+    };
+    setOptimisticMessages(prev => [...prev, optimisticMsg]);
+    setMessageInput("");
+    removeAttachment();
+
+    // Send in background
     sendMessage.mutate({
       conversationId: selectedConversation.id,
       contactId: selectedConversation.contact_id,
-      content: messageInput,
+      content: textContent,
       phone: selectedConversation.contact.phone || "",
       companyId,
       mediaType, mediaUrl, mimetype,
     });
-    setMessageInput("");
-    removeAttachment();
   };
 
   const insertQuickReply = (text: string) => {
@@ -359,10 +424,10 @@ const Inbox = () => {
 
   // Group messages by date
   const groupedMessages = (() => {
-    if (!messages) return [];
+    if (!allMessages || allMessages.length === 0) return [];
     const groups: { date: string; msgs: Message[] }[] = [];
     let currentDate = "";
-    for (const msg of messages) {
+    for (const msg of allMessages) {
       const msgDate = format(new Date(msg.created_at), "yyyy-MM-dd");
       if (msgDate !== currentDate) {
         currentDate = msgDate;
@@ -379,7 +444,6 @@ const Inbox = () => {
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* ─── Col 1: Conversations ─── */}
         <div className="w-[340px] border-r border-border flex flex-col bg-card shrink-0">
-          {/* Header */}
           <div className="h-16 px-4 flex items-center justify-between border-b border-border bg-card">
             <h1 className="text-lg font-bold text-foreground">Conversas</h1>
             <Badge variant="secondary" className="font-semibold text-xs">
@@ -387,7 +451,6 @@ const Inbox = () => {
             </Badge>
           </div>
 
-          {/* Search */}
           <div className="px-3 py-2 border-b border-border/50">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -397,7 +460,6 @@ const Inbox = () => {
             </div>
           </div>
 
-          {/* List */}
           <div className="flex-1 overflow-y-auto">
             {conversationsLoading ? (
               <div className="flex items-center justify-center h-32">
@@ -422,7 +484,6 @@ const Inbox = () => {
         <div className="flex-1 flex flex-col min-w-0 bg-chat-bg">
           {selectedConversation ? (
             <>
-              {/* Chat header */}
               <div className="h-16 px-5 flex items-center gap-3 bg-card border-b border-border shrink-0">
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={selectedConversation.contact.avatar_url || undefined} />
@@ -471,7 +532,6 @@ const Inbox = () => {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Scroll to bottom button */}
                 {showScrollBtn && (
                   <button onClick={scrollToBottom}
                     className="absolute bottom-4 right-4 h-10 w-10 rounded-full bg-card shadow-md border border-border flex items-center justify-center hover:bg-secondary transition-colors">
@@ -515,8 +575,8 @@ const Inbox = () => {
                   </div>
                   <Button size="icon" onClick={handleSendMessage}
                     className="h-11 w-11 rounded-full shrink-0"
-                    disabled={sendMessage.isPending || isUploading || (!messageInput.trim() && !attachedFile)}>
-                    {sendMessage.isPending || isUploading
+                    disabled={isUploading || (!messageInput.trim() && !attachedFile)}>
+                    {isUploading
                       ? <Loader2 className="h-5 w-5 animate-spin" />
                       : <Send className="h-5 w-5" />}
                   </Button>
@@ -554,11 +614,19 @@ const Inbox = () => {
         {/* ─── Col 3: Contact CRM ─── */}
         {selectedConversation && (
           <div className="w-[300px] border-l border-border bg-card flex flex-col shrink-0 overflow-hidden">
-            {/* CRM Header */}
             <div className="h-16 px-4 flex items-center justify-between border-b border-border shrink-0">
               <h2 className="text-sm font-bold text-foreground">Detalhes</h2>
-              <Button size="icon" variant="ghost" className="h-8 w-8">
-                <Edit className="h-3.5 w-3.5" />
+              <Button size="icon" variant="ghost" className="h-8 w-8"
+                onClick={() => {
+                  if (isEditingContact) {
+                    handleSaveContact();
+                  } else {
+                    setEditName(selectedConversation.contact.name || "");
+                    setEditEmail(selectedConversation.contact.email || "");
+                    setIsEditingContact(true);
+                  }
+                }}>
+                {isEditingContact ? <Save className="h-3.5 w-3.5" /> : <Edit className="h-3.5 w-3.5" />}
               </Button>
             </div>
 
@@ -572,7 +640,12 @@ const Inbox = () => {
                       {selectedConversation.contact.name.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <h3 className="font-bold text-foreground">{selectedConversation.contact.name}</h3>
+                  {isEditingContact ? (
+                    <Input value={editName} onChange={(e) => setEditName(e.target.value)}
+                      className="text-center h-8 text-sm font-bold" placeholder="Nome" />
+                  ) : (
+                    <h3 className="font-bold text-foreground">{selectedConversation.contact.name}</h3>
+                  )}
                   <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                     <Phone className="h-3 w-3" />
                     {selectedConversation.contact.phone || "—"}
@@ -598,9 +671,14 @@ const Inbox = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <Label className="text-muted-foreground text-xs">Email</Label>
-                    <span className="text-xs font-medium text-foreground">
-                      {selectedConversation.contact.email || "—"}
-                    </span>
+                    {isEditingContact ? (
+                      <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)}
+                        className="h-7 text-xs w-40 text-right" placeholder="email@exemplo.com" />
+                    ) : (
+                      <span className="text-xs font-medium text-foreground">
+                        {selectedConversation.contact.email || "—"}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center justify-between">
                     <Label className="text-muted-foreground text-xs">Canal</Label>
@@ -609,6 +687,17 @@ const Inbox = () => {
                     </span>
                   </div>
                 </div>
+
+                {isEditingContact && (
+                  <div className="flex gap-2">
+                    <Button onClick={handleSaveContact} className="flex-1 h-8 text-xs" size="sm">
+                      <Save className="h-3 w-3 mr-1" /> Salvar
+                    </Button>
+                    <Button onClick={() => setIsEditingContact(false)} variant="outline" className="flex-1 h-8 text-xs" size="sm">
+                      Cancelar
+                    </Button>
+                  </div>
+                )}
 
                 <Separator />
 
