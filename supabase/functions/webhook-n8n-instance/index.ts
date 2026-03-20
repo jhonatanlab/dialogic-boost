@@ -189,16 +189,19 @@ Deno.serve(async (req) => {
         return json({ error: "company_id, message_id and phone_number are required" }, 400);
       }
 
+      // Normalize phone to digits only for consistent matching
+      const normalizedPhone = normalizePhone(phone_number);
+
       const userId = await getUserForCompany(company_id);
       if (!userId) return json({ error: "No user found for this company" }, 404);
 
-      // ── Find or create contact by phone_number + company_id ──
+      // ── Find or create contact by normalized phone + company_id ──
       let contactId: string;
       const { data: existingContact } = await supabase
         .from("contacts")
         .select("id, name")
         .eq("company_id", company_id)
-        .eq("phone", phone_number)
+        .eq("phone", normalizedPhone)
         .maybeSingle();
 
       if (existingContact) {
