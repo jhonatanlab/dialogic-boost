@@ -146,10 +146,13 @@ Deno.serve(async (req) => {
       const { message_id, status } = data as Record<string, string>;
       if (!message_id || !status) return json({ error: "message_id and status are required" }, 400);
 
-      const validStatuses = ["sending", "sent", "server_ack", "received", "delivered", "read", "failed"];
+      const validStatuses = ["sending", "sent", "server_ack", "received", "delivered", "read", "failed", "played", "deleted"];
       if (!validStatuses.includes(status)) {
-        return json({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` }, 400);
+        return json({ success: true, action: "status_ignored", message: `Status '${status}' not recognized, ignored silently` });
       }
+
+      // Map 'played' to 'read' so ticks show blue
+      const mappedStatus = status === "played" ? "read" : status;
 
       const { data: updated, error } = await supabase
         .from("messages")
