@@ -449,6 +449,14 @@ const WhatsappIntegrations = () => {
                       </Badge>
                     </div>
                   )}
+
+                  {nativeEnabled && (
+                    <div className="space-y-4">
+                      <Card>
+                        <CardContent className="pt-6 space-y-4">
+                          <div className="flex items-center gap-2 text-primary">
+                            <Zap className="h-5 w-5" />
+                            <span className="font-medium">Endpoints Configurados</span>
                           </div>
 
                           <div className="space-y-3">
@@ -477,7 +485,7 @@ const WhatsappIntegrations = () => {
                           </div>
 
                           <p className="text-xs text-muted-foreground border-t pt-3">
-                            Os endpoints são gerenciados pelo administrador do sistema. Caso algum endpoint esteja como "Não configurado", entre em contato com o suporte.
+                            Os endpoints são gerenciados pelo administrador do sistema.
                           </p>
                         </CardContent>
                       </Card>
