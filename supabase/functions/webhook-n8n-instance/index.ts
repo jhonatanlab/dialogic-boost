@@ -197,18 +197,26 @@ Deno.serve(async (req) => {
         contactId = newContact.id;
       }
 
-      // Find or create conversation
+      // Find or create conversation — search ANY status to avoid duplicates
       let conversationId: string;
       const { data: existingConv } = await supabase
         .from("conversations")
-        .select("id")
+        .select("id, status")
         .eq("company_id", company_id)
         .eq("contact_id", contactId)
-        .eq("status", "open")
+        .order("last_message_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (existingConv) {
         conversationId = existingConv.id;
+        // Reopen if closed
+        if (existingConv.status === "closed") {
+          await supabase
+            .from("conversations")
+            .update({ status: "open" })
+            .eq("id", conversationId);
+        }
       } else {
         const { data: newConv, error: convErr } = await supabase
           .from("conversations")
