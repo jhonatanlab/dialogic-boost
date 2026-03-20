@@ -1,66 +1,52 @@
 
 
-## Root Cause Analysis
+## Root Cause
 
-The duplicate conversations are caused by **inconsistent phone number formats**. The Evolution API/n8n sends phone numbers with a device suffix like `558791320676:38`, but the `normalizePhone` function strips all non-digits, turning it into `55879132067638` — which doesn't match the existing contact stored as `558791320676:38` or `558791320676`. So every webhook creates a new contact and a new conversation.
+Two bugs with the same root cause: **the app inserts outbound messages without a `message_id`**.
 
-**Evidence from the database:**
-- Contact "Jhonatan França" has **6 duplicate entries** with phones `558791320676:38` and `558791320676`
-- Contact "GDO - Gleyson de Jesus" has **5 duplicate entries** with phones `5511957757341` and `5511957757341:38`
+1. **Empty bubble**: After sending "Teste", the app inserts a message (no `message_id`). Then n8n/Evolution API sends a webhook `upsert_message` for the same outbound message WITH an Evolution `message_id`. Since no existing message matches that `message_id`, a **second duplicate message** is created — often with empty or different content, causing the empty bubble.
 
----
+2. **Status never updates**: When Evolution sends `update_message_status` with its `message_id`, the app's original message (which has `message_id = null`) is never found, so status stays at "sending" forever.
 
 ## Plan
 
-### Step 1: Fix phone normalization in Edge Function
+### Step 1: Generate `message_id` on outbound messages (useMessages.ts)
 
-Update `normalizePhone` in `webhook-n8n-instance/index.ts` to:
-1. Strip the `:XX` suffix first (Evolution API device/instance identifier)
-2. Then strip any remaining non-digit characters
+When inserting an outbound message in `sendMessage`, generate a unique `message_id` (e.g., `app-{uuid}`) and store it in the DB. This gives the message a trackable identifier.
 
-```text
-"558791320676:38" → "558791320676"
-"5511957757341"   → "5511957757341"
-"+55 87 9132-0676" → "5587913206760"
-```
+### Step 2: Return `message_id` to n8n in send payload (useMessages.ts)
 
-### Step 2: Consolidate duplicate contacts and conversations (migration)
+Include the generated `message_id` in the payload sent to n8n (`proxy-n8n`), so n8n can associate the Evolution API response with our message.
 
-Write a data cleanup migration that:
-1. For each group of duplicate contacts (same phone digits + company_id):
-   - Keep the **oldest** contact
-   - Update all `messages.contact_id` and `conversations.contact_id` to point to the kept contact
-   - Delete the duplicate contacts
-2. For each group of duplicate conversations (same contact_id + company_id):
-   - Keep the **oldest** conversation
-   - Move all messages from duplicates into the kept conversation
-   - Delete the duplicate conversations
-3. Normalize all existing `contacts.phone` values to digits-only (strip `:XX` suffixes)
+### Step 3: Match outbound duplicates in webhook (webhook-n8n-instance)
 
-### Step 3: Add unique constraint on contacts
+In the `upsert_message` action, when receiving an **outbound** message: before inserting, check if there's already an outbound message in the same conversation with matching content and a recent timestamp (within 60 seconds) that has a different or null `message_id`. If found, **update that existing message** (set its `message_id` to the Evolution one + update status) instead of creating a new one.
 
-After cleanup, add a unique constraint `UNIQUE(phone, company_id)` on the contacts table (using a normalized phone column or a partial index on digits-only) to prevent future duplicates at the database level.
+This handles the case where n8n doesn't pass back our app-generated `message_id`.
 
-### Step 4: Update Edge Function contact lookup
+### Step 4: Cleanup — remove stale optimistic messages (Inbox.tsx)
 
-Change the contact lookup query to use a LIKE/similarity match that handles both `558791320676` and `558791320676:38`, or ensure the phone is always stored normalized (digits-only) and looked up the same way.
-
----
+Tighten the optimistic cleanup logic to also account for messages with status "sending" that have been in the DB for more than 30 seconds without an update.
 
 ### Technical Details
 
 **Files to modify:**
-- `supabase/functions/webhook-n8n-instance/index.ts` — fix `normalizePhone`, ensure contact lookup uses normalized phone
-- New migration SQL — cleanup duplicates, normalize phones, add unique constraint
+- `src/hooks/useMessages.ts` — add `message_id` generation on insert, include in n8n payload
+- `supabase/functions/webhook-n8n-instance/index.ts` — add duplicate-matching logic for outbound messages in `upsert_message`
 
-**Data cleanup SQL outline:**
+**Key code change in webhook (upsert_message):**
 ```text
-1. Create temp table mapping duplicate contact IDs → canonical contact ID
-2. UPDATE messages SET contact_id = canonical WHERE contact_id IN (duplicates)
-3. UPDATE conversations SET contact_id = canonical WHERE contact_id IN (duplicates)  
-4. DELETE duplicate contacts
-5. Repeat similar logic for duplicate conversations
-6. Normalize all phone values (strip :XX suffix)
-7. ADD UNIQUE constraint on (phone, company_id) with a WHERE phone IS NOT NULL
+If direction === "outbound":
+  1. Try upsert by message_id (existing logic)
+  2. If no existing message found by message_id, look for a recent outbound message
+     in the same conversation with matching content and message_id IS NULL
+  3. If found, UPDATE that message (set message_id + status) instead of INSERT
+```
+
+**Key code change in useMessages.ts:**
+```text
+const generatedMessageId = `app-${crypto.randomUUID()}`;
+// Insert with message_id field
+// Include message_id in n8n payload
 ```
 
