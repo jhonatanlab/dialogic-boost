@@ -23,6 +23,7 @@ import Settings from "./pages/Settings";
 import WhatsappIntegrations from "./pages/WhatsappIntegrations";
 import AdminWhatsapp from "./pages/AdminWhatsapp";
 import Users from "./pages/Users";
+import Teams from "./pages/Teams";
 
 const queryClient = new QueryClient();
 
