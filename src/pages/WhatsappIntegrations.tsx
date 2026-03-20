@@ -22,6 +22,7 @@ const WhatsappIntegrations = () => {
   const { toast } = useToast();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [nativeEnabled, setNativeEnabled] = useState(false);
+  const [nativeInitialized, setNativeInitialized] = useState(false);
   const [generatingQr, setGeneratingQr] = useState(false);
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
