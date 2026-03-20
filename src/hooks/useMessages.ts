@@ -49,6 +49,9 @@ export const useMessages = (conversationId: string | null) => {
       const effectiveMediaType = mediaType || "text";
       const messageMetadata = mediaUrl ? { media_url: mediaUrl, mimetype: mimetype || null } : null;
 
+      // Only use content for text, never auto-generate labels
+      const messageContent = content || "";
+
       const { data: message, error: msgError } = await supabase
         .from("messages")
         .insert({
@@ -57,7 +60,7 @@ export const useMessages = (conversationId: string | null) => {
           user_id: user.id,
           channel: "whatsapp",
           direction: "outbound",
-          content: content || (mediaUrl ? `[${effectiveMediaType}]` : ""),
+          content: messageContent,
           message_type: effectiveMediaType,
           status: "sending",
           metadata: messageMetadata,
