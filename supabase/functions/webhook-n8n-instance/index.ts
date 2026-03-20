@@ -352,6 +352,52 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === "update_instance_status") {
+      const { company_id, instance_id, status } = data;
+
+      if (!company_id || !status) {
+        return new Response(
+          JSON.stringify({ error: "company_id and status are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const validStatuses = ["connected", "disconnected", "connecting"];
+      if (!validStatuses.includes(status)) {
+        return new Response(
+          JSON.stringify({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        status,
+        updated_at: new Date().toISOString(),
+      };
+      if (instance_id) updatePayload.instance_id = instance_id;
+
+      const { data: updated, error } = await supabase
+        .from("whatsapp_instances")
+        .update(updatePayload)
+        .eq("company_id", company_id)
+        .select("id, status")
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!updated) {
+        return new Response(
+          JSON.stringify({ error: "No instance found for this company_id" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: "updated_instance_status", id: updated.id, status: updated.status }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
