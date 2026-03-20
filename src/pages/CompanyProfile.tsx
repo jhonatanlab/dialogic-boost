@@ -64,7 +64,7 @@ const CompanyProfile = () => {
 
       const { error: companyError } = await supabase
         .from("companies")
-        .update({ name: companyName.trim(), cnpj: cnpj.trim() || null })
+        .update({ name: companyName.trim(), cnpj: cnpj.trim() || null, address: companyAddress.trim() || null, phone: companyPhone.trim() || null } as any)
         .eq("id", companyId);
       if (companyError) throw companyError;
 
