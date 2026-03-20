@@ -229,9 +229,13 @@ const WhatsappIntegrations = () => {
                 <TabsTrigger value="native" className="flex items-center gap-2">
                   <Zap className="h-4 w-4" />
                   API Nativa
-                  {nativeEnabled ? (
+                  {companyInstance?.status === 'connected' ? (
                     <Badge variant="default" className="ml-2">
-                      Ativo ✅
+                      Conectado ✅
+                    </Badge>
+                  ) : nativeEnabled ? (
+                    <Badge className="ml-2 bg-amber-500/15 text-amber-600 border-amber-500/30">
+                      {companyInstance?.status === 'connecting' ? 'Conectando...' : 'Desconectado'}
                     </Badge>
                   ) : (
                     <Badge variant="secondary" className="ml-2">
