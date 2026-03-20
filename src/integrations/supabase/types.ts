@@ -1059,6 +1059,8 @@ export type Database = {
       }
       teams: {
         Row: {
+          access_level: string
+          channel: string
           company_id: string | null
           created_at: string
           description: string | null
@@ -1068,6 +1070,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          access_level?: string
+          channel?: string
           company_id?: string | null
           created_at?: string
           description?: string | null
@@ -1077,6 +1081,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          access_level?: string
+          channel?: string
           company_id?: string | null
           created_at?: string
           description?: string | null
