@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,9 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Search, Send, Phone, Mail, Copy, Calendar, Clock, Heart, Plus, Edit,
-  MessageSquare, Zap, Paperclip, X, Loader2, FileText,
+  Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
+  X, Loader2, FileText, SmilePlus, ChevronDown,
 } from "lucide-react";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useTags } from "@/hooks/useTags";
@@ -20,48 +20,57 @@ import { useConversations } from "@/hooks/useConversations";
 import { useMessages, Message } from "@/hooks/useMessages";
 import { useCompany } from "@/hooks/useCompany";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
-// ── Helpers ──
+// ── Constants ──
 
 const AUTO_MEDIA_LABELS = new Set([
   "Mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]",
 ]);
 
-const getMediaUrl = (message: Message): string | null => {
-  const meta = message.metadata as Record<string, unknown> | null;
-  return (typeof meta?.media_url === "string" && meta.media_url) ? meta.media_url : null;
+// ── Helpers ──
+
+const getMediaUrl = (msg: Message): string | null => {
+  const meta = msg.metadata as Record<string, unknown> | null;
+  return typeof meta?.media_url === "string" && meta.media_url ? meta.media_url : null;
 };
 
-const getMimetype = (message: Message): string | null => {
-  const meta = message.metadata as Record<string, unknown> | null;
+const getMimetype = (msg: Message): string | null => {
+  const meta = msg.metadata as Record<string, unknown> | null;
   return typeof meta?.mimetype === "string" ? meta.mimetype : null;
 };
 
-/** Ensure base64 data URIs have the correct prefix */
 const resolveMediaSrc = (url: string, mimetype: string | null, fallbackType: string): string => {
   if (url.startsWith("http") || url.startsWith("data:")) return url;
-  // Looks like raw base64 — add data URI prefix
   const mimeMap: Record<string, string> = {
-    image: "image/jpeg",
-    audio: "audio/ogg",
-    video: "video/mp4",
-    document: "application/octet-stream",
+    image: "image/jpeg", audio: "audio/ogg", video: "video/mp4", document: "application/octet-stream",
   };
-  const mime = mimetype || mimeMap[fallbackType] || "application/octet-stream";
-  return `data:${mime};base64,${url}`;
+  return `data:${mimetype || mimeMap[fallbackType] || "application/octet-stream"};base64,${url}`;
 };
 
-// ── Status Ticks Component ──
+const formatConvDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  if (isToday(d)) return format(d, "HH:mm");
+  if (isYesterday(d)) return "Ontem";
+  return format(d, "dd/MM/yy");
+};
+
+const getPreviewIcon = (type: string) => {
+  const map: Record<string, string> = { image: "📷", video: "🎥", audio: "🎵", document: "📄" };
+  return map[type] || "📎";
+};
+
+// ── Status Ticks ──
 const StatusTicks = ({ status }: { status: string }) => {
   const s = status?.toLowerCase() ?? "";
-  if (s === "sending") return <Loader2 className="h-3 w-3 animate-spin opacity-70" />;
-  if (s === "failed") return <span className="text-xs font-bold text-destructive">✕</span>;
-  if (s === "sent") return <span className="text-xs opacity-50">✓</span>;
+  if (s === "sending") return <Loader2 className="h-3 w-3 animate-spin opacity-60" />;
+  if (s === "failed") return <span className="text-[10px] font-bold text-destructive leading-none">✕</span>;
+  if (s === "sent") return <span className="text-[10px] opacity-40 leading-none">✓</span>;
   if (["server_ack", "received", "delivered"].includes(s))
-    return <span className="text-xs opacity-50">✓✓</span>;
-  if (s === "read") return <span className="text-xs text-blue-500 font-bold">✓✓</span>;
+    return <span className="text-[10px] opacity-40 leading-none">✓✓</span>;
+  if (s === "read") return <span className="text-[10px] font-semibold text-chat-tick-read leading-none">✓✓</span>;
   return null;
 };
 
@@ -70,65 +79,140 @@ const MediaContent = ({ message }: { message: Message }) => {
   const mediaUrl = getMediaUrl(message);
   const mimetype = getMimetype(message);
   const type = message.message_type;
-
   if (!mediaUrl || type === "text") return null;
-
   const src = resolveMediaSrc(mediaUrl, mimetype, type);
 
   switch (type) {
     case "image":
-      return <img src={src} alt="" className="rounded max-w-full max-h-60 object-cover" loading="lazy" />;
+      return (
+        <div className="overflow-hidden rounded-md">
+          <img src={src} alt="" className="w-full max-h-64 object-cover" loading="lazy" />
+        </div>
+      );
     case "video":
-      return <video src={src} controls className="rounded max-w-full max-h-60" />;
+      return <video src={src} controls className="w-full max-h-64 rounded-md" />;
     case "audio":
-      return <audio src={src} controls className="w-full min-w-[200px]" />;
+      return <audio src={src} controls className="w-full min-w-[220px]" />;
     case "document":
       return (
         <a href={src} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-2 p-2 rounded bg-background/50 hover:bg-background/80 transition-colors">
-          <FileText className="h-5 w-5 shrink-0" />
-          <span className="text-sm underline truncate">Documento</span>
+          className="flex items-center gap-3 p-3 rounded-md bg-background/30 hover:bg-background/50 transition-colors">
+          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">Documento</p>
+            <p className="text-[11px] opacity-60">Clique para baixar</p>
+          </div>
         </a>
       );
-    default:
-      return null;
+    default: return null;
   }
 };
 
 // ── Chat Bubble ──
 const ChatBubble = ({ message }: { message: Message }) => {
-  const direction = message.direction?.toLowerCase() ?? "";
-  const isOutbound = direction === "outbound";
+  const isOutbound = message.direction?.toLowerCase() === "outbound";
   const mediaUrl = getMediaUrl(message);
   const hasMedia = !!mediaUrl && message.message_type !== "text";
   const trimmedContent = message.content?.trim() ?? "";
-
-  // Decide whether to show text content
-  const shouldShowText = (() => {
-    if (!trimmedContent) return false;
-    // Never show auto-generated media labels
-    if (AUTO_MEDIA_LABELS.has(trimmedContent)) return false;
-    return true;
-  })();
+  const shouldShowText = trimmedContent && !AUTO_MEDIA_LABELS.has(trimmedContent);
 
   return (
-    <div className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[70%] p-3 rounded-lg ${
-          isOutbound ? "bg-primary text-primary-foreground" : "bg-muted"
-        }`}
-      >
+    <div className={`flex ${isOutbound ? "justify-end" : "justify-start"} px-4`}>
+      <div className={`relative max-w-[65%] rounded-xl shadow-sm ${
+        isOutbound
+          ? "bg-chat-outbound text-chat-outbound-foreground rounded-tr-sm"
+          : "bg-chat-inbound text-chat-inbound-foreground rounded-tl-sm"
+      }`}>
         {hasMedia && (
-          <div className="mb-1">
+          <div className={`${shouldShowText ? "p-1 pb-0" : "p-1"}`}>
             <MediaContent message={message} />
           </div>
         )}
-        {shouldShowText && <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>}
-        <div className="flex items-center justify-end gap-1 mt-1">
-          <span className="text-xs opacity-70">
+        {shouldShowText && (
+          <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words px-3 pt-2 pb-1">
+            {message.content}
+          </p>
+        )}
+        <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-0.5">
+          <span className="text-[11px] opacity-50 tabular-nums">
             {format(new Date(message.created_at), "HH:mm")}
           </span>
           {isOutbound && <StatusTicks status={message.status} />}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Date Separator ──
+const DateSeparator = ({ date }: { date: string }) => {
+  const d = new Date(date);
+  let label: string;
+  if (isToday(d)) label = "Hoje";
+  else if (isYesterday(d)) label = "Ontem";
+  else label = format(d, "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+
+  return (
+    <div className="flex items-center justify-center py-3">
+      <span className="text-[11px] bg-card text-muted-foreground px-4 py-1.5 rounded-full shadow-sm font-medium">
+        {label}
+      </span>
+    </div>
+  );
+};
+
+// ── Conversation List Item ──
+const ConversationItem = ({
+  conv, isSelected, onSelect,
+}: {
+  conv: ReturnType<typeof useConversations>["conversations"] extends (infer T)[] | undefined ? T : never;
+  isSelected: boolean;
+  onSelect: () => void;
+}) => {
+  const lm = conv.last_message;
+  const content = lm?.content?.trim() ?? "";
+  const preview = AUTO_MEDIA_LABELS.has(content)
+    ? `${getPreviewIcon(lm?.message_type || "document")} ${(lm?.message_type || "mídia").charAt(0).toUpperCase() + (lm?.message_type || "mídia").slice(1)}`
+    : content || "Sem mensagens";
+
+  return (
+    <div onClick={onSelect}
+      className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-border/50 hover:bg-secondary/60 ${
+        isSelected ? "bg-secondary" : ""
+      }`}>
+      <Avatar className="h-12 w-12 shrink-0">
+        <AvatarImage src={conv.contact.avatar_url || undefined} />
+        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+          {conv.contact.name.slice(0, 2).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-0.5">
+          <span className="font-semibold text-sm text-foreground truncate">
+            {conv.contact.name}
+          </span>
+          <span className={`text-[11px] shrink-0 tabular-nums ${
+            conv.unread_count > 0 ? "text-primary font-semibold" : "text-muted-foreground"
+          }`}>
+            {formatConvDate(conv.last_message_at)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[13px] text-muted-foreground truncate flex-1">
+            {lm?.direction === "outbound" && (
+              <span className="text-primary mr-1">
+                <StatusTicks status={lm?.message_type === "text" ? "sent" : "sent"} />
+              </span>
+            )}
+            {preview}
+          </p>
+          {conv.unread_count > 0 && (
+            <span className="bg-primary text-primary-foreground text-[11px] font-bold rounded-full h-5 min-w-5 flex items-center justify-center px-1.5 shrink-0">
+              {conv.unread_count}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -147,6 +231,8 @@ const Inbox = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
@@ -154,34 +240,32 @@ const Inbox = () => {
   const { quickReplies } = useQuickReplies();
 
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId);
-
   const { data: notes } = useContactNotes(selectedConversation?.contact_id || "");
   const createNote = useCreateContactNote();
   const deleteNote = useDeleteContactNote();
   const { data: tags } = useTags();
 
-  // Auto-scroll to latest message
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Mark conversation as read when selected
+  // Scroll-to-bottom button
+  const handleChatScroll = () => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 200);
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
     if (selectedConversationId && selectedConversation?.unread_count > 0) {
       markAsRead.mutate(selectedConversationId);
     }
   }, [selectedConversationId]);
-
-  const getChannelIcon = (channel: string) => {
-    if (channel === "whatsapp") return <Phone className="h-4 w-4 text-green-500" />;
-    return <MessageSquare className="h-4 w-4" />;
-  };
-
-  const getStatusBadge = (status: string) => {
-    const labels: Record<string, string> = { open: "Aberto", pending: "Pendente", closed: "Fechado" };
-    const variants: Record<string, string> = { open: "default", pending: "secondary", closed: "outline" };
-    return <Badge variant={variants[status] as any}>{labels[status] || status}</Badge>;
-  };
 
   const handleCopyPhone = () => {
     if (selectedConversation?.contact.phone) {
@@ -195,7 +279,7 @@ const Inbox = () => {
     try {
       await createNote.mutateAsync({ contactId: selectedConversation.contact_id, content: newNote });
       setNewNote("");
-      toast.success("Nota salva com sucesso!");
+      toast.success("Nota salva!");
     } catch { toast.error("Erro ao salvar nota"); }
   };
 
@@ -226,7 +310,6 @@ const Inbox = () => {
 
   const handleSendMessage = async () => {
     if ((!messageInput.trim() && !attachedFile) || !selectedConversation || !companyId) return;
-
     let mediaUrl: string | undefined;
     let mediaType: string | undefined;
     let mimetype: string | undefined;
@@ -236,9 +319,7 @@ const Inbox = () => {
       try {
         const fileExt = attachedFile.name.split(".").pop();
         const filePath = `${companyId}/${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from("chat-attachments")
-          .upload(filePath, attachedFile);
+        const { error: uploadError } = await supabase.storage.from("chat-attachments").upload(filePath, attachedFile);
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
         mediaUrl = urlData.publicUrl;
@@ -259,9 +340,7 @@ const Inbox = () => {
       content: messageInput,
       phone: selectedConversation.contact.phone || "",
       companyId,
-      mediaType,
-      mediaUrl,
-      mimetype,
+      mediaType, mediaUrl, mimetype,
     });
     setMessageInput("");
     removeAttachment();
@@ -278,221 +357,266 @@ const Inbox = () => {
     conv.contact.phone?.includes(searchQuery)
   ) || [];
 
-  // ── Conversation list preview text ──
-  const getPreviewText = (conv: typeof filteredConversations[0]) => {
-    const lm = conv.last_message;
-    if (!lm) return "Sem mensagens";
-    const content = lm.content?.trim() ?? "";
-    if (AUTO_MEDIA_LABELS.has(content)) {
-      const type = lm.message_type || "mídia";
-      const icons: Record<string, string> = { image: "📷", video: "🎥", audio: "🎵", document: "📄" };
-      return `${icons[type] || "📎"} ${type.charAt(0).toUpperCase() + type.slice(1)}`;
+  // Group messages by date
+  const groupedMessages = (() => {
+    if (!messages) return [];
+    const groups: { date: string; msgs: Message[] }[] = [];
+    let currentDate = "";
+    for (const msg of messages) {
+      const msgDate = format(new Date(msg.created_at), "yyyy-MM-dd");
+      if (msgDate !== currentDate) {
+        currentDate = msgDate;
+        groups.push({ date: msg.created_at, msgs: [msg] });
+      } else {
+        groups[groups.length - 1].msgs.push(msg);
+      }
     }
-    return content || "Sem mensagens";
-  };
+    return groups;
+  })();
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col h-screen overflow-hidden">
-        <div className="p-6 pb-4">
-          <h1 className="text-3xl font-bold tracking-tight">Inbox</h1>
-          <p className="text-muted-foreground mt-2">Gerencie todas as suas conversas em um só lugar</p>
+      <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+        {/* ─── Col 1: Conversations ─── */}
+        <div className="w-[340px] border-r border-border flex flex-col bg-card shrink-0">
+          {/* Header */}
+          <div className="h-16 px-4 flex items-center justify-between border-b border-border bg-card">
+            <h1 className="text-lg font-bold text-foreground">Conversas</h1>
+            <Badge variant="secondary" className="font-semibold text-xs">
+              {conversations?.length || 0}
+            </Badge>
+          </div>
+
+          {/* Search */}
+          <div className="px-3 py-2 border-b border-border/50">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Buscar ou começar nova conversa"
+                className="pl-10 h-9 bg-secondary border-0 text-sm rounded-lg"
+                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="flex-1 overflow-y-auto">
+            {conversationsLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
+                <MessageSquare className="h-8 w-8 mb-2 opacity-30" />
+                Nenhuma conversa
+              </div>
+            ) : (
+              filteredConversations.map((conv) => (
+                <ConversationItem key={conv.id} conv={conv}
+                  isSelected={selectedConversationId === conv.id}
+                  onSelect={() => setSelectedConversationId(conv.id)} />
+              ))
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-1 gap-4 px-6 pb-6 overflow-hidden">
-          {/* Col 1: Conversation list */}
-          <Card className="w-1/4 flex flex-col overflow-hidden">
-            <div className="mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Buscar conversas..." className="pl-10" value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)} />
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-2 p-4">
-              {conversationsLoading ? (
-                <div className="text-center text-muted-foreground p-4">Carregando...</div>
-              ) : filteredConversations.length === 0 ? (
-                <div className="text-center text-muted-foreground p-4">Nenhuma conversa encontrada</div>
-              ) : (
-                filteredConversations.map((conv) => (
-                  <div key={conv.id} onClick={() => setSelectedConversationId(conv.id)}
-                    className={`p-3 rounded-lg border hover:bg-accent cursor-pointer transition-colors ${
-                      selectedConversationId === conv.id ? "bg-accent" : ""
-                    }`}>
-                    <div className="flex items-start gap-3">
-                      <Avatar>
-                        <AvatarImage src={conv.contact.avatar_url || undefined} />
-                        <AvatarFallback>{conv.contact.name[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            {getChannelIcon(conv.channel)}
-                            <span className="font-medium text-sm truncate">{conv.contact.name}</span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(conv.last_message_at), "HH:mm")}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate mb-2">
-                          {conv.last_message?.direction === "outbound" && "Você: "}
-                          {getPreviewText(conv)}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          {getStatusBadge(conv.status)}
-                          {conv.unread_count > 0 && (
-                            <Badge variant="default" className="h-5 w-5 p-0 flex items-center justify-center">
-                              {conv.unread_count}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
-
-          {/* Col 2: Chat window */}
-          <Card className="flex-1 flex flex-col overflow-hidden p-6">
-            {selectedConversation ? (
-              <>
-                <div className="border-b pb-4 mb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={selectedConversation.contact.avatar_url || undefined} />
-                        <AvatarFallback>{selectedConversation.contact.name[0]}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="font-medium">{selectedConversation.contact.name}</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          {getChannelIcon(selectedConversation.channel)}
-                          <span className="capitalize">{selectedConversation.channel}</span>
-                        </div>
-                      </div>
-                    </div>
-                    {getStatusBadge(selectedConversation.status)}
-                  </div>
+        {/* ─── Col 2: Chat ─── */}
+        <div className="flex-1 flex flex-col min-w-0 bg-chat-bg">
+          {selectedConversation ? (
+            <>
+              {/* Chat header */}
+              <div className="h-16 px-5 flex items-center gap-3 bg-card border-b border-border shrink-0">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={selectedConversation.contact.avatar_url || undefined} />
+                  <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                    {selectedConversation.contact.name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm text-foreground truncate">
+                    {selectedConversation.contact.name}
+                  </h3>
+                  <p className="text-[12px] text-muted-foreground flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {selectedConversation.contact.phone || "Sem telefone"}
+                  </p>
                 </div>
+                <Badge variant={selectedConversation.status === "open" ? "default" : "secondary"} className="text-[11px]">
+                  {selectedConversation.status === "open" ? "Aberto" : selectedConversation.status === "closed" ? "Fechado" : selectedConversation.status}
+                </Badge>
+              </div>
 
-                <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+              {/* Messages area */}
+              <div ref={chatContainerRef} onScroll={handleChatScroll}
+                className="flex-1 overflow-y-auto relative"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
+                <div className="py-4 space-y-1">
                   {messagesLoading ? (
-                    <div className="text-center text-muted-foreground">Carregando mensagens...</div>
-                  ) : !messages || messages.length === 0 ? (
-                    <div className="text-center text-muted-foreground">Sem mensagens</div>
+                    <div className="flex items-center justify-center h-32">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : groupedMessages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                      <MessageSquare className="h-10 w-10 mb-2 opacity-20" />
+                      <p className="text-sm">Nenhuma mensagem ainda</p>
+                    </div>
                   ) : (
-                    messages.map((message) => <ChatBubble key={message.id} message={message} />)
+                    groupedMessages.map((group, gi) => (
+                      <div key={gi}>
+                        <DateSeparator date={group.date} />
+                        <div className="space-y-1">
+                          {group.msgs.map(msg => <ChatBubble key={msg.id} message={msg} />)}
+                        </div>
+                      </div>
+                    ))
                   )}
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="relative">
-                  {attachedFile && (
-                    <div className="flex items-center gap-2 mb-2 p-2 bg-muted rounded-lg text-sm">
-                      <Paperclip className="h-4 w-4 text-muted-foreground" />
-                      <span className="truncate flex-1">{attachedFile.name}</span>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={removeAttachment}>
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
-                  <input type="file" ref={fileInputRef} className="hidden"
-                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
-                    onChange={handleFileSelect} />
-                  <div className="flex gap-2">
+                {/* Scroll to bottom button */}
+                {showScrollBtn && (
+                  <button onClick={scrollToBottom}
+                    className="absolute bottom-4 right-4 h-10 w-10 rounded-full bg-card shadow-md border border-border flex items-center justify-center hover:bg-secondary transition-colors">
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+
+              {/* Input area */}
+              <div className="bg-card border-t border-border px-4 py-3 shrink-0">
+                {attachedFile && (
+                  <div className="flex items-center gap-2 mb-2 p-2.5 bg-secondary rounded-lg">
+                    <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate flex-1">{attachedFile.name}</span>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={removeAttachment}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                <input type="file" ref={fileInputRef} className="hidden"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+                  onChange={handleFileSelect} />
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="icon" variant="ghost"
+                    className="h-10 w-10 rounded-full shrink-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => fileInputRef.current?.click()}>
+                    <Paperclip className="h-5 w-5" />
+                  </Button>
+                  <div className="relative flex-1">
+                    <Input placeholder="Digite uma mensagem" value={messageInput}
+                      className="h-11 rounded-xl bg-secondary border-0 pr-12 text-sm"
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+                      }} />
                     <Button type="button" size="icon" variant="ghost"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
                       onClick={() => setShowQuickReplies(!showQuickReplies)}>
                       <Zap className="h-4 w-4" />
                     </Button>
-                    <Button type="button" size="icon" variant="ghost"
-                      onClick={() => fileInputRef.current?.click()}>
-                      <Paperclip className="h-4 w-4" />
-                    </Button>
-                    <Input placeholder="Digite sua mensagem..." value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
-                      }} />
-                    <Button size="icon" onClick={handleSendMessage}
-                      disabled={sendMessage.isPending || isUploading || (!messageInput.trim() && !attachedFile)}>
-                      {sendMessage.isPending || isUploading
-                        ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <Send className="h-4 w-4" />}
-                    </Button>
                   </div>
+                  <Button size="icon" onClick={handleSendMessage}
+                    className="h-11 w-11 rounded-full shrink-0"
+                    disabled={sendMessage.isPending || isUploading || (!messageInput.trim() && !attachedFile)}>
+                    {sendMessage.isPending || isUploading
+                      ? <Loader2 className="h-5 w-5 animate-spin" />
+                      : <Send className="h-5 w-5" />}
+                  </Button>
+                </div>
 
-                  {showQuickReplies && quickReplies && quickReplies.length > 0 && (
-                    <div className="absolute bottom-16 left-0 right-0 bg-background border rounded-lg shadow-lg p-2 z-50 max-h-64 overflow-y-auto">
-                      {quickReplies.map((reply) => (
-                        <div key={reply.id} onClick={() => insertQuickReply(reply.text)}
-                          className="p-3 hover:bg-accent cursor-pointer rounded-lg transition-colors">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Zap className="h-3 w-3 text-primary" />
-                            <span className="font-medium text-sm">{reply.name}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground">{reply.text}</p>
+                {showQuickReplies && quickReplies && quickReplies.length > 0 && (
+                  <div className="absolute bottom-20 left-4 right-4 bg-card border border-border rounded-xl shadow-lg p-2 z-50 max-h-56 overflow-y-auto">
+                    {quickReplies.map((reply) => (
+                      <div key={reply.id} onClick={() => insertQuickReply(reply.text)}
+                        className="p-3 hover:bg-secondary cursor-pointer rounded-lg transition-colors">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <Zap className="h-3 w-3 text-primary" />
+                          <span className="font-medium text-sm">{reply.name}</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                Selecione uma conversa para começar
+                        <p className="text-xs text-muted-foreground">{reply.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </Card>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
+              <div className="h-24 w-24 rounded-full bg-secondary flex items-center justify-center">
+                <MessageSquare className="h-10 w-10 opacity-30" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-foreground mb-1">Inbox</h3>
+                <p className="text-sm">Selecione uma conversa para começar</p>
+              </div>
+            </div>
+          )}
+        </div>
 
-          {/* Col 3: Contact CRM panel */}
-          <Card className="w-1/4 flex flex-col overflow-y-auto p-6">
-            {selectedConversation ? (
-              <>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold">Informações do Contato</h2>
-                  <Button size="icon" variant="ghost"><Edit className="h-4 w-4" /></Button>
-                </div>
+        {/* ─── Col 3: Contact CRM ─── */}
+        {selectedConversation && (
+          <div className="w-[300px] border-l border-border bg-card flex flex-col shrink-0 overflow-hidden">
+            {/* CRM Header */}
+            <div className="h-16 px-4 flex items-center justify-between border-b border-border shrink-0">
+              <h2 className="text-sm font-bold text-foreground">Detalhes</h2>
+              <Button size="icon" variant="ghost" className="h-8 w-8">
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
+            </div>
 
-                <div className="flex flex-col items-center mb-6">
-                  <Avatar className="h-20 w-20 mb-3">
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-5">
+                {/* Contact card */}
+                <div className="flex flex-col items-center text-center">
+                  <Avatar className="h-16 w-16 mb-3">
                     <AvatarImage src={selectedConversation.contact.avatar_url || undefined} />
-                    <AvatarFallback className="text-2xl">{selectedConversation.contact.name[0]}</AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
+                      {selectedConversation.contact.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
-                  <h3 className="font-semibold text-lg">{selectedConversation.contact.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    {getChannelIcon(selectedConversation.channel)}
-                    <span className="text-sm text-muted-foreground capitalize">{selectedConversation.channel}</span>
+                  <h3 className="font-bold text-foreground">{selectedConversation.contact.name}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {selectedConversation.contact.phone || "—"}
+                  </p>
+                </div>
+
+                <Separator />
+
+                {/* Quick info */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-muted-foreground text-xs">Telefone</Label>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-medium text-foreground">
+                        {selectedConversation.contact.phone || "—"}
+                      </span>
+                      {selectedConversation.contact.phone && (
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCopyPhone}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-muted-foreground text-xs">Email</Label>
+                    <span className="text-xs font-medium text-foreground">
+                      {selectedConversation.contact.email || "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-muted-foreground text-xs">Canal</Label>
+                    <span className="text-xs font-medium text-foreground capitalize">
+                      {selectedConversation.channel}
+                    </span>
                   </div>
                 </div>
 
-                <Separator className="mb-4" />
+                <Separator />
 
-                <div className="mb-4">
-                  <Label className="text-muted-foreground text-xs mb-1 block">Telefone</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{selectedConversation.contact.phone || "Não informado"}</span>
-                    {selectedConversation.contact.phone && (
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleCopyPhone}>
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <Label className="text-muted-foreground text-xs mb-1 block">Email</Label>
-                  <span className="text-sm">{selectedConversation.contact.email || "Não informado"}</span>
-                </div>
-
-                <Separator className="my-4" />
-
-                <div className="mb-4">
+                {/* Origin */}
+                <div>
                   <Label className="text-muted-foreground text-xs mb-2 block">Origem</Label>
                   <Select value={origin} onValueChange={setOrigin}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="whatsapp">WhatsApp</SelectItem>
                       <SelectItem value="instagram">Instagram</SelectItem>
@@ -503,46 +627,41 @@ const Inbox = () => {
                   </Select>
                 </div>
 
-                <Separator className="my-4" />
+                <Separator />
 
-                <div className="flex-1">
-                  <Label className="text-muted-foreground text-xs mb-2 block">Notas Internas</Label>
-                  <div className="space-y-3">
-                    <Textarea placeholder="Adicione uma nota sobre este contato..." value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)} rows={3} className="resize-none" />
-                    <Button onClick={handleSaveNote} disabled={!newNote.trim() || createNote.isPending}
-                      className="w-full" size="sm">Salvar Nota</Button>
+                {/* Notes */}
+                <div>
+                  <Label className="text-muted-foreground text-xs mb-2 block">Notas internas</Label>
+                  <Textarea placeholder="Adicione uma nota..." value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)} rows={2} className="resize-none text-sm mb-2" />
+                  <Button onClick={handleSaveNote} disabled={!newNote.trim() || createNote.isPending}
+                    className="w-full h-8 text-xs" size="sm">Salvar</Button>
 
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {notes && notes.length > 0 ? (
-                        notes.map((note) => (
-                          <div key={note.id} className="p-3 bg-muted rounded-lg text-sm space-y-1">
-                            <p>{note.content}</p>
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(note.created_at), "dd/MM/yyyy 'às' HH:mm")}
-                              </span>
-                              <Button size="icon" variant="ghost" className="h-6 w-6"
-                                onClick={() => handleDeleteNote(note.id)}>
-                                <span className="text-destructive">✕</span>
-                              </Button>
-                            </div>
+                  <div className="space-y-2 mt-3">
+                    {notes && notes.length > 0 ? (
+                      notes.map((note) => (
+                        <div key={note.id} className="p-2.5 bg-secondary rounded-lg text-xs space-y-1">
+                          <p className="text-foreground">{note.content}</p>
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground text-[10px]">
+                              {format(new Date(note.created_at), "dd/MM 'às' HH:mm")}
+                            </span>
+                            <Button size="icon" variant="ghost" className="h-5 w-5"
+                              onClick={() => handleDeleteNote(note.id)}>
+                              <X className="h-3 w-3 text-destructive" />
+                            </Button>
                           </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-muted-foreground text-center py-4">Nenhuma nota cadastrada</p>
-                      )}
-                    </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground text-center py-3">Nenhuma nota</p>
+                    )}
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                Selecione uma conversa
               </div>
-            )}
-          </Card>
-        </div>
+            </ScrollArea>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

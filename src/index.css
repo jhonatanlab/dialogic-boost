@@ -38,6 +38,13 @@ All colors MUST be HSL.
     
     --radius: 0.75rem;
     
+    --chat-outbound: 16 98% 57%;
+    --chat-outbound-foreground: 0 0% 100%;
+    --chat-inbound: 0 0% 96%;
+    --chat-inbound-foreground: 0 0% 20%;
+    --chat-bg: 30 20% 95%;
+    --chat-tick-read: 210 100% 50%;
+    
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 0 0% 28%;
     --sidebar-primary: 16 98% 57%;
@@ -101,6 +108,13 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 20%;
     --sidebar-ring: 16 98% 57%;
+    
+    --chat-outbound: 16 80% 45%;
+    --chat-outbound-foreground: 0 0% 100%;
+    --chat-inbound: 0 0% 18%;
+    --chat-inbound-foreground: 0 0% 90%;
+    --chat-bg: 0 0% 10%;
+    --chat-tick-read: 210 100% 60%;
     
     --chart-1: 16 98% 57%;
     --chart-2: 16 82% 67%;
