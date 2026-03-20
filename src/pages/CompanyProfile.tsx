@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Building2, Save, Loader2, Upload, Crown } from "lucide-react";
+import { ArrowLeft, Building2, Save, Loader2, Upload, Crown, Lock, Phone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/hooks/useCompany";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -28,7 +28,11 @@ const CompanyProfile = () => {
 
   const [companyName, setCompanyName] = useState("");
   const [cnpj, setCnpj] = useState("");
+  const [companyAddress, setCompanyAddress] = useState("");
+  const [companyPhone, setCompanyPhone] = useState("");
   const [fullName, setFullName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userPhone, setUserPhone] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -36,12 +40,23 @@ const CompanyProfile = () => {
     if (company) {
       setCompanyName(company.name || "");
       setCnpj(company.cnpj || "");
-      setLogoUrl(null); // logo_url not in schema yet, placeholder
+      setCompanyAddress((company as any).address || "");
+      setCompanyPhone((company as any).phone || "");
+      setLogoUrl(null);
     }
     if (profile) {
       setFullName((profile as any).full_name || "");
     }
   }, [company, profile]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUserEmail(data.user.email || "");
+        setUserPhone(data.user.phone || "");
+      }
+    });
+  }, []);
 
   const updateCompanyMutation = useMutation({
     mutationFn: async () => {
@@ -49,7 +64,7 @@ const CompanyProfile = () => {
 
       const { error: companyError } = await supabase
         .from("companies")
-        .update({ name: companyName.trim(), cnpj: cnpj.trim() || null })
+        .update({ name: companyName.trim(), cnpj: cnpj.trim() || null, address: companyAddress.trim() || null, phone: companyPhone.trim() || null } as any)
         .eq("id", companyId);
       if (companyError) throw companyError;
 
@@ -208,6 +223,22 @@ const CompanyProfile = () => {
                     placeholder="00.000.000/0000-00"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Telefone para contato</Label>
+                  <Input
+                    value={companyPhone}
+                    onChange={(e) => setCompanyPhone(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Endereço</Label>
+                  <Input
+                    value={companyAddress}
+                    onChange={(e) => setCompanyAddress(e.target.value)}
+                    placeholder="Rua, número, bairro, cidade - UF"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -229,11 +260,33 @@ const CompanyProfile = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    E-mail
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Label>
+                  <Input
+                    value={userEmail}
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    Telefone
+                  </Label>
+                  <Input
+                    value={userPhone}
+                    onChange={(e) => setUserPhone(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Papel</Label>
                   <Input
                     value={profile?.role === "admin" ? "Administrador" : profile?.role === "manager" ? "Gerente" : "Atendente"}
                     readOnly
-                    className="bg-muted"
+                    className="bg-muted cursor-not-allowed"
                   />
                 </div>
               </div>

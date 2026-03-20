@@ -293,26 +293,32 @@ export type Database = {
       }
       companies: {
         Row: {
+          address: string | null
           cnpj: string | null
           created_at: string
           id: string
           name: string
+          phone: string | null
           plan: string
           updated_at: string
         }
         Insert: {
+          address?: string | null
           cnpj?: string | null
           created_at?: string
           id?: string
           name: string
+          phone?: string | null
           plan?: string
           updated_at?: string
         }
         Update: {
+          address?: string | null
           cnpj?: string | null
           created_at?: string
           id?: string
           name?: string
+          phone?: string | null
           plan?: string
           updated_at?: string
         }
