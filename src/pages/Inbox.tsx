@@ -256,18 +256,35 @@ const Inbox = () => {
   const deleteNote = useDeleteContactNote();
 
   // Merge optimistic + real messages
+  // Merge optimistic + real messages, matching by content+direction+timestamp proximity
   const allMessages = (() => {
     if (!messages) return optimisticMessages;
-    const realIds = new Set(messages.map(m => m.id));
-    const pending = optimisticMessages.filter(m => !realIds.has(m.id));
+    if (optimisticMessages.length === 0) return messages;
+    
+    // Remove optimistic messages that have a matching real message
+    const pending = optimisticMessages.filter(opt => {
+      // Check if any real outbound message matches this optimistic one
+      return !messages.some(real =>
+        real.direction === "outbound" &&
+        real.content === opt.content &&
+        real.message_type === opt.message_type &&
+        Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime()) < 30000
+      );
+    });
     return [...messages, ...pending];
   })();
 
   // Clean up optimistic messages when real ones arrive
   useEffect(() => {
-    if (messages && optimisticMessages.length > 0) {
-      const realIds = new Set(messages.map(m => m.id));
-      setOptimisticMessages(prev => prev.filter(m => !realIds.has(m.id)));
+    if (messages && messages.length > 0 && optimisticMessages.length > 0) {
+      setOptimisticMessages(prev => prev.filter(opt =>
+        !messages.some(real =>
+          real.direction === "outbound" &&
+          real.content === opt.content &&
+          real.message_type === opt.message_type &&
+          Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime()) < 30000
+        )
+      ));
     }
   }, [messages]);
 
