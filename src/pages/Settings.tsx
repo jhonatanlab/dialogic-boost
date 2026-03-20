@@ -43,9 +43,9 @@ const Settings = () => {
       icon: UsersRound,
       title: "Equipes",
       description: "Organize suas equipes de atendimento.",
-      action: () => console.log("Gerenciar equipes"),
+      action: () => navigate("/settings/teams"),
       actionLabel: "Gerenciar equipes",
-      color: "text-cyan-500",
+      color: "text-primary",
     },
   ];
 
