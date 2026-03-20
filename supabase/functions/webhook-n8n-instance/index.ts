@@ -322,7 +322,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const validStatuses = ["sent", "delivered", "read", "failed"];
+      const validStatuses = ["sent", "delivered", "read", "failed", "received", "server_ack"];
       if (!validStatuses.includes(status)) {
         return new Response(
           JSON.stringify({ error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` }),
@@ -330,6 +330,7 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Try to update; if message doesn't exist yet, ignore silently
       const { data: updated, error } = await supabase
         .from("messages")
         .update({ status })
@@ -339,15 +340,8 @@ Deno.serve(async (req) => {
 
       if (error) throw error;
 
-      if (!updated) {
-        return new Response(
-          JSON.stringify({ error: "Message not found", message_id }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
       return new Response(
-        JSON.stringify({ success: true, action: "updated_status", id: updated.id, status }),
+        JSON.stringify({ success: true, action: "updated_status", id: updated?.id || null, status }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
