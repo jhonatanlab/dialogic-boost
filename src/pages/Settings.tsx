@@ -35,7 +35,7 @@ const Settings = () => {
       icon: Users,
       title: "Usuários",
       description: "Adicione ou remova usuários.",
-      action: () => console.log("Gerenciar usuários"),
+      action: () => navigate("/settings/users"),
       actionLabel: "Gerenciar usuários",
       color: "text-purple-500",
     },
