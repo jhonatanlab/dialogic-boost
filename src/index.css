@@ -109,6 +109,13 @@ All colors MUST be HSL.
     --sidebar-border: 0 0% 20%;
     --sidebar-ring: 16 98% 57%;
     
+    --chat-outbound: 16 80% 45%;
+    --chat-outbound-foreground: 0 0% 100%;
+    --chat-inbound: 0 0% 18%;
+    --chat-inbound-foreground: 0 0% 90%;
+    --chat-bg: 0 0% 10%;
+    --chat-tick-read: 210 100% 60%;
+    
     --chart-1: 16 98% 57%;
     --chart-2: 16 82% 67%;
     --chart-3: 16 70% 77%;
