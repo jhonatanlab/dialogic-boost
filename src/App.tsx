@@ -22,6 +22,7 @@ import ModeloMessages from "./pages/ModeloMessages";
 import Settings from "./pages/Settings";
 import WhatsappIntegrations from "./pages/WhatsappIntegrations";
 import AdminWhatsapp from "./pages/AdminWhatsapp";
+import Users from "./pages/Users";
 
 const queryClient = new QueryClient();
 
