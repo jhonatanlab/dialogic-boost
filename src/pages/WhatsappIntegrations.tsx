@@ -80,6 +80,15 @@ const WhatsappIntegrations = () => {
     }
   }, [zapiIntegration]);
 
+  // Sync nativeEnabled from DB instance
+  useEffect(() => {
+    if (!nativeInitialized && companyInstance !== undefined) {
+      setNativeEnabled(!!companyInstance);
+      setNativeInitialized(true);
+    }
+  }, [companyInstance, nativeInitialized]);
+
+
   const handleMetaSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!metaForm.accessToken || !metaForm.phoneNumberId || !metaForm.whatsappBusinessId) {
