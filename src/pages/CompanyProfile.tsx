@@ -28,7 +28,11 @@ const CompanyProfile = () => {
 
   const [companyName, setCompanyName] = useState("");
   const [cnpj, setCnpj] = useState("");
+  const [companyAddress, setCompanyAddress] = useState("");
+  const [companyPhone, setCompanyPhone] = useState("");
   const [fullName, setFullName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userPhone, setUserPhone] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -36,12 +40,23 @@ const CompanyProfile = () => {
     if (company) {
       setCompanyName(company.name || "");
       setCnpj(company.cnpj || "");
-      setLogoUrl(null); // logo_url not in schema yet, placeholder
+      setCompanyAddress((company as any).address || "");
+      setCompanyPhone((company as any).phone || "");
+      setLogoUrl(null);
     }
     if (profile) {
       setFullName((profile as any).full_name || "");
     }
   }, [company, profile]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUserEmail(data.user.email || "");
+        setUserPhone(data.user.phone || "");
+      }
+    });
+  }, []);
 
   const updateCompanyMutation = useMutation({
     mutationFn: async () => {
