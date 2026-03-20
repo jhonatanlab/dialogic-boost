@@ -73,6 +73,7 @@ export const useMessages = (conversationId: string | null) => {
 
       const payload: Record<string, string> = {
         company_id: companyId, number: phone, text: content, type: effectiveMediaType,
+        message_id: generatedMessageId,
       };
       if (mediaUrl) payload.media_url = mediaUrl;
       if (mimetype) payload.mimetype = mimetype;
