@@ -257,7 +257,7 @@ const Contacts = () => {
       />
 
       {/* Tags Manager */}
-      <TagsManager open={isTagsOpen} onOpenChange={setIsTagsOpen}
+      <TagsManager open={isTagsOpen} onOpenChange={setIsTagsOpen} />
 
       {/* Contact Details Sheet */}
       <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
