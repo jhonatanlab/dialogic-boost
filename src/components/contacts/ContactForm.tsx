@@ -188,6 +188,7 @@ export function ContactForm({ open, onOpenChange, onSubmit, contact }: ContactFo
                         selected={field.value || undefined}
                         onSelect={field.onChange}
                         disabled={(date) => date > new Date()}
+                        locale={ptBR}
                         initialFocus
                         className={cn("p-3 pointer-events-auto")}
                       />
