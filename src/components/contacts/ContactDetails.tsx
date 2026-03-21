@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Mail, Phone, Instagram, Plus, Trash2, MessageCircle, Cake } from "lucide-react";
+import { X, Mail, Phone, Instagram, Plus, Trash2, MessageCircle, Cake, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
