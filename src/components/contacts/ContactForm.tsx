@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -187,6 +188,7 @@ export function ContactForm({ open, onOpenChange, onSubmit, contact }: ContactFo
                         selected={field.value || undefined}
                         onSelect={field.onChange}
                         disabled={(date) => date > new Date()}
+                        locale={ptBR}
                         initialFocus
                         className={cn("p-3 pointer-events-auto")}
                       />
