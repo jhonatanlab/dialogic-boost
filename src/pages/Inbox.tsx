@@ -335,6 +335,19 @@ const Inbox = () => {
     }
   }, [selectedConversationId]);
 
+  // Auto-select conversation from contactId URL param
+  useEffect(() => {
+    const contactId = searchParams.get("contactId");
+    if (contactId && conversations && conversations.length > 0) {
+      const match = conversations.find(c => c.contact_id === contactId);
+      if (match && match.id !== selectedConversationId) {
+        setSelectedConversationId(match.id);
+        // Clean up the URL param
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [conversations, searchParams]);
+
   // Populate edit fields
   useEffect(() => {
     if (selectedConversation) {
