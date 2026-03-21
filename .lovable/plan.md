@@ -1,52 +1,33 @@
 
 
-## Root Cause
+## Problema
+Quando uma mensagem tem `metadata.media_url` com o mesmo conteúdo base64 que o campo `content`, o componente `MediaContent` renderiza a imagem corretamente, mas o texto bruto base64 (67KB+) também é exibido como parágrafo porque `showText` não leva em conta que `hasMedia` já está tratando a mídia.
 
-Two bugs with the same root cause: **the app inserts outbound messages without a `message_id`**.
+## Causa Raiz
+Na lógica do `ChatBubble` em `src/pages/Inbox.tsx`:
+- `hasMedia = true` → `isContentImage = false` (pois exige `!hasMedia`)
+- `showText = !isContentImage && rawContent.length > 0 && !isAutoLabel` → `true`
+- Resultado: imagem renderizada + texto base64 gigante visível
 
-1. **Empty bubble**: After sending "Teste", the app inserts a message (no `message_id`). Then n8n/Evolution API sends a webhook `upsert_message` for the same outbound message WITH an Evolution `message_id`. Since no existing message matches that `message_id`, a **second duplicate message** is created — often with empty or different content, causing the empty bubble.
+## Solução
 
-2. **Status never updates**: When Evolution sends `update_message_status` with its `message_id`, the app's original message (which has `message_id = null`) is never found, so status stays at "sending" forever.
+**Arquivo:** `src/pages/Inbox.tsx` (linhas 155-162)
 
-## Plan
+Atualizar a lógica de `showText` para suprimir o texto quando:
+1. `hasMedia` é true (mídia já renderizada pelo MediaContent)
+2. O conteúdo é claramente uma URL ou data URI (não é texto útil para o usuário)
+3. O conteúdo parece ser base64 puro
 
-### Step 1: Generate `message_id` on outbound messages (useMessages.ts)
-
-When inserting an outbound message in `sendMessage`, generate a unique `message_id` (e.g., `app-{uuid}`) and store it in the DB. This gives the message a trackable identifier.
-
-### Step 2: Return `message_id` to n8n in send payload (useMessages.ts)
-
-Include the generated `message_id` in the payload sent to n8n (`proxy-n8n`), so n8n can associate the Evolution API response with our message.
-
-### Step 3: Match outbound duplicates in webhook (webhook-n8n-instance)
-
-In the `upsert_message` action, when receiving an **outbound** message: before inserting, check if there's already an outbound message in the same conversation with matching content and a recent timestamp (within 60 seconds) that has a different or null `message_id`. If found, **update that existing message** (set its `message_id` to the Evolution one + update status) instead of creating a new one.
-
-This handles the case where n8n doesn't pass back our app-generated `message_id`.
-
-### Step 4: Cleanup — remove stale optimistic messages (Inbox.tsx)
-
-Tighten the optimistic cleanup logic to also account for messages with status "sending" that have been in the DB for more than 30 seconds without an update.
-
-### Technical Details
-
-**Files to modify:**
-- `src/hooks/useMessages.ts` — add `message_id` generation on insert, include in n8n payload
-- `supabase/functions/webhook-n8n-instance/index.ts` — add duplicate-matching logic for outbound messages in `upsert_message`
-
-**Key code change in webhook (upsert_message):**
 ```text
-If direction === "outbound":
-  1. Try upsert by message_id (existing logic)
-  2. If no existing message found by message_id, look for a recent outbound message
-     in the same conversation with matching content and message_id IS NULL
-  3. If found, UPDATE that message (set message_id + status) instead of INSERT
+showText =
+  !isContentImage &&
+  !hasMedia &&              // ← NOVO: não mostrar texto se mídia já renderizada
+  rawContent.length > 0 &&
+  !isAutoLabel &&
+  !rawContent.startsWith("data:") &&   // ← NOVO
+  !isImageUrl(rawContent) &&           // ← NOVO
+  !looksLikeBase64;                    // ← NOVO
 ```
 
-**Key code change in useMessages.ts:**
-```text
-const generatedMessageId = `app-${crypto.randomUUID()}`;
-// Insert with message_id field
-// Include message_id in n8n payload
-```
+Isso garante que strings de mídia nunca apareçam como texto, independente de virem via `metadata.media_url` ou diretamente no `content`.
 
