@@ -1,8 +1,18 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Form,
   FormControl,
@@ -25,6 +35,7 @@ const contactSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   instagram: z.string().optional(),
+  birthday: z.date().optional().nullable(),
 });
 
 type ContactFormData = z.infer<typeof contactSchema>;
@@ -32,7 +43,7 @@ type ContactFormData = z.infer<typeof contactSchema>;
 interface ContactFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: ContactFormData) => void;
+  onSubmit: (data: any) => void;
   contact?: Contact;
 }
 
@@ -44,11 +55,28 @@ export function ContactForm({ open, onOpenChange, onSubmit, contact }: ContactFo
       phone: contact?.phone || "",
       email: contact?.email || "",
       instagram: contact?.instagram || "",
+      birthday: contact?.birthday ? new Date(contact.birthday) : null,
     },
   });
 
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        name: contact?.name || "",
+        phone: contact?.phone || "",
+        email: contact?.email || "",
+        instagram: contact?.instagram || "",
+        birthday: contact?.birthday ? new Date(contact.birthday) : null,
+      });
+    }
+  }, [open, contact]);
+
   const handleSubmit = (data: ContactFormData) => {
-    onSubmit(data);
+    const payload = {
+      ...data,
+      birthday: data.birthday ? format(data.birthday, "yyyy-MM-dd") : null,
+    };
+    onSubmit(payload);
     form.reset();
     onOpenChange(false);
   };
@@ -120,6 +148,47 @@ export function ContactForm({ open, onOpenChange, onSubmit, contact }: ContactFo
                   <FormControl>
                     <Input placeholder="@joaosilva" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="birthday"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Data de Aniversário</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, "dd/MM/yyyy")
+                          ) : (
+                            <span>Selecione a data</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value || undefined}
+                        onSelect={field.onChange}
+                        disabled={(date) => date > new Date()}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               )}
