@@ -752,6 +752,83 @@ const Inbox = () => {
 
                 <Separator />
 
+                {/* Etiquetas */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-muted-foreground text-xs flex items-center gap-1">
+                      <Tag className="h-3 w-3" /> Etiquetas
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-6 w-6">
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-3" align="end">
+                        <p className="text-xs font-semibold mb-2">Adicionar etiqueta</p>
+                        {availableInboxTags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-3 max-h-32 overflow-y-auto">
+                            {availableInboxTags.map(tag => (
+                              <Badge key={tag.id} className="text-[11px] py-0.5 px-2 cursor-pointer hover:opacity-80 text-white"
+                                style={{ backgroundColor: tag.color }}
+                                onClick={() => {
+                                  addTagToContact.mutate(
+                                    { contactId: selectedConversation!.contact_id, tagId: tag.id },
+                                    { onSuccess: () => setContactTags(prev => [...prev, { id: tag.id, name: tag.name, color: tag.color }]) }
+                                  );
+                                }}>
+                                {tag.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        <Separator className="my-2" />
+                        <p className="text-[11px] text-muted-foreground mb-1.5">Criar nova etiqueta</p>
+                        <div className="flex gap-1.5">
+                          <Input placeholder="Nome..." value={newInboxTagName}
+                            onChange={(e) => setNewInboxTagName(e.target.value)}
+                            className="h-7 text-xs flex-1" />
+                          <input type="color" value={newInboxTagColor}
+                            onChange={(e) => setNewInboxTagColor(e.target.value)}
+                            className="w-7 h-7 rounded cursor-pointer border-0 p-0" />
+                          <Button size="sm" className="h-7 text-xs px-2"
+                            disabled={!newInboxTagName.trim()}
+                            onClick={() => {
+                              createTag.mutate({ name: newInboxTagName.trim(), color: newInboxTagColor }, {
+                                onSuccess: () => { setNewInboxTagName(""); setNewInboxTagColor("#FC6625"); }
+                              });
+                            }}>
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  {contactTags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {contactTags.map(tag => (
+                        <Badge key={tag.id} className="text-[11px] py-0.5 px-2 gap-1 text-white"
+                          style={{ backgroundColor: tag.color }}>
+                          {tag.name}
+                          <button type="button" className="hover:bg-black/20 rounded-full p-0.5"
+                            onClick={() => {
+                              removeTagFromContact.mutate(
+                                { contactId: selectedConversation!.contact_id, tagId: tag.id },
+                                { onSuccess: () => setContactTags(prev => prev.filter(t => t.id !== tag.id)) }
+                              );
+                            }}>
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">Nenhuma etiqueta</p>
+                  )}
+                </div>
+
+                <Separator />
+
                 <div>
                   <Label className="text-muted-foreground text-xs mb-2 block">Origem</Label>
                   <Select value={origin} onValueChange={setOrigin}>
