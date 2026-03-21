@@ -64,9 +64,17 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
               Cadastrado em {format(new Date(contact.created_at), "dd/MM/yyyy", { locale: ptBR })}
             </p>
           </div>
-          <Button onClick={onEdit} variant="outline" size="sm">
-            Editar Contato
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={onEdit} variant="outline" size="sm">
+              Editar Contato
+            </Button>
+            {onSendWhatsApp && contact.phone && (
+              <Button onClick={onSendWhatsApp} size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+                <MessageCircle className="h-4 w-4 mr-2" />
+                WhatsApp
+              </Button>
+            )}
+          </div>
         </div>
 
         <Separator />
