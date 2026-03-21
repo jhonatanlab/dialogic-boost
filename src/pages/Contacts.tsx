@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Mail, Phone, Instagram, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Mail, Phone, Instagram, MoreVertical, Edit, Trash2, Tags } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -22,11 +23,14 @@ import {
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ContactForm } from "@/components/contacts/ContactForm";
 import { ContactDetails } from "@/components/contacts/ContactDetails";
+import { TagsManager } from "@/components/contacts/TagsManager";
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, Contact } from "@/hooks/useContacts";
 
 const Contacts = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
@@ -87,13 +91,19 @@ const Contacts = () => {
               Gerencie seus leads e clientes
             </p>
           </div>
-          <Button onClick={() => {
-            setEditingContact(null);
-            setIsFormOpen(true);
-          }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Contato
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsTagsOpen(true)}>
+              <Tags className="h-4 w-4 mr-2" />
+              Etiquetas
+            </Button>
+            <Button onClick={() => {
+              setEditingContact(null);
+              setIsFormOpen(true);
+            }}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Contato
+            </Button>
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -246,6 +256,9 @@ const Contacts = () => {
         contact={editingContact || undefined}
       />
 
+      {/* Tags Manager */}
+      <TagsManager open={isTagsOpen} onOpenChange={setIsTagsOpen} />
+
       {/* Contact Details Sheet */}
       <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <SheetContent className="w-full sm:max-w-lg p-0">
@@ -256,6 +269,10 @@ const Contacts = () => {
               onEdit={() => {
                 handleEditClick(selectedContact);
                 setIsDetailsOpen(false);
+              }}
+              onSendWhatsApp={() => {
+                setIsDetailsOpen(false);
+                navigate(`/inbox?contactId=${selectedContact.id}`);
               }}
             />
           )}

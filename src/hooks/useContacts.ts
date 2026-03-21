@@ -10,6 +10,7 @@ export interface Contact {
   email?: string;
   instagram?: string;
   avatar_url?: string;
+  birthday?: string;
   created_at: string;
   updated_at: string;
   tags?: Tag[];
