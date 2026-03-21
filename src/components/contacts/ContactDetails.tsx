@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { X, Mail, Phone, Instagram, Plus, Trash2, MessageCircle, Cake } from "lucide-react";
+import { X, Mail, Phone, Instagram, Plus, Trash2, MessageCircle, Cake, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Contact } from "@/hooks/useContacts";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
+import { useTags, useAddTagToContact, useRemoveTagFromContact } from "@/hooks/useTags";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -23,6 +25,12 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
   const { data: notes = [] } = useContactNotes(contact.id);
   const createNote = useCreateContactNote();
   const deleteNote = useDeleteContactNote();
+  const { data: allTags = [] } = useTags();
+  const addTag = useAddTagToContact();
+  const removeTag = useRemoveTagFromContact();
+
+  const contactTagIds = contact.tags?.map((t) => t.id) || [];
+  const availableTags = allTags.filter((t) => !contactTagIds.includes(t.id));
 
   const handleAddNote = () => {
     if (newNote.trim()) {
@@ -117,15 +125,48 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
 
         {/* Tags */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base">Etiquetas</CardTitle>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                  <Plus className="h-3 w-3" />
+                  Adicionar
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2" align="end">
+                {availableTags.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-2">Nenhuma etiqueta disponível</p>
+                ) : (
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {availableTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors"
+                        onClick={() => addTag.mutate({ contactId: contact.id, tagId: tag.id })}
+                      >
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                        {tag.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
           </CardHeader>
           <CardContent>
             {contact.tags && contact.tags.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {contact.tags.map((tag) => (
-                  <Badge key={tag.id} style={{ backgroundColor: tag.color }}>
+                  <Badge key={tag.id} className="text-white gap-1 pr-1" style={{ backgroundColor: tag.color }}>
                     {tag.name}
+                    <button
+                      type="button"
+                      onClick={() => removeTag.mutate({ contactId: contact.id, tagId: tag.id })}
+                      className="ml-0.5 hover:bg-black/20 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </Badge>
                 ))}
               </div>
