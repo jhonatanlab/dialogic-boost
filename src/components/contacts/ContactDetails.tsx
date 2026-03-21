@@ -25,6 +25,12 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
   const { data: notes = [] } = useContactNotes(contact.id);
   const createNote = useCreateContactNote();
   const deleteNote = useDeleteContactNote();
+  const { data: allTags = [] } = useTags();
+  const addTag = useAddTagToContact();
+  const removeTag = useRemoveTagFromContact();
+
+  const contactTagIds = contact.tags?.map((t) => t.id) || [];
+  const availableTags = allTags.filter((t) => !contactTagIds.includes(t.id));
 
   const handleAddNote = () => {
     if (newNote.trim()) {
