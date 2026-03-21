@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Mail, Phone, Instagram, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Mail, Phone, Instagram, MoreVertical, Edit, Trash2, Tags } from "lucide-react";
 import {
   Table,
   TableBody,
