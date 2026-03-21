@@ -12,8 +12,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
-  X, Loader2, FileText, ChevronDown, Save, Plus, Tag,
+  X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image, Download, Film, Mic,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { useConversations } from "@/hooks/useConversations";
