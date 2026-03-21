@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Mail, Phone, Instagram, Plus, Trash2 } from "lucide-react";
+import { X, Mail, Phone, Instagram, Plus, Trash2, MessageCircle, Cake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ interface ContactDetailsProps {
   contact: Contact;
   onClose: () => void;
   onEdit: () => void;
+  onSendWhatsApp?: () => void;
 }
 
 export function ContactDetails({ contact, onClose, onEdit }: ContactDetailsProps) {
