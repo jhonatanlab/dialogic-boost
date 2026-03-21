@@ -18,7 +18,7 @@ interface ContactDetailsProps {
   onSendWhatsApp?: () => void;
 }
 
-export function ContactDetails({ contact, onClose, onEdit }: ContactDetailsProps) {
+export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: ContactDetailsProps) {
   const [newNote, setNewNote] = useState("");
   const { data: notes = [] } = useContactNotes(contact.id);
   const createNote = useCreateContactNote();
