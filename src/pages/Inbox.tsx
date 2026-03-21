@@ -9,15 +9,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
-  X, Loader2, FileText, ChevronDown, Save,
+  X, Loader2, FileText, ChevronDown, Save, Plus, Tag,
 } from "lucide-react";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
 import { useConversations } from "@/hooks/useConversations";
 import { useMessages, Message } from "@/hooks/useMessages";
 import { useCompany } from "@/hooks/useCompany";
+import { useTags, useCreateTag, useAddTagToContact, useRemoveTagFromContact } from "@/hooks/useTags";
 import { supabase } from "@/integrations/supabase/client";
 import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
