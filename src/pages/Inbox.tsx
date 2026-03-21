@@ -994,7 +994,7 @@ const Inbox = () => {
                           {images.length > 0 && (
                             <div>
                               <Label className="text-muted-foreground text-xs mb-2 block flex items-center gap-1">
-                                <Image className="h-3 w-3" /> Imagens ({images.length})
+                                <ImageIcon className="h-3 w-3" /> Imagens ({images.length})
                               </Label>
                               <div className="grid grid-cols-3 gap-1.5">
                                 {images.map(msg => {
