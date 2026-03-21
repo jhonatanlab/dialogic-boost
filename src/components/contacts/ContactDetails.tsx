@@ -103,7 +103,13 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                 <span className="text-sm">{contact.instagram}</span>
               </div>
             )}
-            {!contact.phone && !contact.email && !contact.instagram && (
+            {contact.birthday && (
+              <div className="flex items-center gap-2">
+                <Cake className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{format(new Date(contact.birthday), "dd/MM/yyyy")}</span>
+              </div>
+            )}
+            {!contact.phone && !contact.email && !contact.instagram && !contact.birthday && (
               <p className="text-sm text-muted-foreground">Nenhuma informação adicional</p>
             )}
           </CardContent>
