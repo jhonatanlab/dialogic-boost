@@ -270,6 +270,10 @@ const Contacts = () => {
                 handleEditClick(selectedContact);
                 setIsDetailsOpen(false);
               }}
+              onSendWhatsApp={() => {
+                setIsDetailsOpen(false);
+                navigate(`/inbox?contactId=${selectedContact.id}`);
+              }}
             />
           )}
         </SheetContent>
