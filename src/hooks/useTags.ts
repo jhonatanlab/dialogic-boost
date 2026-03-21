@@ -98,3 +98,26 @@ export function useRemoveTagFromContact() {
     },
   });
 }
+
+export function useDeleteTag() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (tagId: string) => {
+      const { error } = await supabase
+        .from("tags")
+        .delete()
+        .eq("id", tagId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tags"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      toast.success("Etiqueta excluída!");
+    },
+    onError: () => {
+      toast.error("Erro ao excluir etiqueta");
+    },
+  });
+}
