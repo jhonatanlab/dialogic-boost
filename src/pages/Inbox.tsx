@@ -114,24 +114,38 @@ const MediaContent = ({ message }: { message: Message }) => {
 };
 
 /* ─── Chat Bubble ─── */
+/* ─── URL image detection ─── */
+const isImageUrl = (text: string): boolean => {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("http")) return false;
+  // Common image extensions
+  if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(trimmed)) return true;
+  // WhatsApp CDN media URLs (mmg.whatsapp.net)
+  if (/mmg\.whatsapp\.net/i.test(trimmed)) return true;
+  // Facebook CDN media
+  if (/fbcdn\.net/i.test(trimmed) && /mms/i.test(trimmed)) return true;
+  return false;
+};
+
 const ChatBubble = ({ message }: { message: Message }) => {
   const isOutbound = message.direction?.toLowerCase() === "outbound";
   const mediaUrl = getMediaUrl(message);
   const hasMedia = !!mediaUrl && message.message_type !== "text";
   const rawContent = message.content?.trim() ?? "";
 
-  // Check if content itself is an image (URL or base64) when message_type is image but no media_url
+  // Check if content itself is an image URL — regardless of message_type
   const isContentImage =
     !hasMedia &&
-    message.message_type === "image" &&
     rawContent.length > 0 &&
-    (rawContent.startsWith("http") || rawContent.startsWith("data:"));
+    (
+      (message.message_type === "image" && (rawContent.startsWith("http") || rawContent.startsWith("data:"))) ||
+      isImageUrl(rawContent)
+    );
 
-  const contentImageSrc = isContentImage
-    ? resolveMediaSrc(rawContent, getMimetype(message), "image")
-    : null;
+  const contentImageSrc = isContentImage ? rawContent : null;
 
-  // Never show auto-generated labels like "Mídia enviada", "[image]", etc.
+  // Never show auto-generated labels
   const autoLabels = new Set(["mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]"]);
   const isAutoLabel = autoLabels.has(rawContent.toLowerCase());
 
@@ -154,9 +168,9 @@ const ChatBubble = ({ message }: { message: Message }) => {
         )}
         {contentImageSrc && (
           <div className="p-1">
-            <div className="overflow-hidden rounded-md">
+            <a href={contentImageSrc} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md">
               <img src={contentImageSrc} alt="" className="w-full max-w-full max-h-64 object-cover rounded-lg" loading="lazy" />
-            </div>
+            </a>
           </div>
         )}
         {showText && (
