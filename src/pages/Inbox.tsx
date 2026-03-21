@@ -256,6 +256,28 @@ const Inbox = () => {
   const { data: notes } = useContactNotes(selectedConversation?.contact_id || "");
   const createNote = useCreateContactNote();
   const deleteNote = useDeleteContactNote();
+  const { data: allTags = [] } = useTags();
+  const createTag = useCreateTag();
+  const addTagToContact = useAddTagToContact();
+  const removeTagFromContact = useRemoveTagFromContact();
+  const [newInboxTagName, setNewInboxTagName] = useState("");
+  const [newInboxTagColor, setNewInboxTagColor] = useState("#FC6625");
+  const [contactTags, setContactTags] = useState<{ id: string; name: string; color: string }[]>([]);
+
+  // Fetch contact tags for selected conversation
+  useEffect(() => {
+    const fetchContactTags = async () => {
+      if (!selectedConversation?.contact_id) { setContactTags([]); return; }
+      const { data } = await supabase
+        .from("contact_tags")
+        .select("tag_id, tags(id, name, color)")
+        .eq("contact_id", selectedConversation.contact_id);
+      setContactTags(data?.map((ct: any) => ct.tags).filter(Boolean) || []);
+    };
+    fetchContactTags();
+  }, [selectedConversation?.contact_id, allTags]);
+
+  const availableInboxTags = allTags.filter(t => !contactTags.some(ct => ct.id === t.id));
 
   // Merge optimistic + real messages
   // Merge optimistic + real messages, matching by content+direction+timestamp proximity
