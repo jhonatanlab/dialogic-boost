@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
-  X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image, Download, Film, Mic,
+  X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic,
+  ImageOff,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
@@ -113,34 +114,34 @@ const MediaContent = ({ message }: { message: Message }) => {
   }
 };
 
-/* ─── Chat Bubble ─── */
 /* ─── URL image detection ─── */
 const isImageUrl = (text: string): boolean => {
   if (!text) return false;
   const trimmed = text.trim();
   if (!trimmed.startsWith("http")) return false;
-  // Common image extensions
   if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(trimmed)) return true;
-  // WhatsApp CDN media URLs (mmg.whatsapp.net)
   if (/mmg\.whatsapp\.net/i.test(trimmed)) return true;
-  // Facebook CDN media
   if (/fbcdn\.net/i.test(trimmed) && /mms/i.test(trimmed)) return true;
   return false;
 };
 
+/* ─── Chat Bubble ─── */
 const ChatBubble = ({ message }: { message: Message }) => {
   const isOutbound = message.direction?.toLowerCase() === "outbound";
   const mediaUrl = getMediaUrl(message);
   const hasMedia = !!mediaUrl && message.message_type !== "text";
   const rawContent = message.content?.trim() ?? "";
 
-  // Check if content itself is an image (URL, data URI, or raw Base64)
+  // Detect if content is an image: data URI, URL, or raw Base64
+  const looksLikeBase64 = rawContent.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(rawContent.slice(0, 200));
   const isContentImage =
     !hasMedia &&
     rawContent.length > 0 &&
     (
       message.message_type === "image" ||
-      isImageUrl(rawContent)
+      rawContent.startsWith("data:image/") ||
+      isImageUrl(rawContent) ||
+      looksLikeBase64
     );
 
   const contentImageSrc = isContentImage
@@ -149,7 +150,9 @@ const ChatBubble = ({ message }: { message: Message }) => {
         : `data:image/jpeg;base64,${rawContent}`)
     : null;
 
-  // Never show auto-generated labels
+  const [imgError, setImgError] = React.useState(false);
+
+  // Never show auto-generated labels like "Mídia enviada", "[image]", etc.
   const autoLabels = new Set(["mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]"]);
   const isAutoLabel = autoLabels.has(rawContent.toLowerCase());
 
@@ -170,11 +173,23 @@ const ChatBubble = ({ message }: { message: Message }) => {
             <MediaContent message={message} />
           </div>
         )}
-        {contentImageSrc && (
+        {contentImageSrc && !imgError && (
           <div className="p-1">
             <a href={contentImageSrc} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md">
-              <img src={contentImageSrc} alt="" className="w-full max-w-full max-h-64 object-cover rounded-lg" loading="lazy" />
+              <img
+                src={contentImageSrc}
+                alt="Imagem"
+                className="max-w-[300px] w-full max-h-64 object-cover rounded-lg"
+                loading="lazy"
+                onError={() => setImgError(true)}
+              />
             </a>
+          </div>
+        )}
+        {contentImageSrc && imgError && (
+          <div className="p-3 flex items-center gap-2 text-muted-foreground text-sm">
+            <ImageOff className="h-5 w-5" />
+            <span>Imagem não pôde ser carregada</span>
           </div>
         )}
         {showText && (
@@ -979,7 +994,7 @@ const Inbox = () => {
                           {images.length > 0 && (
                             <div>
                               <Label className="text-muted-foreground text-xs mb-2 block flex items-center gap-1">
-                                <Image className="h-3 w-3" /> Imagens ({images.length})
+                                <ImageIcon className="h-3 w-3" /> Imagens ({images.length})
                               </Label>
                               <div className="grid grid-cols-3 gap-1.5">
                                 {images.map(msg => {
