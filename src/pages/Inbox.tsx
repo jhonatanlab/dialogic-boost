@@ -231,6 +231,7 @@ const ConversationItem = ({
 /* ─── MAIN INBOX ─── */
 /* ═══════════════════════════════════════════ */
 const Inbox = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [newNote, setNewNote] = useState("");
