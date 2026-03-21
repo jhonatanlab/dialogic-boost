@@ -27,8 +27,10 @@ import { TagsManager } from "@/components/contacts/TagsManager";
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, Contact } from "@/hooks/useContacts";
 
 const Contacts = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isTagsOpen, setIsTagsOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
