@@ -40,6 +40,10 @@ const Contacts = () => {
   const updateContact = useUpdateContact();
   const deleteContact = useDeleteContact();
 
+  const activeContact = selectedContact
+    ? contacts.find((contact) => contact.id === selectedContact.id) ?? selectedContact
+    : null;
+
   const handleCreateContact = (data: any) => {
     createContact.mutate(data);
   };
@@ -83,7 +87,6 @@ const Contacts = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Contatos</h1>
@@ -106,7 +109,6 @@ const Contacts = () => {
           </div>
         </div>
 
-        {/* Search Bar */}
         <div className="flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -119,7 +121,6 @@ const Contacts = () => {
           </div>
         </div>
 
-        {/* Table */}
         <div className="border rounded-lg bg-card">
           <Table>
             <TableHeader>
@@ -142,15 +143,15 @@ const Contacts = () => {
               ) : contacts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    {searchTerm 
-                      ? "Nenhum contato encontrado com esse termo" 
+                    {searchTerm
+                      ? "Nenhum contato encontrado com esse termo"
                       : "Nenhum contato cadastrado. Clique em 'Novo Contato' para começar."}
                   </TableCell>
                 </TableRow>
               ) : (
                 contacts.map((contact) => (
-                  <TableRow 
-                    key={contact.id} 
+                  <TableRow
+                    key={contact.id}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleViewDetails(contact)}
                   >
@@ -230,7 +231,7 @@ const Contacts = () => {
                             <Edit className="h-4 w-4 mr-2" />
                             Editar
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => handleDeleteContact(contact.id)}
                             className="text-destructive"
                           >
@@ -248,7 +249,6 @@ const Contacts = () => {
         </div>
       </div>
 
-      {/* Contact Form Dialog */}
       <ContactForm
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
@@ -256,23 +256,21 @@ const Contacts = () => {
         contact={editingContact || undefined}
       />
 
-      {/* Tags Manager */}
       <TagsManager open={isTagsOpen} onOpenChange={setIsTagsOpen} />
 
-      {/* Contact Details Sheet */}
       <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <SheetContent className="w-full sm:max-w-lg p-0">
-          {selectedContact && (
+          {activeContact && (
             <ContactDetails
-              contact={selectedContact}
+              contact={activeContact}
               onClose={() => setIsDetailsOpen(false)}
               onEdit={() => {
-                handleEditClick(selectedContact);
+                handleEditClick(activeContact);
                 setIsDetailsOpen(false);
               }}
               onSendWhatsApp={() => {
                 setIsDetailsOpen(false);
-                navigate(`/inbox?contactId=${selectedContact.id}`);
+                navigate(`/inbox?contactId=${activeContact.id}`);
               }}
             />
           )}
