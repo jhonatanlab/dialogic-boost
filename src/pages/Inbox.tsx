@@ -134,16 +134,20 @@ const ChatBubble = ({ message }: { message: Message }) => {
   const hasMedia = !!mediaUrl && message.message_type !== "text";
   const rawContent = message.content?.trim() ?? "";
 
-  // Check if content itself is an image URL — regardless of message_type
+  // Check if content itself is an image (URL, data URI, or raw Base64)
   const isContentImage =
     !hasMedia &&
     rawContent.length > 0 &&
     (
-      (message.message_type === "image" && (rawContent.startsWith("http") || rawContent.startsWith("data:"))) ||
+      message.message_type === "image" ||
       isImageUrl(rawContent)
     );
 
-  const contentImageSrc = isContentImage ? rawContent : null;
+  const contentImageSrc = isContentImage
+    ? (rawContent.startsWith("http") || rawContent.startsWith("data:")
+        ? rawContent
+        : `data:image/jpeg;base64,${rawContent}`)
+    : null;
 
   // Never show auto-generated labels
   const autoLabels = new Set(["mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]"]);
