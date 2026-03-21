@@ -256,6 +256,9 @@ const Contacts = () => {
         contact={editingContact || undefined}
       />
 
+      {/* Tags Manager */}
+      <TagsManager open={isTagsOpen} onOpenChange={setIsTagsOpen}
+
       {/* Contact Details Sheet */}
       <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <SheetContent className="w-full sm:max-w-lg p-0">
