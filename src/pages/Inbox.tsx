@@ -114,6 +114,17 @@ const MediaContent = ({ message }: { message: Message }) => {
   }
 };
 
+/* ─── URL image detection ─── */
+const isImageUrl = (text: string): boolean => {
+  if (!text) return false;
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("http")) return false;
+  if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i.test(trimmed)) return true;
+  if (/mmg\.whatsapp\.net/i.test(trimmed)) return true;
+  if (/fbcdn\.net/i.test(trimmed) && /mms/i.test(trimmed)) return true;
+  return false;
+};
+
 /* ─── Chat Bubble ─── */
 const ChatBubble = ({ message }: { message: Message }) => {
   const isOutbound = message.direction?.toLowerCase() === "outbound";
@@ -121,16 +132,25 @@ const ChatBubble = ({ message }: { message: Message }) => {
   const hasMedia = !!mediaUrl && message.message_type !== "text";
   const rawContent = message.content?.trim() ?? "";
 
-  // Check if content itself is an image (URL or base64) when message_type is image but no media_url
+  // Detect if content is an image: data URI, URL, or raw Base64
+  const looksLikeBase64 = rawContent.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(rawContent.slice(0, 200));
   const isContentImage =
     !hasMedia &&
-    message.message_type === "image" &&
     rawContent.length > 0 &&
-    (rawContent.startsWith("http") || rawContent.startsWith("data:"));
+    (
+      message.message_type === "image" ||
+      rawContent.startsWith("data:image/") ||
+      isImageUrl(rawContent) ||
+      looksLikeBase64
+    );
 
   const contentImageSrc = isContentImage
-    ? resolveMediaSrc(rawContent, getMimetype(message), "image")
+    ? (rawContent.startsWith("http") || rawContent.startsWith("data:")
+        ? rawContent
+        : `data:image/jpeg;base64,${rawContent}`)
     : null;
+
+  const [imgError, setImgError] = React.useState(false);
 
   // Never show auto-generated labels like "Mídia enviada", "[image]", etc.
   const autoLabels = new Set(["mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]"]);
@@ -153,11 +173,23 @@ const ChatBubble = ({ message }: { message: Message }) => {
             <MediaContent message={message} />
           </div>
         )}
-        {contentImageSrc && (
+        {contentImageSrc && !imgError && (
           <div className="p-1">
-            <div className="overflow-hidden rounded-md">
-              <img src={contentImageSrc} alt="" className="w-full max-w-full max-h-64 object-cover rounded-lg" loading="lazy" />
-            </div>
+            <a href={contentImageSrc} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md">
+              <img
+                src={contentImageSrc}
+                alt="Imagem"
+                className="max-w-[300px] w-full max-h-64 object-cover rounded-lg"
+                loading="lazy"
+                onError={() => setImgError(true)}
+              />
+            </a>
+          </div>
+        )}
+        {contentImageSrc && imgError && (
+          <div className="p-3 flex items-center gap-2 text-muted-foreground text-sm">
+            <ImageOff className="h-5 w-5" />
+            <span>Imagem não pôde ser carregada</span>
           </div>
         )}
         {showText && (
