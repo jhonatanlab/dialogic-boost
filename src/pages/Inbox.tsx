@@ -120,16 +120,25 @@ const ChatBubble = ({ message }: { message: Message }) => {
   const hasMedia = !!mediaUrl && message.message_type !== "text";
   const rawContent = message.content?.trim() ?? "";
 
-  // Determine if content should be shown as text
+  // Check if content itself is an image (URL or base64) when message_type is image but no media_url
+  const isContentImage =
+    !hasMedia &&
+    message.message_type === "image" &&
+    rawContent.length > 0 &&
+    (rawContent.startsWith("http") || rawContent.startsWith("data:"));
+
+  const contentImageSrc = isContentImage
+    ? resolveMediaSrc(rawContent, getMimetype(message), "image")
+    : null;
+
   // Never show auto-generated labels like "Mídia enviada", "[image]", etc.
   const autoLabels = new Set(["mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]"]);
   const isAutoLabel = autoLabels.has(rawContent.toLowerCase());
 
-  // For text messages: show content always (unless it's an auto label with no real value)
-  // For media messages: show content as caption only if it's not an auto label
-  const showText = message.message_type === "text"
-    ? rawContent.length > 0 && !isAutoLabel
-    : rawContent.length > 0 && !isAutoLabel;
+  const showText =
+    !isContentImage &&
+    rawContent.length > 0 &&
+    !isAutoLabel;
 
   return (
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"} px-4`}>
@@ -141,6 +150,13 @@ const ChatBubble = ({ message }: { message: Message }) => {
         {hasMedia && (
           <div className="p-1">
             <MediaContent message={message} />
+          </div>
+        )}
+        {contentImageSrc && (
+          <div className="p-1">
+            <div className="overflow-hidden rounded-md">
+              <img src={contentImageSrc} alt="" className="w-full max-w-full max-h-64 object-cover rounded-lg" loading="lazy" />
+            </div>
           </div>
         )}
         {showText && (
