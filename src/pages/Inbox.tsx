@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -230,6 +231,7 @@ const ConversationItem = ({
 /* ─── MAIN INBOX ─── */
 /* ═══════════════════════════════════════════ */
 const Inbox = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [newNote, setNewNote] = useState("");
@@ -332,6 +334,19 @@ const Inbox = () => {
       markAsRead.mutate(selectedConversationId);
     }
   }, [selectedConversationId]);
+
+  // Auto-select conversation from contactId URL param
+  useEffect(() => {
+    const contactId = searchParams.get("contactId");
+    if (contactId && conversations && conversations.length > 0) {
+      const match = conversations.find(c => c.contact_id === contactId);
+      if (match && match.id !== selectedConversationId) {
+        setSelectedConversationId(match.id);
+        // Clean up the URL param
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [conversations, searchParams]);
 
   // Populate edit fields
   useEffect(() => {
