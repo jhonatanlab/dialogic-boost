@@ -158,8 +158,12 @@ const ChatBubble = ({ message }: { message: Message }) => {
 
   const showText =
     !isContentImage &&
+    !hasMedia &&
     rawContent.length > 0 &&
-    !isAutoLabel;
+    !isAutoLabel &&
+    !rawContent.startsWith("data:") &&
+    !isImageUrl(rawContent) &&
+    !looksLikeBase64;
 
   return (
     <div className={`flex ${isOutbound ? "justify-end" : "justify-start"} px-4`}>
