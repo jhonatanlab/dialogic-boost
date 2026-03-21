@@ -91,13 +91,19 @@ const Contacts = () => {
               Gerencie seus leads e clientes
             </p>
           </div>
-          <Button onClick={() => {
-            setEditingContact(null);
-            setIsFormOpen(true);
-          }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Contato
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsTagsOpen(true)}>
+              <Tags className="h-4 w-4 mr-2" />
+              Etiquetas
+            </Button>
+            <Button onClick={() => {
+              setEditingContact(null);
+              setIsFormOpen(true);
+            }}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Contato
+            </Button>
+          </div>
         </div>
 
         {/* Search Bar */}
