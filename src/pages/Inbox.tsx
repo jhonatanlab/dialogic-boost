@@ -471,6 +471,100 @@ const Inbox = () => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const formatRecordingTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+    } catch {
+      toast.error("Não foi possível acessar o microfone");
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.onstop = () => {
+        mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setIsRecording(false);
+    setRecordingTime(0);
+    audioChunksRef.current = [];
+  };
+
+  const sendRecording = () => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") return;
+    mediaRecorderRef.current.onstop = async () => {
+      mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop());
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      setIsRecording(false);
+      setRecordingTime(0);
+
+      const blob = new Blob(audioChunksRef.current, { type: "audio/webm;codecs=opus" });
+      const file = new File([blob], `audio-${Date.now()}.webm`, { type: "audio/webm" });
+      setAttachedFile(file);
+
+      // Auto-send after setting the file
+      if (!selectedConversation || !companyId) return;
+      setIsUploading(true);
+      try {
+        const filePath = `${companyId}/${Date.now()}.webm`;
+        const { error: uploadError } = await supabase.storage.from("chat-attachments").upload(filePath, file);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
+
+        const optimisticId = `opt-${Date.now()}`;
+        const optimisticMsg: Message = {
+          id: optimisticId, conversation_id: selectedConversation.id,
+          contact_id: selectedConversation.contact_id, user_id: "", channel: "whatsapp",
+          direction: "outbound", content: "", message_type: "audio", status: "sending",
+          created_at: new Date().toISOString(),
+          metadata: { media_url: urlData.publicUrl, mimetype: "audio/webm" },
+        };
+        setOptimisticMessages(prev => [...prev, optimisticMsg]);
+        setAttachedFile(null);
+
+        sendMessage.mutate({
+          conversationId: selectedConversation.id,
+          contactId: selectedConversation.contact_id,
+          content: "", phone: selectedConversation.contact.phone || "",
+          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: "audio/webm",
+        }, {
+          onError: () => {
+            setOptimisticMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: "failed" } : m));
+          },
+        });
+      } catch (err) {
+        console.error("Upload audio error:", err);
+        toast.error("Erro ao enviar áudio");
+      }
+      setIsUploading(false);
+    };
+    mediaRecorderRef.current.stop();
+  };
+
   const handleSendMessage = async () => {
     if ((!messageInput.trim() && !attachedFile) || !selectedConversation || !companyId) return;
 
