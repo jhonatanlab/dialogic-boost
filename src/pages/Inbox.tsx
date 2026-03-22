@@ -833,8 +833,6 @@ const Inbox = () => {
                     )}
                   </div>
                 )}
-                  </Button>
-                </div>
 
                 {showQuickReplies && quickReplies && quickReplies.length > 0 && (
                   <div className="absolute bottom-20 left-4 right-4 bg-card border border-border rounded-xl shadow-lg p-2 z-50 max-h-56 overflow-y-auto">
