@@ -397,13 +397,54 @@ const Inbox = () => {
   // Auto-select conversation from contactId URL param
   useEffect(() => {
     const contactId = searchParams.get("contactId");
-    if (contactId && conversations && conversations.length > 0) {
-      const match = conversations.find(c => c.contact_id === contactId);
-      if (match && match.id !== selectedConversationId) {
-        setSelectedConversationId(match.id);
-        // Clean up the URL param
-        setSearchParams({}, { replace: true });
-      }
+    if (!contactId || !conversations) return;
+
+    const match = conversations.find(c => c.contact_id === contactId);
+    if (match && match.id !== selectedConversationId) {
+      setSelectedConversationId(match.id);
+      setSearchParams({}, { replace: true });
+    } else if (!match && conversations.length >= 0) {
+      // No conversation exists for this contact — create one
+      const createConversation = async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("company_id")
+            .eq("user_id", user.id)
+            .single();
+
+          const { data: newConv, error } = await supabase
+            .from("conversations")
+            .insert({
+              user_id: user.id,
+              contact_id: contactId,
+              channel: "whatsapp",
+              status: "open",
+              company_id: profile?.company_id || null,
+            })
+            .select()
+            .single();
+
+          if (error) {
+            // If unique constraint violation, conversation was created concurrently — retry find
+            if (error.code === "23505") {
+              queryClient.invalidateQueries({ queryKey: ["conversations"] });
+            } else {
+              console.error("Error creating conversation:", error);
+            }
+            return;
+          }
+
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+          setSelectedConversationId(newConv.id);
+          setSearchParams({}, { replace: true });
+        } catch (err) {
+          console.error("Error creating conversation:", err);
+        }
+      };
+      createConversation();
     }
   }, [conversations, searchParams]);
 
