@@ -764,7 +764,7 @@ const Inbox = () => {
 
               {/* Input */}
               <div className="bg-card border-t border-border px-4 py-3 shrink-0">
-                {attachedFile && (
+                {attachedFile && !isRecording && (
                   <div className="flex items-center gap-2 mb-2 p-2.5 bg-secondary rounded-lg">
                     <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="text-sm truncate flex-1">{attachedFile.name}</span>
@@ -776,31 +776,63 @@ const Inbox = () => {
                 <input type="file" ref={fileInputRef} className="hidden"
                   accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
                   onChange={handleFileSelect} />
-                <div className="flex items-center gap-2">
-                  <Button type="button" size="icon" variant="ghost"
-                    className="h-10 w-10 rounded-full shrink-0 text-muted-foreground hover:text-foreground"
-                    onClick={() => fileInputRef.current?.click()}>
-                    <Paperclip className="h-5 w-5" />
-                  </Button>
-                  <div className="relative flex-1">
-                    <Input placeholder="Digite uma mensagem" value={messageInput}
-                      className="h-11 rounded-xl bg-secondary border-0 pr-12 text-sm"
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
-                      }} />
+
+                {isRecording ? (
+                  <div className="flex items-center gap-3">
                     <Button type="button" size="icon" variant="ghost"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowQuickReplies(!showQuickReplies)}>
-                      <Zap className="h-4 w-4" />
+                      className="h-10 w-10 rounded-full shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={cancelRecording}>
+                      <X className="h-5 w-5" />
+                    </Button>
+                    <div className="flex-1 flex items-center gap-3 px-3 h-11 rounded-xl bg-secondary">
+                      <div className="h-2.5 w-2.5 rounded-full bg-destructive animate-pulse shrink-0" />
+                      <span className="text-sm font-mono font-medium text-foreground">{formatRecordingTime(recordingTime)}</span>
+                      <div className="flex-1">
+                        <Progress value={(recordingTime % 60) / 60 * 100} className="h-1.5" />
+                      </div>
+                    </div>
+                    <Button size="icon" onClick={sendRecording}
+                      className="h-11 w-11 rounded-full shrink-0">
+                      <Send className="h-5 w-5" />
                     </Button>
                   </div>
-                  <Button size="icon" onClick={handleSendMessage}
-                    className="h-11 w-11 rounded-full shrink-0"
-                    disabled={isUploading || (!messageInput.trim() && !attachedFile)}>
-                    {isUploading
-                      ? <Loader2 className="h-5 w-5 animate-spin" />
-                      : <Send className="h-5 w-5" />}
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Button type="button" size="icon" variant="ghost"
+                      className="h-10 w-10 rounded-full shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => fileInputRef.current?.click()}>
+                      <Paperclip className="h-5 w-5" />
+                    </Button>
+                    <div className="relative flex-1">
+                      <Input placeholder="Digite uma mensagem" value={messageInput}
+                        className="h-11 rounded-xl bg-secondary border-0 pr-12 text-sm"
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+                        }} />
+                      <Button type="button" size="icon" variant="ghost"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowQuickReplies(!showQuickReplies)}>
+                        <Zap className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {messageInput.trim() || attachedFile ? (
+                      <Button size="icon" onClick={handleSendMessage}
+                        className="h-11 w-11 rounded-full shrink-0"
+                        disabled={isUploading}>
+                        {isUploading
+                          ? <Loader2 className="h-5 w-5 animate-spin" />
+                          : <Send className="h-5 w-5" />}
+                      </Button>
+                    ) : (
+                      <Button size="icon" onClick={startRecording}
+                        className="h-11 w-11 rounded-full shrink-0"
+                        variant="ghost">
+                        <Mic className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+                )}
                   </Button>
                 </div>
 
