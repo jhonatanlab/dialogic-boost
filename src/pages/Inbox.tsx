@@ -13,9 +13,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
-  X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic,
+  X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic, Square,
   ImageOff,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
@@ -297,6 +298,11 @@ const Inbox = () => {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -463,6 +469,100 @@ const Inbox = () => {
   const removeAttachment = () => {
     setAttachedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const formatRecordingTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+    } catch {
+      toast.error("Não foi possível acessar o microfone");
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.onstop = () => {
+        mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setIsRecording(false);
+    setRecordingTime(0);
+    audioChunksRef.current = [];
+  };
+
+  const sendRecording = () => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") return;
+    mediaRecorderRef.current.onstop = async () => {
+      mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop());
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      setIsRecording(false);
+      setRecordingTime(0);
+
+      const blob = new Blob(audioChunksRef.current, { type: "audio/webm;codecs=opus" });
+      const file = new File([blob], `audio-${Date.now()}.webm`, { type: "audio/webm" });
+      setAttachedFile(file);
+
+      // Auto-send after setting the file
+      if (!selectedConversation || !companyId) return;
+      setIsUploading(true);
+      try {
+        const filePath = `${companyId}/${Date.now()}.webm`;
+        const { error: uploadError } = await supabase.storage.from("chat-attachments").upload(filePath, file);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
+
+        const optimisticId = `opt-${Date.now()}`;
+        const optimisticMsg: Message = {
+          id: optimisticId, conversation_id: selectedConversation.id,
+          contact_id: selectedConversation.contact_id, user_id: "", channel: "whatsapp",
+          direction: "outbound", content: "", message_type: "audio", status: "sending",
+          created_at: new Date().toISOString(),
+          metadata: { media_url: urlData.publicUrl, mimetype: "audio/webm" },
+        };
+        setOptimisticMessages(prev => [...prev, optimisticMsg]);
+        setAttachedFile(null);
+
+        sendMessage.mutate({
+          conversationId: selectedConversation.id,
+          contactId: selectedConversation.contact_id,
+          content: "", phone: selectedConversation.contact.phone || "",
+          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: "audio/webm",
+        }, {
+          onError: () => {
+            setOptimisticMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: "failed" } : m));
+          },
+        });
+      } catch (err) {
+        console.error("Upload audio error:", err);
+        toast.error("Erro ao enviar áudio");
+      }
+      setIsUploading(false);
+    };
+    mediaRecorderRef.current.stop();
   };
 
   const handleSendMessage = async () => {
@@ -664,7 +764,7 @@ const Inbox = () => {
 
               {/* Input */}
               <div className="bg-card border-t border-border px-4 py-3 shrink-0">
-                {attachedFile && (
+                {attachedFile && !isRecording && (
                   <div className="flex items-center gap-2 mb-2 p-2.5 bg-secondary rounded-lg">
                     <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="text-sm truncate flex-1">{attachedFile.name}</span>
@@ -676,33 +776,63 @@ const Inbox = () => {
                 <input type="file" ref={fileInputRef} className="hidden"
                   accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
                   onChange={handleFileSelect} />
-                <div className="flex items-center gap-2">
-                  <Button type="button" size="icon" variant="ghost"
-                    className="h-10 w-10 rounded-full shrink-0 text-muted-foreground hover:text-foreground"
-                    onClick={() => fileInputRef.current?.click()}>
-                    <Paperclip className="h-5 w-5" />
-                  </Button>
-                  <div className="relative flex-1">
-                    <Input placeholder="Digite uma mensagem" value={messageInput}
-                      className="h-11 rounded-xl bg-secondary border-0 pr-12 text-sm"
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
-                      }} />
+
+                {isRecording ? (
+                  <div className="flex items-center gap-3">
                     <Button type="button" size="icon" variant="ghost"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowQuickReplies(!showQuickReplies)}>
-                      <Zap className="h-4 w-4" />
+                      className="h-10 w-10 rounded-full shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={cancelRecording}>
+                      <X className="h-5 w-5" />
+                    </Button>
+                    <div className="flex-1 flex items-center gap-3 px-3 h-11 rounded-xl bg-secondary">
+                      <div className="h-2.5 w-2.5 rounded-full bg-destructive animate-pulse shrink-0" />
+                      <span className="text-sm font-mono font-medium text-foreground">{formatRecordingTime(recordingTime)}</span>
+                      <div className="flex-1">
+                        <Progress value={(recordingTime % 60) / 60 * 100} className="h-1.5" />
+                      </div>
+                    </div>
+                    <Button size="icon" onClick={sendRecording}
+                      className="h-11 w-11 rounded-full shrink-0">
+                      <Send className="h-5 w-5" />
                     </Button>
                   </div>
-                  <Button size="icon" onClick={handleSendMessage}
-                    className="h-11 w-11 rounded-full shrink-0"
-                    disabled={isUploading || (!messageInput.trim() && !attachedFile)}>
-                    {isUploading
-                      ? <Loader2 className="h-5 w-5 animate-spin" />
-                      : <Send className="h-5 w-5" />}
-                  </Button>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Button type="button" size="icon" variant="ghost"
+                      className="h-10 w-10 rounded-full shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => fileInputRef.current?.click()}>
+                      <Paperclip className="h-5 w-5" />
+                    </Button>
+                    <div className="relative flex-1">
+                      <Input placeholder="Digite uma mensagem" value={messageInput}
+                        className="h-11 rounded-xl bg-secondary border-0 pr-12 text-sm"
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+                        }} />
+                      <Button type="button" size="icon" variant="ghost"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                        onClick={() => setShowQuickReplies(!showQuickReplies)}>
+                        <Zap className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {messageInput.trim() || attachedFile ? (
+                      <Button size="icon" onClick={handleSendMessage}
+                        className="h-11 w-11 rounded-full shrink-0"
+                        disabled={isUploading}>
+                        {isUploading
+                          ? <Loader2 className="h-5 w-5 animate-spin" />
+                          : <Send className="h-5 w-5" />}
+                      </Button>
+                    ) : (
+                      <Button size="icon" onClick={startRecording}
+                        className="h-11 w-11 rounded-full shrink-0"
+                        variant="ghost">
+                        <Mic className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {showQuickReplies && quickReplies && quickReplies.length > 0 && (
                   <div className="absolute bottom-20 left-4 right-4 bg-card border border-border rounded-xl shadow-lg p-2 z-50 max-h-56 overflow-y-auto">
