@@ -167,14 +167,14 @@ Deno.serve(async (req) => {
 
       const mappedStatus = normalizeStatus(status);
 
-      // 1. Try exact match by message_id
-      const { data: updated, error } = await supabase
+      // 1. Try exact match update first (most common path)
+      const { data: updated, error: updateErr } = await supabase
         .from("messages")
         .update({ status: mappedStatus })
         .eq("message_id", message_id)
         .select("id")
         .maybeSingle();
-      if (error) throw error;
+      if (updateErr) throw updateErr;
 
       if (updated) {
         console.log("[update_message_status] exact match found, id:", updated.id);
@@ -203,16 +203,49 @@ Deno.serve(async (req) => {
 
       if (fallback) {
         console.log("[update_message_status] fallback match:", fallback.id, "old message_id:", fallback.message_id, "→ new:", message_id);
-        const { error: updateErr } = await supabase
+        const { error: reconErr } = await supabase
           .from("messages")
           .update({ message_id, status: mappedStatus })
           .eq("id", fallback.id);
-        if (updateErr) throw updateErr;
+        if (reconErr) throw reconErr;
         return json({ success: true, action: "reconciled_and_updated", id: fallback.id, status: mappedStatus });
       }
 
-      console.log("[update_message_status] no fallback match found either");
-      return json({ success: true, action: "updated_status", id: null, status: mappedStatus });
+      // 3. Status arrived before message creation — upsert a shell record
+      console.log("[update_message_status] no match found, upserting shell record for message_id:", message_id);
+
+      // We need a user_id and contact_id for required columns; get from company
+      let userId: string | null = null;
+      if (company_id) {
+        userId = await getUserForCompany(company_id);
+      }
+
+      // Build the shell record with minimal required fields
+      const shellRecord: Record<string, unknown> = {
+        message_id,
+        status: mappedStatus,
+        direction: "outbound",
+        channel: "whatsapp",
+        content: "",
+        message_type: "text",
+      };
+      if (company_id) shellRecord.company_id = company_id;
+      if (userId) {
+        shellRecord.user_id = userId;
+        // Use a placeholder contact_id — will be overwritten when the real message arrives
+        shellRecord.contact_id = "00000000-0000-0000-0000-000000000000";
+        shellRecord.conversation_id = "00000000-0000-0000-0000-000000000000";
+      }
+
+      const { data: upserted, error: upsertErr } = await supabase
+        .from("messages")
+        .upsert(shellRecord, { onConflict: "message_id" })
+        .select("id")
+        .single();
+      if (upsertErr) throw upsertErr;
+
+      console.log("[update_message_status] shell upserted, id:", upserted.id);
+      return json({ success: true, action: "shell_created", id: upserted.id, status: mappedStatus });
     }
 
     // ═══════════════════════════════════════════
