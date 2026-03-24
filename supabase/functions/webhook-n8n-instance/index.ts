@@ -158,6 +158,8 @@ Deno.serve(async (req) => {
       const { message_id, status } = data as Record<string, string>;
       if (!message_id || !status) return json({ error: "message_id and status are required" }, 400);
 
+      console.log("[update_message_status] message_id:", message_id, "status:", status);
+
       // Unknown statuses: ignore silently, return 200
       if (!KNOWN_STATUSES.has(status)) {
         return json({ success: true, action: "status_ignored", message: `Status '${status}' not recognized, ignored` });
@@ -172,6 +174,8 @@ Deno.serve(async (req) => {
         .select("id")
         .maybeSingle();
       if (error) throw error;
+
+      console.log("[update_message_status] updated row:", updated);
 
       // If message not found, return success silently
       return json({ success: true, action: "updated_status", id: updated?.id || null, status: mappedStatus });
