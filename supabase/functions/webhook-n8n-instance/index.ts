@@ -155,10 +155,10 @@ Deno.serve(async (req) => {
     // ACTION: update_message_status
     // ═══════════════════════════════════════════
     if (action === "update_message_status") {
-      const { message_id, status } = data as Record<string, string>;
+      const { message_id, status, company_id } = data as Record<string, string>;
       if (!message_id || !status) return json({ error: "message_id and status are required" }, 400);
 
-      console.log("[update_message_status] message_id:", message_id, "status:", status);
+      console.log("[update_message_status] message_id:", message_id, "status:", status, "company_id:", company_id || "N/A");
 
       // Unknown statuses: ignore silently, return 200
       if (!KNOWN_STATUSES.has(status)) {
@@ -167,6 +167,7 @@ Deno.serve(async (req) => {
 
       const mappedStatus = normalizeStatus(status);
 
+      // 1. Try exact match by message_id
       const { data: updated, error } = await supabase
         .from("messages")
         .update({ status: mappedStatus })
@@ -175,10 +176,43 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (error) throw error;
 
-      console.log("[update_message_status] updated row:", updated);
+      if (updated) {
+        console.log("[update_message_status] exact match found, id:", updated.id);
+        return json({ success: true, action: "updated_status", id: updated.id, status: mappedStatus });
+      }
 
-      // If message not found, return success silently
-      return json({ success: true, action: "updated_status", id: updated?.id || null, status: mappedStatus });
+      // 2. Fallback: find most recent outbound app-* message and reconcile
+      console.log("[update_message_status] no exact match, trying fallback reconciliation...");
+      const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
+
+      let query = supabase
+        .from("messages")
+        .select("id, message_id")
+        .eq("direction", "outbound")
+        .like("message_id", "app-%")
+        .in("status", ["sending", "sent", "server_ack"])
+        .gte("created_at", twoMinutesAgo)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (company_id) {
+        query = query.eq("company_id", company_id);
+      }
+
+      const { data: fallback } = await query.maybeSingle();
+
+      if (fallback) {
+        console.log("[update_message_status] fallback match:", fallback.id, "old message_id:", fallback.message_id, "→ new:", message_id);
+        const { error: updateErr } = await supabase
+          .from("messages")
+          .update({ message_id, status: mappedStatus })
+          .eq("id", fallback.id);
+        if (updateErr) throw updateErr;
+        return json({ success: true, action: "reconciled_and_updated", id: fallback.id, status: mappedStatus });
+      }
+
+      console.log("[update_message_status] no fallback match found either");
+      return json({ success: true, action: "updated_status", id: null, status: mappedStatus });
     }
 
     // ═══════════════════════════════════════════
