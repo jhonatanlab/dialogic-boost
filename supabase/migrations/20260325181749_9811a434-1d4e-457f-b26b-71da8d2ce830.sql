@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX idx_contacts_phone_company ON public.contacts (phone, company_id) WHERE phone IS NOT NULL;
