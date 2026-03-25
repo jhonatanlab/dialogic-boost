@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
       const {
         company_id, instance_id, message_id, phone_number,
         contact_name, direction, content, media_type,
-        media_url, mimetype, status, sent_at,
+        media_url, mimetype, status, sent_at, internal_id,
       } = data as Record<string, string>;
 
       if (!company_id || !message_id || !phone_number) {
@@ -280,32 +280,88 @@ Deno.serve(async (req) => {
       if (instance_id) messageMetadata.instance_id = instance_id;
       if (media_url) messageMetadata.media_url = media_url;
       if (mimetype) messageMetadata.mimetype = mimetype;
-      // Always clear pending_content flag
       messageMetadata.pending_content = false;
       const metaValue = Object.keys(messageMetadata).length > 0 ? messageMetadata : null;
 
-      const fullRow = {
-        message_id,
-        conversation_id: conversationId,
-        contact_id: contactId,
-        user_id: userId,
-        company_id,
-        channel: "whatsapp",
-        direction: messageDirection,
-        content: messageContent,
-        message_type: messageType,
-        status: mappedStatus,
-        metadata: metaValue,
-        created_at: sent_at || new Date().toISOString(),
-      };
+      let upsertedId: string;
 
-      // Single upsert path — hydrates any existing shell OR inserts new row
-      const { data: upserted, error: msgErr } = await supabase
-        .from("messages")
-        .upsert(fullRow, { onConflict: "message_id" })
-        .select("id")
-        .single();
-      if (msgErr) throw msgErr;
+      // ── Reconciliation: if internal_id is provided, update existing row ──
+      if (internal_id) {
+        console.log("[upsert_message] internal_id provided:", internal_id, "→ official message_id:", message_id);
+
+        const { data: existing } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("message_id", internal_id)
+          .maybeSingle();
+
+        if (existing) {
+          // Update the existing row: swap message_id to official and fill fields
+          const { error: updateErr } = await supabase
+            .from("messages")
+            .update({
+              message_id,
+              conversation_id: conversationId,
+              contact_id: contactId,
+              status: mappedStatus,
+              content: messageContent || undefined,
+              message_type: messageType,
+              metadata: metaValue,
+            })
+            .eq("id", existing.id);
+          if (updateErr) throw updateErr;
+
+          upsertedId = existing.id;
+          console.log("[upsert_message] reconciled internal_id →", existing.id);
+        } else {
+          // internal_id not found — fall through to normal upsert
+          console.log("[upsert_message] internal_id not found in DB, doing normal upsert");
+          const fullRow = {
+            message_id,
+            conversation_id: conversationId,
+            contact_id: contactId,
+            user_id: userId,
+            company_id,
+            channel: "whatsapp",
+            direction: messageDirection,
+            content: messageContent,
+            message_type: messageType,
+            status: mappedStatus,
+            metadata: metaValue,
+            created_at: sent_at || new Date().toISOString(),
+          };
+          const { data: upserted, error: msgErr } = await supabase
+            .from("messages")
+            .upsert(fullRow, { onConflict: "message_id" })
+            .select("id")
+            .single();
+          if (msgErr) throw msgErr;
+          upsertedId = upserted.id;
+        }
+      } else {
+        // ── Normal upsert (inbound messages or no internal_id) ──
+        const fullRow = {
+          message_id,
+          conversation_id: conversationId,
+          contact_id: contactId,
+          user_id: userId,
+          company_id,
+          channel: "whatsapp",
+          direction: messageDirection,
+          content: messageContent,
+          message_type: messageType,
+          status: mappedStatus,
+          metadata: metaValue,
+          created_at: sent_at || new Date().toISOString(),
+        };
+        const { data: upserted, error: msgErr } = await supabase
+          .from("messages")
+          .upsert(fullRow, { onConflict: "message_id" })
+          .select("id")
+          .single();
+        if (msgErr) throw msgErr;
+        upsertedId = upserted.id;
+      }
 
       // ── Update conversation ──
       const updateData: Record<string, unknown> = {
@@ -321,7 +377,7 @@ Deno.serve(async (req) => {
       }
       await supabase.from("conversations").update(updateData).eq("id", conversationId);
 
-      return json({ success: true, action: "upserted_message", id: upserted.id });
+      return json({ success: true, action: "upserted_message", id: upsertedId });
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);
