@@ -69,7 +69,7 @@ export const useMessages = (conversationId: string | null) => {
           content: messageContent,
           message_type: effectiveMediaType,
           status: "sending",
-          metadata: Object.keys(metadata).length > 0 ? metadata : null,
+          metadata: Object.keys(metadata).length > 0 ? (metadata as any) : null,
         }]);
 
       if (insertError) throw insertError;
