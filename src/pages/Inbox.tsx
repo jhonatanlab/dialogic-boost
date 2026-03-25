@@ -341,25 +341,38 @@ const Inbox = () => {
 
   const availableInboxTags = allTags.filter(t => !contactTags.some(ct => ct.id === t.id));
 
+  // Helper: detect if a message is a pending shell (status arrived before content)
+  const isPendingShell = (msg: Message): boolean => {
+    if (msg.direction !== "outbound") return false;
+    const meta = msg.metadata as Record<string, unknown> | null;
+    if (meta?.pending_content === true) return true;
+    // Also hide outbound messages with empty content and no media
+    const hasContent = msg.content && msg.content.trim().length > 0;
+    const hasMediaMeta = meta?.media_url && typeof meta.media_url === "string";
+    return !hasContent && !hasMediaMeta && !msg.id.startsWith("app-");
+  };
+
   // Helper: check if an optimistic msg has a matching real msg from n8n
-  const optimisticMatchesReal = (opt: Message, real: Message) =>
-    real.direction === "outbound" &&
-    real.message_type === opt.message_type &&
-    // Match by content (text) or by media type for non-text
-    (opt.message_type !== "text"
-      ? Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime()) < 60000
-      : real.content === opt.content &&
-        Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime()) < 60000);
+  const optimisticMatchesReal = (opt: Message, real: Message) => {
+    if (real.direction !== "outbound") return false;
+    if (isPendingShell(real)) return false; // Don't reconcile with shells
+    if (real.message_type !== opt.message_type) return false;
+    const timeDiff = Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime());
+    if (timeDiff > 60000) return false;
+    if (opt.message_type === "text") return real.content === opt.content;
+    return true;
+  };
 
   // Merge optimistic + real messages; drop optimistic once n8n's real row arrives via Realtime
   const allMessages = (() => {
-    if (!messages) return optimisticMessages;
-    if (optimisticMessages.length === 0) return messages;
+    // Filter out pending shells from DB messages
+    const visibleMessages = (messages || []).filter(m => !isPendingShell(m));
+    if (optimisticMessages.length === 0) return visibleMessages;
 
     const pending = optimisticMessages.filter(opt =>
-      !messages.some(real => optimisticMatchesReal(opt, real))
+      !visibleMessages.some(real => optimisticMatchesReal(opt, real))
     );
-    return [...messages, ...pending];
+    return [...visibleMessages, ...pending];
   })();
 
   // Clean up optimistic messages when real ones arrive
