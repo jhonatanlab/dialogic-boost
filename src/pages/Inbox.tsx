@@ -601,44 +601,18 @@ const Inbox = () => {
       setIsUploading(false);
     }
 
-    // Optimistic message
-    const optimisticId = `opt-${Date.now()}`;
-    const optimisticMsg: Message = {
-      id: optimisticId,
-      conversation_id: selectedConversation.id,
-      contact_id: selectedConversation.contact_id,
-      user_id: "",
-      channel: "whatsapp",
-      direction: "outbound",
-      content: textContent || "",
-      message_type: mediaType || "text",
-      status: "sending",
-      created_at: new Date().toISOString(),
-      metadata: mediaUrl ? { media_url: mediaUrl, mimetype: mimetype || null } : null,
-    };
-    setOptimisticMessages(prev => [...prev, optimisticMsg]);
     setMessageInput("");
     removeAttachment();
 
-    // Send in background — no toast on success, only on failure
-    sendMessage.mutate(
-      {
-        conversationId: selectedConversation.id,
-        contactId: selectedConversation.contact_id,
-        content: textContent,
-        phone: selectedConversation.contact.phone || "",
-        companyId,
-        mediaType, mediaUrl, mimetype,
-      },
-      {
-        onError: () => {
-          // Mark optimistic message as failed
-          setOptimisticMessages(prev =>
-            prev.map(m => m.id === optimisticId ? { ...m, status: "failed" } : m)
-          );
-        },
-      }
-    );
+    // Message is saved to DB inside sendMessage (useMessages hook)
+    sendMessage.mutate({
+      conversationId: selectedConversation.id,
+      contactId: selectedConversation.contact_id,
+      content: textContent,
+      phone: selectedConversation.contact.phone || "",
+      companyId,
+      mediaType, mediaUrl, mimetype,
+    });
   };
 
   const insertQuickReply = (text: string) => {
