@@ -49,13 +49,41 @@ export const useMessages = (conversationId: string | null) => {
 
       const effectiveMediaType = mediaType || "text";
       const messageContent = content || "";
+      const tempMessageId = `app-${crypto.randomUUID()}`;
 
-      // Build payload for n8n — NO database insert here
+      // 1. Insert message into DB with temporary ID and 'sending' status
+      const metadata: Record<string, unknown> = {};
+      if (mediaUrl) metadata.media_url = mediaUrl;
+      if (mimetype) metadata.mimetype = mimetype;
+
+      const { error: insertError } = await supabase
+        .from("messages")
+        .insert([{
+          message_id: tempMessageId,
+          conversation_id: conversationId,
+          contact_id: contactId,
+          user_id: user.id,
+          company_id: companyId,
+          channel: "whatsapp",
+          direction: "outbound",
+          content: messageContent,
+          message_type: effectiveMediaType,
+          status: "sending",
+          metadata: Object.keys(metadata).length > 0 ? (metadata as any) : null,
+        }]);
+
+      if (insertError) throw insertError;
+
+      // Invalidate immediately so the message appears in the chat
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+
+      // 2. Build payload for n8n with internal_id
       const payload: Record<string, string> = {
         company_id: companyId,
         number: phone,
         text: messageContent,
         type: effectiveMediaType,
+        internal_id: tempMessageId,
       };
       if (mediaUrl) payload.media_url = mediaUrl;
       if (mimetype) payload.mimetype = mimetype;
@@ -73,11 +101,20 @@ export const useMessages = (conversationId: string | null) => {
       });
 
       if (response.error) {
+        // Mark message as failed in DB
+        await supabase
+          .from("messages")
+          .update({ status: "failed" })
+          .eq("message_id", tempMessageId);
         throw new Error(response.error.message);
       }
 
       const result = response.data;
       if (result?.success === false) {
+        await supabase
+          .from("messages")
+          .update({ status: "failed" })
+          .eq("message_id", tempMessageId);
         throw new Error(result.error || "Erro no envio via n8n");
       }
 
@@ -94,6 +131,7 @@ export const useMessages = (conversationId: string | null) => {
     },
     onError: (error: Error) => {
       console.error("Error sending message:", error);
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
     },
   });
 

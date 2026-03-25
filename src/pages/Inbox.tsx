@@ -297,7 +297,7 @@ const Inbox = () => {
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
+  // optimisticMessages no longer needed — messages are persisted to DB before n8n call
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -346,43 +346,13 @@ const Inbox = () => {
     if (msg.direction !== "outbound") return false;
     const meta = msg.metadata as Record<string, unknown> | null;
     if (meta?.pending_content === true) return true;
-    // Also hide outbound messages with empty content and no media
     const hasContent = msg.content && msg.content.trim().length > 0;
     const hasMediaMeta = meta?.media_url && typeof meta.media_url === "string";
-    return !hasContent && !hasMediaMeta && !msg.id.startsWith("app-");
+    return !hasContent && !hasMediaMeta && !msg.message_id?.startsWith("app-");
   };
 
-  // Helper: check if an optimistic msg has a matching real msg from n8n
-  const optimisticMatchesReal = (opt: Message, real: Message) => {
-    if (real.direction !== "outbound") return false;
-    if (isPendingShell(real)) return false; // Don't reconcile with shells
-    if (real.message_type !== opt.message_type) return false;
-    const timeDiff = Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime());
-    if (timeDiff > 60000) return false;
-    if (opt.message_type === "text") return real.content === opt.content;
-    return true;
-  };
-
-  // Merge optimistic + real messages; drop optimistic once n8n's real row arrives via Realtime
-  const allMessages = (() => {
-    // Filter out pending shells from DB messages
-    const visibleMessages = (messages || []).filter(m => !isPendingShell(m));
-    if (optimisticMessages.length === 0) return visibleMessages;
-
-    const pending = optimisticMessages.filter(opt =>
-      !visibleMessages.some(real => optimisticMatchesReal(opt, real))
-    );
-    return [...visibleMessages, ...pending];
-  })();
-
-  // Clean up optimistic messages when real ones arrive
-  useEffect(() => {
-    if (messages && messages.length > 0 && optimisticMessages.length > 0) {
-      setOptimisticMessages(prev =>
-        prev.filter(opt => !messages.some(real => optimisticMatchesReal(opt, real)))
-      );
-    }
-  }, [messages]);
+  // Messages from DB, filtering out pending shells
+  const allMessages = (messages || []).filter(m => !isPendingShell(m));
 
   // Auto-scroll on new messages
   useEffect(() => {
@@ -586,15 +556,6 @@ const Inbox = () => {
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
 
-        const optimisticId = `opt-${Date.now()}`;
-        const optimisticMsg: Message = {
-          id: optimisticId, conversation_id: selectedConversation.id,
-          contact_id: selectedConversation.contact_id, user_id: "", channel: "whatsapp",
-          direction: "outbound", content: "", message_type: "audio", status: "sending",
-          created_at: new Date().toISOString(),
-          metadata: { media_url: urlData.publicUrl, mimetype: "audio/webm" },
-        };
-        setOptimisticMessages(prev => [...prev, optimisticMsg]);
         setAttachedFile(null);
 
         sendMessage.mutate({
@@ -602,10 +563,6 @@ const Inbox = () => {
           contactId: selectedConversation.contact_id,
           content: "", phone: selectedConversation.contact.phone || "",
           companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: "audio/webm",
-        }, {
-          onError: () => {
-            setOptimisticMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: "failed" } : m));
-          },
         });
       } catch (err) {
         console.error("Upload audio error:", err);
@@ -644,44 +601,18 @@ const Inbox = () => {
       setIsUploading(false);
     }
 
-    // Optimistic message
-    const optimisticId = `opt-${Date.now()}`;
-    const optimisticMsg: Message = {
-      id: optimisticId,
-      conversation_id: selectedConversation.id,
-      contact_id: selectedConversation.contact_id,
-      user_id: "",
-      channel: "whatsapp",
-      direction: "outbound",
-      content: textContent || "",
-      message_type: mediaType || "text",
-      status: "sending",
-      created_at: new Date().toISOString(),
-      metadata: mediaUrl ? { media_url: mediaUrl, mimetype: mimetype || null } : null,
-    };
-    setOptimisticMessages(prev => [...prev, optimisticMsg]);
     setMessageInput("");
     removeAttachment();
 
-    // Send in background — no toast on success, only on failure
-    sendMessage.mutate(
-      {
-        conversationId: selectedConversation.id,
-        contactId: selectedConversation.contact_id,
-        content: textContent,
-        phone: selectedConversation.contact.phone || "",
-        companyId,
-        mediaType, mediaUrl, mimetype,
-      },
-      {
-        onError: () => {
-          // Mark optimistic message as failed
-          setOptimisticMessages(prev =>
-            prev.map(m => m.id === optimisticId ? { ...m, status: "failed" } : m)
-          );
-        },
-      }
-    );
+    // Message is saved to DB inside sendMessage (useMessages hook)
+    sendMessage.mutate({
+      conversationId: selectedConversation.id,
+      contactId: selectedConversation.contact_id,
+      content: textContent,
+      phone: selectedConversation.contact.phone || "",
+      companyId,
+      mediaType, mediaUrl, mimetype,
+    });
   };
 
   const insertQuickReply = (text: string) => {
