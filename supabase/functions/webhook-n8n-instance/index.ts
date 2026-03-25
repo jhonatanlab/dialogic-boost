@@ -155,10 +155,10 @@ Deno.serve(async (req) => {
     // ACTION: update_message_status
     // ═══════════════════════════════════════════
     if (action === "update_message_status") {
-      const { message_id, status, company_id } = data as Record<string, string>;
+      const { message_id, status, company_id, phone_number } = data as Record<string, string>;
       if (!message_id || !status) return json({ error: "message_id and status are required" }, 400);
 
-      console.log("[update_message_status] message_id:", message_id, "status:", status, "company_id:", company_id || "N/A");
+      console.log("[update_message_status] message_id:", message_id, "status:", status, "company_id:", company_id || "N/A", "phone:", phone_number || "N/A");
 
       // Unknown statuses: ignore silently, return 200
       if (!KNOWN_STATUSES.has(status)) {
@@ -211,40 +211,98 @@ Deno.serve(async (req) => {
         return json({ success: true, action: "reconciled_and_updated", id: fallback.id, status: mappedStatus });
       }
 
-      // 3. Status arrived before message creation — upsert a shell record
-      console.log("[update_message_status] no match found, upserting shell record for message_id:", message_id);
+      // 3. Status arrived before message creation — create shell with real conversation
+      console.log("[update_message_status] no match found, creating shell record for message_id:", message_id);
 
-      // We need a user_id and contact_id for required columns; get from company
-      let userId: string | null = null;
-      if (company_id) {
-        userId = await getUserForCompany(company_id);
+      if (!company_id || !phone_number) {
+        console.log("[update_message_status] missing company_id or phone_number, cannot create shell. Storing status only.");
+        return json({ success: true, action: "status_deferred", message: "No match found and missing company_id/phone_number for shell creation" });
       }
 
-      // Build the shell record with minimal required fields
-      const shellRecord: Record<string, unknown> = {
-        message_id,
-        status: mappedStatus,
-        direction: "outbound",
-        channel: "whatsapp",
-        content: "",
-        message_type: "text",
-      };
-      if (company_id) shellRecord.company_id = company_id;
-      if (userId) {
-        shellRecord.user_id = userId;
-        // Use a placeholder contact_id — will be overwritten when the real message arrives
-        shellRecord.contact_id = "00000000-0000-0000-0000-000000000000";
-        shellRecord.conversation_id = "00000000-0000-0000-0000-000000000000";
+      const userId = await getUserForCompany(company_id);
+      if (!userId) {
+        return json({ error: "No user found for this company" }, 404);
       }
 
+      const normalizedPhone = normalizePhone(phone_number);
+
+      // Find or create contact
+      let contactId: string;
+      const { data: existingContact } = await supabase
+        .from("contacts")
+        .select("id")
+        .eq("company_id", company_id)
+        .eq("phone", normalizedPhone)
+        .maybeSingle();
+
+      if (existingContact) {
+        contactId = existingContact.id;
+      } else {
+        const { data: newContact, error: contactErr } = await supabase
+          .from("contacts")
+          .insert({
+            user_id: userId,
+            company_id,
+            name: normalizedPhone,
+            phone: normalizedPhone,
+            source: "whatsapp",
+          })
+          .select("id")
+          .single();
+        if (contactErr) throw contactErr;
+        contactId = newContact.id;
+      }
+
+      // Find or create conversation
+      let conversationId: string;
+      const { data: existingConv } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("company_id", company_id)
+        .eq("contact_id", contactId)
+        .order("last_message_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingConv) {
+        conversationId = existingConv.id;
+      } else {
+        const { data: newConv, error: convErr } = await supabase
+          .from("conversations")
+          .insert({
+            user_id: userId,
+            company_id,
+            contact_id: contactId,
+            channel: "whatsapp",
+            status: "open",
+            unread_count: 0,
+          })
+          .select("id")
+          .single();
+        if (convErr) throw convErr;
+        conversationId = newConv.id;
+      }
+
+      // Upsert shell message with real FK references
       const { data: upserted, error: upsertErr } = await supabase
         .from("messages")
-        .upsert(shellRecord, { onConflict: "message_id" })
+        .upsert({
+          message_id,
+          status: mappedStatus,
+          direction: "outbound",
+          channel: "whatsapp",
+          content: "",
+          message_type: "text",
+          company_id,
+          user_id: userId,
+          contact_id: contactId,
+          conversation_id: conversationId,
+        }, { onConflict: "message_id" })
         .select("id")
         .single();
       if (upsertErr) throw upsertErr;
 
-      console.log("[update_message_status] shell upserted, id:", upserted.id);
+      console.log("[update_message_status] shell upserted with real conversation, id:", upserted.id);
       return json({ success: true, action: "shell_created", id: upserted.id, status: mappedStatus });
     }
 
