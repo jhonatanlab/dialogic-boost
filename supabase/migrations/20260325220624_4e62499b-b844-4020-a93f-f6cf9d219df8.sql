@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX idx_messages_message_id ON public.messages (message_id) WHERE message_id IS NOT NULL;
