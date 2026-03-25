@@ -297,7 +297,7 @@ const Inbox = () => {
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
+  // optimisticMessages no longer needed — messages are persisted to DB before n8n call
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
