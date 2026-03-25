@@ -58,7 +58,7 @@ export const useMessages = (conversationId: string | null) => {
 
       const { error: insertError } = await supabase
         .from("messages")
-        .insert({
+        .insert([{
           message_id: tempMessageId,
           conversation_id: conversationId,
           contact_id: contactId,
