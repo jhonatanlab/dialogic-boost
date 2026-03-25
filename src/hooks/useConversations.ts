@@ -44,14 +44,23 @@ export const useConversations = () => {
 
       const conversationsWithMessages = await Promise.all(
         (data || []).map(async (conv) => {
+          // Fetch a few recent messages to skip pending shells
           const { data: lastMessages } = await supabase
             .from("messages")
             .select("content, direction, message_type, metadata")
             .eq("conversation_id", conv.id)
             .order("created_at", { ascending: false })
-            .limit(1);
+            .limit(5);
 
-          return { ...conv, last_message: lastMessages?.[0] || undefined };
+          // Find first message that isn't a pending shell
+          const validMsg = lastMessages?.find(m => {
+            const meta = m.metadata as Record<string, unknown> | null;
+            if (meta?.pending_content === true) return false;
+            if (m.direction === "outbound" && (!m.content || !m.content.trim()) && !meta?.media_url) return false;
+            return true;
+          });
+
+          return { ...conv, last_message: validMsg || undefined };
         })
       );
 
