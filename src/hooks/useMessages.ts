@@ -70,7 +70,7 @@ export const useMessages = (conversationId: string | null) => {
           message_type: effectiveMediaType,
           status: "sending",
           metadata: Object.keys(metadata).length > 0 ? metadata : null,
-        });
+        }]);
 
       if (insertError) throw insertError;
 
