@@ -1,0 +1,1 @@
+ALTER TABLE messages ADD CONSTRAINT unique_message_id UNIQUE (message_id)
