@@ -244,43 +244,9 @@ Deno.serve(async (req) => {
         return json({ success: true, action: "updated_status", id: updated.id, status: mappedStatus });
       }
 
-      // 2. No match — status arrived before content. Create a shell marked as pending_content.
-      console.log("[update_message_status] no match, creating pending shell for message_id:", message_id);
-
-      if (!company_id || !phone_number) {
-        console.log("[update_message_status] missing company_id or phone_number, deferring.");
-        return json({ success: true, action: "status_deferred", message: "No match and missing company_id/phone_number" });
-      }
-
-      const userId = await getUserForCompany(company_id);
-      if (!userId) return json({ error: "No user found for this company" }, 404);
-
-      const normalizedPhone = normalizePhone(phone_number);
-      const contactId = await findOrCreateContact(company_id, userId, normalizedPhone);
-      const conversationId = await findOrCreateConversation(company_id, userId, contactId);
-
-      // Upsert shell with pending_content flag
-      const { data: upserted, error: upsertErr } = await supabase
-        .from("messages")
-        .upsert({
-          message_id,
-          status: mappedStatus,
-          direction: "outbound",
-          channel: "whatsapp",
-          content: "",
-          message_type: "text",
-          company_id,
-          user_id: userId,
-          contact_id: contactId,
-          conversation_id: conversationId,
-          metadata: { pending_content: true },
-        }, { onConflict: "message_id" })
-        .select("id")
-        .single();
-      if (upsertErr) throw upsertErr;
-
-      console.log("[update_message_status] pending shell created, id:", upserted.id);
-      return json({ success: true, action: "shell_created", id: upserted.id, status: mappedStatus });
+      // 2. No match — status arrived before content. Simply defer; upsert_message will create the row later.
+      console.log("[update_message_status] no match for message_id:", message_id, "— deferring (no shell created)");
+      return json({ success: true, action: "status_deferred", message: "Message not yet in DB, status will be applied when content arrives" });
     }
 
     // ═══════════════════════════════════════════
