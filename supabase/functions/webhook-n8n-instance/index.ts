@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
 
       const mappedStatus = normalizeStatus(status);
 
-      // 1. Try exact match update (most common — message already exists)
+      // 1. Try exact match update by message_id (most common — message already exists)
       const { data: updated, error: updateErr } = await supabase
         .from("messages")
         .update({ status: mappedStatus })
@@ -240,13 +240,57 @@ Deno.serve(async (req) => {
       if (updateErr) throw updateErr;
 
       if (updated) {
-        console.log("[update_message_status] exact match found, id:", updated.id);
+        console.log("[update_message_status] found by message_id, id:", updated.id);
         return json({ success: true, action: "updated_status", id: updated.id, status: mappedStatus });
       }
 
-      // 2. No match — status arrived before content. Simply defer; upsert_message will create the row later.
-      console.log("[update_message_status] no match for message_id:", message_id, "— deferring (no shell created)");
-      return json({ success: true, action: "status_deferred", message: "Message not yet in DB, status will be applied when content arrives" });
+      // 2. Race condition — status arrived before upsert_message. Create a placeholder row via upsert.
+      if (!company_id) {
+        console.log("[update_message_status] no match and no company_id — deferring");
+        return json({ success: true, action: "status_deferred", message: "Message not yet in DB and no company_id to create placeholder" });
+      }
+
+      const userId = await getUserForCompany(company_id);
+      if (!userId) {
+        return json({ success: true, action: "status_deferred", message: "No user found for company, deferring" });
+      }
+
+      // Find or create a contact + conversation if phone_number is provided
+      let contactId: string | null = null;
+      let conversationId: string | null = null;
+
+      if (phone_number) {
+        const normalizedPhone = normalizePhone(phone_number);
+        contactId = await findOrCreateContact(company_id, userId, normalizedPhone);
+        conversationId = await findOrCreateConversation(company_id, userId, contactId, 0);
+      }
+
+      if (!contactId || !conversationId) {
+        console.log("[update_message_status] cannot resolve contact/conversation — deferring");
+        return json({ success: true, action: "status_deferred", message: "Cannot resolve contact, deferring" });
+      }
+
+      const { data: upserted, error: upsertErr } = await supabase
+        .from("messages")
+        .upsert({
+          message_id,
+          conversation_id: conversationId,
+          contact_id: contactId,
+          user_id: userId,
+          company_id,
+          channel: "whatsapp",
+          direction: "outbound",
+          content: "",
+          message_type: "text",
+          status: mappedStatus,
+          metadata: { pending_content: true },
+        }, { onConflict: "message_id" })
+        .select("id")
+        .single();
+      if (upsertErr) throw upsertErr;
+
+      console.log("[update_message_status] placeholder created via upsert, id:", upserted.id);
+      return json({ success: true, action: "upserted_placeholder", id: upserted.id, status: mappedStatus });
     }
 
     // ═══════════════════════════════════════════
