@@ -341,36 +341,33 @@ const Inbox = () => {
 
   const availableInboxTags = allTags.filter(t => !contactTags.some(ct => ct.id === t.id));
 
-  // Merge optimistic + real messages
-  // Merge optimistic + real messages, matching by content+direction+timestamp proximity
+  // Helper: check if an optimistic msg has a matching real msg from n8n
+  const optimisticMatchesReal = (opt: Message, real: Message) =>
+    real.direction === "outbound" &&
+    real.message_type === opt.message_type &&
+    // Match by content (text) or by media type for non-text
+    (opt.message_type !== "text"
+      ? Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime()) < 60000
+      : real.content === opt.content &&
+        Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime()) < 60000);
+
+  // Merge optimistic + real messages; drop optimistic once n8n's real row arrives via Realtime
   const allMessages = (() => {
     if (!messages) return optimisticMessages;
     if (optimisticMessages.length === 0) return messages;
-    
-    // Remove optimistic messages that have a matching real message
-    const pending = optimisticMessages.filter(opt => {
-      // Check if any real outbound message matches this optimistic one
-      return !messages.some(real =>
-        real.direction === "outbound" &&
-        real.content === opt.content &&
-        real.message_type === opt.message_type &&
-        Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime()) < 30000
-      );
-    });
+
+    const pending = optimisticMessages.filter(opt =>
+      !messages.some(real => optimisticMatchesReal(opt, real))
+    );
     return [...messages, ...pending];
   })();
 
   // Clean up optimistic messages when real ones arrive
   useEffect(() => {
     if (messages && messages.length > 0 && optimisticMessages.length > 0) {
-      setOptimisticMessages(prev => prev.filter(opt =>
-        !messages.some(real =>
-          real.direction === "outbound" &&
-          real.content === opt.content &&
-          real.message_type === opt.message_type &&
-          Math.abs(new Date(real.created_at).getTime() - new Date(opt.created_at).getTime()) < 30000
-        )
-      ));
+      setOptimisticMessages(prev =>
+        prev.filter(opt => !messages.some(real => optimisticMatchesReal(opt, real)))
+      );
     }
   }, [messages]);
 
