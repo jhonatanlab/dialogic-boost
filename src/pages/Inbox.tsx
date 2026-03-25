@@ -556,15 +556,6 @@ const Inbox = () => {
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
 
-        const optimisticId = `opt-${Date.now()}`;
-        const optimisticMsg: Message = {
-          id: optimisticId, conversation_id: selectedConversation.id,
-          contact_id: selectedConversation.contact_id, user_id: "", channel: "whatsapp",
-          direction: "outbound", content: "", message_type: "audio", status: "sending",
-          created_at: new Date().toISOString(),
-          metadata: { media_url: urlData.publicUrl, mimetype: "audio/webm" },
-        };
-        setOptimisticMessages(prev => [...prev, optimisticMsg]);
         setAttachedFile(null);
 
         sendMessage.mutate({
@@ -572,10 +563,6 @@ const Inbox = () => {
           contactId: selectedConversation.contact_id,
           content: "", phone: selectedConversation.contact.phone || "",
           companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: "audio/webm",
-        }, {
-          onError: () => {
-            setOptimisticMessages(prev => prev.map(m => m.id === optimisticId ? { ...m, status: "failed" } : m));
-          },
         });
       } catch (err) {
         console.error("Upload audio error:", err);
