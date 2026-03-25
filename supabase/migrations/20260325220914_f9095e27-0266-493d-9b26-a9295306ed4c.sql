@@ -1,0 +1,1 @@
+DELETE FROM messages WHERE message_id LIKE 'app-%' AND status = 'sending' AND EXISTS (SELECT 1 FROM messages b WHERE b.conversation_id = messages.conversation_id AND b.direction = messages.direction AND b.content = messages.content AND b.message_id LIKE '3EB%' AND b.created_at BETWEEN messages.created_at - interval '30 seconds' AND messages.created_at + interval '30 seconds');

@@ -351,8 +351,23 @@ const Inbox = () => {
     return !hasContent && !hasMediaMeta && !msg.message_id?.startsWith("app-");
   };
 
-  // Messages from DB, filtering out pending shells
-  const allMessages = (messages || []).filter(m => !isPendingShell(m));
+  // Messages from DB, filtering out pending shells and stale optimistic duplicates
+  const allMessages = (() => {
+    const raw = (messages || []).filter(m => !isPendingShell(m));
+    // Deduplicate: if a 3EB message exists with same content/direction within 30s,
+    // remove the stale app-xxx version
+    const reconciledIds = new Set<string>();
+    for (const msg of raw) {
+      if (!msg.message_id?.startsWith("app-") || msg.status !== "sending") continue;
+      const hasReal = raw.some(
+        r => r.id !== msg.id && r.direction === msg.direction && r.content === msg.content
+          && r.message_id && !r.message_id.startsWith("app-")
+          && Math.abs(new Date(r.created_at).getTime() - new Date(msg.created_at).getTime()) < 30000
+      );
+      if (hasReal) reconciledIds.add(msg.id);
+    }
+    return reconciledIds.size > 0 ? raw.filter(m => !reconciledIds.has(m.id)) : raw;
+  })();
 
   // Auto-scroll on new messages
   useEffect(() => {
