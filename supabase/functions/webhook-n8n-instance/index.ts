@@ -411,21 +411,46 @@ Deno.serve(async (req) => {
           existing = byMsgId;
         }
 
-        // Strategy 3: Fuzzy match — same conversation, direction outbound, similar content, recent
+        // Strategy 3: Fuzzy match — same conversation, direction outbound, similar content or media_url, recent
         if (!existing) {
-          const { data: fuzzy } = await supabase
-            .from("messages")
-            .select("id, status, message_id, client_message_id")
-            .eq("conversation_id", conversationId)
-            .eq("direction", "outbound")
-            .eq("content", messageContent)
-            .is("message_id", null)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (fuzzy) {
-            console.log("[upsert_message] fuzzy match found:", fuzzy.id);
-            existing = fuzzy;
+          // Try by media_url if content is empty/generic and media_url exists
+          const incomingMediaUrl = media_url || messageMetadata?.media_url;
+          if ((!messageContent || messageContent.trim() === "") && incomingMediaUrl) {
+            const { data: fuzzyMedia } = await supabase
+              .from("messages")
+              .select("id, status, message_id, client_message_id")
+              .eq("conversation_id", conversationId)
+              .eq("direction", "outbound")
+              .is("message_id", null)
+              .order("created_at", { ascending: false })
+              .limit(5);
+            if (fuzzyMedia) {
+              const match = fuzzyMedia.find((r: any) => {
+                const meta = r.metadata || (r as any).metadata;
+                return meta?.media_url === incomingMediaUrl;
+              });
+              if (match) {
+                console.log("[upsert_message] fuzzy media_url match found:", match.id);
+                existing = match;
+              }
+            }
+          }
+          // Fallback: match by content
+          if (!existing && messageContent && messageContent.trim() !== "") {
+            const { data: fuzzy } = await supabase
+              .from("messages")
+              .select("id, status, message_id, client_message_id")
+              .eq("conversation_id", conversationId)
+              .eq("direction", "outbound")
+              .eq("content", messageContent)
+              .is("message_id", null)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (fuzzy) {
+              console.log("[upsert_message] fuzzy content match found:", fuzzy.id);
+              existing = fuzzy;
+            }
           }
         }
 
