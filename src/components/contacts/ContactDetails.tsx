@@ -329,7 +329,7 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                       </Label>
                       <div className="space-y-1.5">
                         {videos.map(msg => (
-                          <FileItem key={msg.id} msg={msg} icon={Film} label="Vídeo" />
+                          <FileItem key={msg.id} msg={msg} icon={Film} fallbackLabel="Vídeo" />
                         ))}
                       </div>
                     </div>
@@ -341,7 +341,7 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                       </Label>
                       <div className="space-y-1.5">
                         {audios.map(msg => (
-                          <FileItem key={msg.id} msg={msg} icon={Mic} label="Áudio" />
+                          <FileItem key={msg.id} msg={msg} icon={Mic} fallbackLabel="Áudio" />
                         ))}
                       </div>
                     </div>
@@ -353,7 +353,7 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                       </Label>
                       <div className="space-y-1.5">
                         {docs.map(msg => (
-                          <FileItem key={msg.id} msg={msg} icon={FileText} label="Documento" />
+                          <FileItem key={msg.id} msg={msg} icon={FileText} fallbackLabel="Documento" />
                         ))}
                       </div>
                     </div>
