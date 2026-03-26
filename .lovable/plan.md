@@ -1,39 +1,37 @@
 
 
-## Plano: Limpar ghosts e tornar o sistema resiliente a IDs divergentes
+## Diagnóstico
 
-### Problema confirmado nos dados
-Cada mensagem gera DUAS linhas no banco:
-- Shell `cmn...` (vazia, pending_content: true) — criada por `update_message_status`
-- Real `3EB...` (com conteúdo) — criada por `upsert_message`
+O status desaparece porque o `upsert_message` **sobrescreve** o status que já foi atualizado pelo `update_message_status`.
 
-A reconciliação otimista também falha porque para mídia, o content real é "Mídia enviada" e o otimista é vazio.
+**Sequência real:**
+1. Mensagem enviada → status `sending` no banco
+2. `update_message_status` chega → atualiza para `sent` → depois `delivered` → depois `read` ✓
+3. `upsert_message` chega (reconciliação) → sobrescreve o status com `"sent"` ou o default `"received"` (linha 321) ✗
 
-### Mudanças
+O status volta para um valor inferior porque o `upsert_message` não respeita a hierarquia de status.
 
-**1. Migração SQL — Limpar dados antigos**
-- Deletar todas as shells pendentes: `DELETE FROM messages WHERE content = '' AND metadata->>'pending_content' = 'true'`
-- Deletar shells antigas sem conteúdo e sem metadata: `DELETE FROM messages WHERE content = '' AND metadata IS NULL AND direction = 'outbound'`
-- Deletar registros com `message_id` prefixo `app-` (legado do frontend que salvava no banco): `DELETE FROM messages WHERE message_id LIKE 'app-%'`
+## Solução
 
-**2. Edge Function `webhook-n8n-instance` — Defesa contra shells inúteis**
-- No `update_message_status`: se não encontrar a mensagem pelo `message_id`, **NÃO criar shell**. Apenas retornar `status_deferred` com 200 OK.
-- Justificativa: se o n8n vai ser corrigido para enviar o ID oficial correto, as shells pendentes não são mais necessárias. E mesmo que o status chegue antes do conteúdo, o `upsert_message` criará a linha completa e o próximo `update_message_status` com o mesmo ID encontrará a linha.
-- Remover toda a lógica de criação de shell (linhas ~247-283).
+Adicionar uma lógica de **hierarquia de status** na Edge Function `webhook-n8n-instance`:
 
-**3. Frontend `Inbox.tsx` — Melhorar reconciliação otimista**
-- Na função `optimisticMatchesReal`: para mensagens de mídia (não-text), não comparar content — apenas comparar `message_type` e janela temporal.
-- Manter o filtro `isPendingShell` como segurança extra.
+### Alteração no `upsert_message`
 
-**4. Frontend `useConversations.ts` — Já está ok**
-- A lógica de preview já ignora shells. Sem mudança necessária.
+1. **Criar um mapa de prioridade de status:**
+   ```
+   sending(0) < sent/server_ack(1) < delivered/received(2) < read(3) < failed(4)
+   ```
+
+2. **No caminho de reconciliação (internal_id encontrado):** antes de fazer o UPDATE, buscar o status atual da linha. Se o status atual for mais avançado que o novo, **preservar o status atual**.
+
+3. **No caminho de upsert normal (sem internal_id):** ao fazer o upsert, se a linha já existir (conflito), verificar se o status existente é mais avançado e preservá-lo.
 
 ### Detalhes técnicos
 
-Arquivos afetados:
-- `supabase/functions/webhook-n8n-instance/index.ts` — Simplificar `update_message_status` removendo criação de shell
-- `src/pages/Inbox.tsx` — Ajustar `optimisticMatchesReal` para mídia
-- Nova migração SQL — Limpeza de dados
+- **Arquivo:** `supabase/functions/webhook-n8n-instance/index.ts`
+- Na reconciliação com `internal_id` (linha 336-358): fazer `select("id, status")` e comparar prioridades antes de incluir `status` no payload de update
+- No upsert normal (linha 386-408): buscar primeiro se existe pelo `message_id`, e se existir com status superior, não sobrescrever
+- Adicionar função helper `statusPriority(status: string): number`
 
-A mudança principal é **parar de criar shells no backend**. Se o status chegar antes da mensagem, ele será simplesmente ignorado (deferred). Quando o `upsert_message` criar a linha completa, os próximos status updates encontrarão a linha pelo `message_id` oficial e atualizarão normalmente.
+Nenhuma mudança no frontend ou no banco de dados é necessária.
 
