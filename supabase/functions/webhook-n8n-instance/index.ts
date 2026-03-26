@@ -511,28 +511,61 @@ Deno.serve(async (req) => {
         }
       } else {
         // ── Normal upsert (inbound messages or no internal_id) ──
-        const finalStatus = await resolveStatus(message_id, mappedStatus);
-        const fullRow = {
-          message_id,
-          conversation_id: conversationId,
-          contact_id: contactId,
-          user_id: userId,
-          company_id,
-          channel: "whatsapp",
-          direction: messageDirection,
-          content: messageContent,
-          message_type: messageType,
-          status: finalStatus,
-          metadata: metaValue,
-          created_at: sent_at || new Date().toISOString(),
-        };
-        const { data: upserted, error: msgErr } = await supabase
-          .from("messages")
-          .upsert(fullRow, { onConflict: "message_id" })
-          .select("id")
-          .single();
-        if (msgErr) throw msgErr;
-        upsertedId = upserted.id;
+        // For outbound media without internal_id, try to find an existing temp row first
+        let reconciledOutbound = false;
+        if (messageDirection === "outbound" && media_url) {
+          const { data: tempCandidate } = await supabase
+            .from("messages")
+            .select("id, status, metadata")
+            .eq("conversation_id", conversationId)
+            .eq("direction", "outbound")
+            .is("message_id", null)
+            .order("created_at", { ascending: false })
+            .limit(5);
+          if (tempCandidate) {
+            const match = tempCandidate.find((r: any) => {
+              const meta = r.metadata || {};
+              return meta.media_url === media_url;
+            });
+            if (match) {
+              const finalStatus = statusPriority(match.status) > statusPriority(mappedStatus) ? match.status : mappedStatus;
+              const mergedMeta = { ...(match.metadata || {}), ...messageMetadata, pending_content: false };
+              const { error: reconErr } = await supabase
+                .from("messages")
+                .update({ message_id, status: finalStatus, metadata: mergedMeta, content: messageContent || undefined, message_type: messageType })
+                .eq("id", match.id);
+              if (reconErr) throw reconErr;
+              upsertedId = match.id;
+              reconciledOutbound = true;
+              console.log("[upsert_message] reconciled outbound media (no internal_id):", match.id);
+            }
+          }
+        }
+
+        if (!reconciledOutbound) {
+          const finalStatus = await resolveStatus(message_id, mappedStatus);
+          const fullRow = {
+            message_id,
+            conversation_id: conversationId,
+            contact_id: contactId,
+            user_id: userId,
+            company_id,
+            channel: "whatsapp",
+            direction: messageDirection,
+            content: messageContent,
+            message_type: messageType,
+            status: finalStatus,
+            metadata: metaValue,
+            created_at: sent_at || new Date().toISOString(),
+          };
+          const { data: upserted, error: msgErr } = await supabase
+            .from("messages")
+            .upsert(fullRow, { onConflict: "message_id" })
+            .select("id")
+            .single();
+          if (msgErr) throw msgErr;
+          upsertedId = upserted.id;
+        }
       }
 
       // ── Update conversation ──
