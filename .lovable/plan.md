@@ -1,57 +1,68 @@
 
-Objetivo: eliminar a duplicidade física no banco, para que cada mensagem enviada pelo painel ocupe uma única linha e continue recebendo os status corretos.
 
-Diagnóstico confirmado
-- Hoje o frontend ainda cria uma linha temporária `app-...` em `messages`.
-- A Edge Function `webhook-n8n-instance` só reconcilia essa linha se o `internal_id` chegar e casar exatamente.
-- Quando isso falha, o `upsert_message` faz um upsert normal com o ID oficial `3EB...` e sobra a linha `app-...`.
-- O `Inbox` já tenta esconder parte disso visualmente, mas a duplicidade continua persistindo no banco.
+## Diagnóstico
 
-Plano
-1. Tornar a reconciliação robusta no backend
-- Ajustar `upsert_message` para não depender só do `internal_id`.
-- Ordem de reconciliação:
-  1. procurar por `internal_id`;
-  2. se não achar, procurar uma mensagem temporária recente (`app-...`) da mesma conversa/direção/conteúdo ou mesma mídia;
-  3. se achar, atualizar a MESMA linha trocando para o `message_id` oficial `3EB...`;
-  4. só criar nova linha quando realmente não existir candidata válida.
+### 1. PDF chega como TXT no WhatsApp
+O payload enviado ao n8n contém `type: "document"`, `media_url` e `mimetype: "application/pdf"`, mas **não inclui o nome do arquivo** (`fileName`). A maioria das APIs do WhatsApp (Evolution, Z-API, Meta) exige o campo `fileName` (ou `filename`) para determinar a extensão do arquivo. Sem ele, a API assume texto/genérico e entrega como `.txt`.
 
-2. Separar melhor ID temporário de ID oficial
-- Adicionar uma coluna dedicada para o ID interno do app, por exemplo `client_message_id`.
-- O registro inicial do painel passa a salvar:
-  - `client_message_id = app-uuid`
-  - `message_id = null` até chegar o ID oficial
-- Assim o ID oficial deixa de disputar espaço com o ID temporário na mesma coluna.
+**Correção:** Incluir o nome original do arquivo no payload enviado ao n8n.
 
-3. Ajustar o fluxo de envio no frontend
-- Em `useMessages`, continuar salvando a mensagem antes do POST, mas gravando o temporário em `client_message_id`.
-- Continuar enviando `internal_id` para o n8n.
-- Manter realtime como está, para a mesma linha mudar de `sending` para `sent/delivered/read`.
+### 2. Documento duplicado na conversa
+A deduplicação no frontend compara `r.content === msg.content`. Para documentos, o registro temporário salva `content: ""` (texto vazio), mas o n8n pode retornar o conteúdo como o nome do arquivo ou outra string — quebrando a comparação por igualdade. Além disso, a reconciliação fuzzy no backend também compara por `content`, falhando pelo mesmo motivo.
 
-4. Ajustar `update_message_status`
-- Buscar primeiro por `message_id` oficial, como já faz.
-- Se não encontrar, tentar reconciliar com uma mensagem temporária recente compatível antes de criar shell.
-- Criar shell só como último recurso, para evitar novas linhas desnecessárias.
+**Correção:** Ajustar a deduplicação para considerar mensagens de mídia (com `media_url` no metadata) como candidatas à reconciliação, independente do content textual.
 
-5. Limpar o histórico duplicado já existente
-- Criar uma migração para identificar pares `app-...` + `3EB...` da mesma mensagem.
-- Preservar a linha mais completa/mais avançada e remover a redundante.
-- Isso reduz o crescimento inútil do banco e deixa os relatórios consistentes.
+---
 
-Arquivos impactados
-- `supabase/functions/webhook-n8n-instance/index.ts`
-- `src/hooks/useMessages.ts`
-- `src/pages/Inbox.tsx` (apenas como proteção visual extra)
-- nova migração SQL em `supabase/migrations/`
+## Solução
 
-Detalhes técnicos
-- Manter `UNIQUE(message_id)` para o ID oficial.
-- Adicionar `UNIQUE(client_message_id)` para o ID temporário.
-- A reconciliação deve preservar o status mais avançado (`read` > `delivered` > `sent` > `sending`).
-- A limpeza antiga no `Inbox` pode continuar, mas vira só salvaguarda; a correção real fica no backend e na modelagem.
+### Arquivo 1: `src/hooks/useMessages.ts`
 
-Resultado esperado
-- 1 envio do painel = 1 linha persistida.
-- A mesma linha recebe o ID oficial depois.
-- Os checks/status continuam funcionando.
-- O banco para de acumular duplicatas da mesma mensagem.
+1. Aceitar novo parâmetro `fileName` no `sendMessage`
+2. Incluir `fileName` no metadata da mensagem salva no banco
+3. Incluir `fileName` (como `file_name`) no payload enviado ao n8n
+
+### Arquivo 2: `src/pages/Inbox.tsx`
+
+1. Na chamada `handleSendMessage`, passar `attachedFile.name` como `fileName`
+2. Ajustar a lógica de deduplicação `allMessages`: para mensagens do tipo `document`/`image`/`video`/`audio` (com `media_url` no metadata), comparar pela `media_url` em vez de `content`
+
+### Arquivo 3: `supabase/functions/webhook-n8n-instance/index.ts`
+
+1. Na reconciliação fuzzy (Strategy 3 do `upsert_message`), além de comparar por `content`, adicionar fallback que compara pela `media_url` do metadata quando o content é vazio ou genérico
+
+---
+
+## Detalhes técnicos
+
+**Payload para n8n (antes):**
+```json
+{ "type": "document", "media_url": "https://...", "mimetype": "application/pdf" }
+```
+
+**Payload para n8n (depois):**
+```json
+{ "type": "document", "media_url": "https://...", "mimetype": "application/pdf", "file_name": "contrato.pdf" }
+```
+
+**Deduplicação frontend (antes):**
+```typescript
+r.content === msg.content
+```
+
+**Deduplicação frontend (depois):**
+```typescript
+// Para mídia: comparar por media_url do metadata
+const rMedia = (r.metadata as any)?.media_url;
+const msgMedia = (msg.metadata as any)?.media_url;
+const contentMatch = (rMedia && msgMedia) ? rMedia === msgMedia : r.content === msg.content;
+```
+
+**Reconciliação fuzzy no backend (antes):**
+```typescript
+.eq("content", messageContent)
+```
+
+**Reconciliação fuzzy no backend (depois):**
+Se `messageContent` for vazio e `media_url` existir, buscar por `media_url` no metadata via `containedBy` ou filtro JSON.
+
