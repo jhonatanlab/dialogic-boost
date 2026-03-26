@@ -849,6 +849,7 @@ export type Database = {
       messages: {
         Row: {
           channel: string
+          client_message_id: string | null
           company_id: string | null
           contact_id: string
           content: string
@@ -864,6 +865,7 @@ export type Database = {
         }
         Insert: {
           channel?: string
+          client_message_id?: string | null
           company_id?: string | null
           contact_id: string
           content: string
@@ -879,6 +881,7 @@ export type Database = {
         }
         Update: {
           channel?: string
+          client_message_id?: string | null
           company_id?: string | null
           contact_id?: string
           content?: string

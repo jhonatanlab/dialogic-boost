@@ -59,7 +59,8 @@ export const useMessages = (conversationId: string | null) => {
       const { error: insertError } = await supabase
         .from("messages")
         .insert([{
-          message_id: tempMessageId,
+          client_message_id: tempMessageId,
+          message_id: null,
           conversation_id: conversationId,
           contact_id: contactId,
           user_id: user.id,
@@ -70,7 +71,7 @@ export const useMessages = (conversationId: string | null) => {
           message_type: effectiveMediaType,
           status: "sending",
           metadata: Object.keys(metadata).length > 0 ? (metadata as any) : null,
-        }]);
+        }] as any);
 
       if (insertError) throw insertError;
 
@@ -101,20 +102,20 @@ export const useMessages = (conversationId: string | null) => {
       });
 
       if (response.error) {
-        // Mark message as failed in DB
-        await supabase
+        // Mark message as failed in DB (find by client_message_id)
+        await (supabase as any)
           .from("messages")
           .update({ status: "failed" })
-          .eq("message_id", tempMessageId);
+          .eq("client_message_id", tempMessageId);
         throw new Error(response.error.message);
       }
 
       const result = response.data;
       if (result?.success === false) {
-        await supabase
+        await (supabase as any)
           .from("messages")
           .update({ status: "failed" })
-          .eq("message_id", tempMessageId);
+          .eq("client_message_id", tempMessageId);
         throw new Error(result.error || "Erro no envio via n8n");
       }
 

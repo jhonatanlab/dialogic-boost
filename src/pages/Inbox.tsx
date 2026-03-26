@@ -356,9 +356,12 @@ const Inbox = () => {
     const raw = (messages || []).filter(m => !isPendingShell(m));
     // Deduplicate: if a 3EB message exists with same content/direction within 30s,
     // remove the stale app-xxx version
+    // Deduplicate: hide any app-xxx (now in client_message_id) that has a real counterpart
     const reconciledIds = new Set<string>();
     for (const msg of raw) {
-      if (!msg.message_id?.startsWith("app-")) continue;
+      // Legacy: message_id starting with app- OR no message_id (client_message_id flow)
+      const isTemp = msg.message_id?.startsWith("app-") || (!msg.message_id && (msg as any).client_message_id);
+      if (!isTemp) continue;
       const hasReal = raw.some(
         r => r.id !== msg.id && r.direction === msg.direction && r.content === msg.content
           && r.message_id && !r.message_id.startsWith("app-")
