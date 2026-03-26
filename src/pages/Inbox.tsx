@@ -105,7 +105,7 @@ const MediaContent = ({ message }: { message: Message }) => {
             <FileText className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Documento</p>
+            <p className="text-sm font-medium truncate">{(message.metadata as Record<string, unknown>)?.file_name as string || "Documento"}</p>
             <p className="text-[11px] opacity-60">Clique para baixar</p>
           </div>
         </a>
@@ -606,8 +606,8 @@ const Inbox = () => {
     if (attachedFile) {
       setIsUploading(true);
       try {
-        const fileExt = attachedFile.name.split(".").pop();
-        const filePath = `${companyId}/${Date.now()}.${fileExt}`;
+        const sanitizedName = attachedFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const filePath = `${companyId}/${Date.now()}_${sanitizedName}`;
         const { error: uploadError } = await supabase.storage.from("chat-attachments").upload(filePath, attachedFile);
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
