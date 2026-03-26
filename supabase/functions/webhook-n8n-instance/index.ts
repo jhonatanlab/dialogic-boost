@@ -418,7 +418,7 @@ Deno.serve(async (req) => {
           if ((!messageContent || messageContent.trim() === "") && incomingMediaUrl) {
             const { data: fuzzyMedia } = await supabase
               .from("messages")
-              .select("id, status, message_id, client_message_id")
+              .select("id, status, message_id, client_message_id, metadata")
               .eq("conversation_id", conversationId)
               .eq("direction", "outbound")
               .is("message_id", null)
