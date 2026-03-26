@@ -38,11 +38,11 @@ export const useMessages = (conversationId: string | null) => {
   const sendMessage = useMutation({
     mutationFn: async ({
       conversationId, contactId, content, phone, companyId,
-      mediaType, mediaUrl, mimetype,
+      mediaType, mediaUrl, mimetype, fileName,
     }: {
       conversationId: string; contactId: string; content: string;
       phone: string; companyId: string;
-      mediaType?: string; mediaUrl?: string; mimetype?: string;
+      mediaType?: string; mediaUrl?: string; mimetype?: string; fileName?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
@@ -55,6 +55,7 @@ export const useMessages = (conversationId: string | null) => {
       const metadata: Record<string, unknown> = {};
       if (mediaUrl) metadata.media_url = mediaUrl;
       if (mimetype) metadata.mimetype = mimetype;
+      if (fileName) metadata.file_name = fileName;
 
       const { error: insertError } = await supabase
         .from("messages")
@@ -88,6 +89,7 @@ export const useMessages = (conversationId: string | null) => {
       };
       if (mediaUrl) payload.media_url = mediaUrl;
       if (mimetype) payload.mimetype = mimetype;
+      if (fileName) payload.file_name = fileName;
 
       const { data: settingsData } = await supabase
         .from("admin_settings")
