@@ -366,15 +366,45 @@ Deno.serve(async (req) => {
         return incomingStatus;
       };
 
-      // ── Reconciliation: if internal_id is provided, update existing row ──
+      // ── Reconciliation: if internal_id is provided, find the temp row by client_message_id ──
       if (internal_id) {
         console.log("[upsert_message] internal_id provided:", internal_id, "→ official message_id:", message_id);
 
-        const { data: existing } = await supabase
+        // Strategy 1: Find by client_message_id (new flow)
+        const { data: byClient } = await supabase
           .from("messages")
           .select("id, status")
-          .eq("message_id", internal_id)
+          .eq("client_message_id", internal_id)
           .maybeSingle();
+
+        // Strategy 2: Legacy — find by message_id = internal_id (old flow)
+        let existing = byClient;
+        if (!existing) {
+          const { data: byMsgId } = await supabase
+            .from("messages")
+            .select("id, status")
+            .eq("message_id", internal_id)
+            .maybeSingle();
+          existing = byMsgId;
+        }
+
+        // Strategy 3: Fuzzy match — same conversation, direction outbound, similar content, recent
+        if (!existing) {
+          const { data: fuzzy } = await supabase
+            .from("messages")
+            .select("id, status, message_id, client_message_id")
+            .eq("conversation_id", conversationId)
+            .eq("direction", "outbound")
+            .eq("content", messageContent)
+            .is("message_id", null)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (fuzzy) {
+            console.log("[upsert_message] fuzzy match found:", fuzzy.id);
+            existing = fuzzy;
+          }
+        }
 
         if (existing) {
           // Preserve status if existing is more advanced
@@ -386,7 +416,7 @@ Deno.serve(async (req) => {
           const { error: updateErr } = await supabase
             .from("messages")
             .update({
-              message_id,
+              message_id: message_id,
               conversation_id: conversationId,
               contact_id: contactId,
               status: finalStatus,
@@ -398,7 +428,7 @@ Deno.serve(async (req) => {
           if (updateErr) throw updateErr;
 
           upsertedId = existing.id;
-          console.log("[upsert_message] reconciled internal_id →", existing.id);
+          console.log("[upsert_message] reconciled →", existing.id);
         } else {
           // internal_id not found — fall through to normal upsert
           console.log("[upsert_message] internal_id not found in DB, doing normal upsert");
