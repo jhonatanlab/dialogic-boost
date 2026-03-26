@@ -1,55 +1,83 @@
 
 
-## Problemas identificados
+## Diagnóstico
 
-**1. Status "read" não conta como "delivered":**
-Na linha 70-71, a contagem usa `===` (igualdade estrita). Uma mensagem com status `read` **não** incrementa `total_delivered` porque o código só conta `delivered` exato. Na hierarquia do WhatsApp, `read` implica que foi entregue. O mesmo vale para `played`.
+### 1. Status regredindo (read → sent)
+A causa está na ação `update_message_status` (linhas 246-248 da Edge Function). Ela faz um **UPDATE cego** sem verificar a hierarquia de status:
 
-**2. Duas mensagens "enviadas" para uma só mensagem:**
-O fluxo de reconciliação cria primeiro uma linha com ID `app-xxx` (status `sending`), e depois o n8n pode criar/atualizar outra linha com o ID oficial `3EB...`. Se a reconciliação via `internal_id` falhar, ficam duas linhas outbound. A contagem `total_sent` incrementa para **toda** mensagem outbound, incluindo as com status `sending` (ainda pendentes) e shells duplicadas.
+```typescript
+.update({ status: mappedStatus })  // sobrescreve QUALQUER status anterior
+```
+
+Quando o WhatsApp envia eventos atrasados (ex: um ACK `sent` chegando DEPOIS do `read`), o status é rebaixado. A proteção de hierarquia foi adicionada apenas ao `upsert_message`, mas **nunca ao `update_message_status`**.
+
+### 2. Registro `app-xxx` sobrando
+Os dados confirmam que a reconciliação falhou — existem DUAS linhas para a mesma mensagem:
+- `app-5ca2eb9f...` → status `sending`, sem metadata
+- `3EB01147...` → status `sent`, com metadata
+
+O n8n provavelmente não enviou o `internal_id` ou a busca não o encontrou, então criou uma linha nova em vez de atualizar a existente.
+
+---
 
 ## Solução
 
-### Arquivo: `src/hooks/useAnalytics.ts` (linhas 67-76)
+### Alteração 1: Hierarquia de status no `update_message_status`
+**Arquivo:** `supabase/functions/webhook-n8n-instance/index.ts`
 
-Ajustar a lógica de contagem para:
-
-1. **Hierarquia cumulativa de status:** Se `read` ou `played`, incrementar tanto `total_read` quanto `total_delivered`. Se `delivered`, incrementar apenas `total_delivered`.
-
-2. **Filtrar duplicatas e shells:** Não contar mensagens com status `sending` como "enviadas" (são pendentes). Também ignorar mensagens com `metadata.pending_content: true` (shells de race condition).
-
-3. **Deduplicar por `message_id`:** Se duas linhas tiverem o mesmo `message_id` (não nulo), contar apenas a de status mais avançado.
-
-### Mudanças concretas
+Antes de fazer o UPDATE, buscar o status atual e só atualizar se o novo status for superior na hierarquia:
 
 ```typescript
-// Buscar também message_id e metadata para deduplicação
-.select("direction, status, message_id, metadata")
+// 1. Buscar status atual
+const { data: current } = await supabase
+  .from("messages")
+  .select("id, status")
+  .eq("message_id", message_id)
+  .maybeSingle();
 
-// Deduplicar: agrupar por message_id, manter status mais avançado
-// Filtrar shells (pending_content) e status "sending"
+if (!current) { /* vai para o fluxo de placeholder/defer */ }
 
-(data || []).forEach((msg) => {
-  if (msg.direction === "outbound") {
-    // Não contar mensagens ainda em "sending" como enviadas
-    if (msg.status === "sending") return;
-    // Ignorar shells sem conteúdo
-    if (msg.metadata?.pending_content) return;
-    
-    stats.total_sent++;
-    // Hierarquia: read/played implica delivered
-    if (msg.status === "delivered" || msg.status === "read" || msg.status === "played") {
-      stats.total_delivered++;
-    }
-    if (msg.status === "read" || msg.status === "played") {
-      stats.total_read++;
-    }
-    if (msg.status === "failed") stats.total_failed++;
-  } else {
-    stats.total_received++;
-  }
-});
+// 2. Só atualizar se novo status é superior
+if (statusPriority(mappedStatus) <= statusPriority(current.status)) {
+  return json({ success: true, action: "status_kept", id: current.id, 
+    kept: current.status, ignored: mappedStatus });
+}
+
+// 3. Atualizar
+await supabase.from("messages").update({ status: mappedStatus }).eq("id", current.id);
 ```
 
-Adicionar deduplicação por `message_id` antes do loop para eliminar contagem dupla de linhas `app-xxx` e `3EB...` que representam a mesma mensagem.
+### Alteração 2: Limpeza de registros `app-xxx` órfãos
+**Migração SQL:** Apagar linhas `app-xxx` que têm uma correspondente `3EB...` com mesmo conteúdo, direção e janela de 60 segundos.
+
+```sql
+DELETE FROM messages WHERE id IN (
+  SELECT a.id FROM messages a
+  JOIN messages b ON a.conversation_id = b.conversation_id
+    AND a.direction = b.direction AND a.content = b.content
+  WHERE a.message_id LIKE 'app-%'
+    AND b.message_id NOT LIKE 'app-%'
+    AND ABS(EXTRACT(EPOCH FROM (a.created_at - b.created_at))) < 60
+);
+```
+
+### Alteração 3: Deduplicação no frontend mais robusta
+**Arquivo:** `src/pages/Inbox.tsx` (linhas 359-369)
+
+Remover a restrição `msg.status !== "sending"` no filtro de deduplicação — qualquer `app-xxx` que tenha uma correspondente real deve ser escondido, independente do status:
+
+```typescript
+// Antes: if (!msg.message_id?.startsWith("app-") || msg.status !== "sending") continue;
+// Depois: if (!msg.message_id?.startsWith("app-")) continue;
+```
+
+---
+
+## Resumo de arquivos alterados
+
+| Arquivo | Mudança |
+|---|---|
+| `supabase/functions/webhook-n8n-instance/index.ts` | Adicionar checagem de hierarquia no `update_message_status` |
+| `src/pages/Inbox.tsx` | Relaxar filtro de deduplicação app-xxx |
+| Nova migração SQL | Limpar registros app-xxx órfãos existentes |
 
