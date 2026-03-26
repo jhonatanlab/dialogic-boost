@@ -398,7 +398,7 @@ Deno.serve(async (req) => {
         // Strategy 1: Find by client_message_id (new flow)
         const { data: byClient } = await supabase
           .from("messages")
-          .select("id, status")
+          .select("id, status, metadata")
           .eq("client_message_id", internal_id)
           .maybeSingle();
 
@@ -407,7 +407,7 @@ Deno.serve(async (req) => {
         if (!existing) {
           const { data: byMsgId } = await supabase
             .from("messages")
-            .select("id, status")
+            .select("id, status, metadata")
             .eq("message_id", internal_id)
             .maybeSingle();
           existing = byMsgId;
