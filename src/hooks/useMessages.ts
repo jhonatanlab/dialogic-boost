@@ -59,7 +59,8 @@ export const useMessages = (conversationId: string | null) => {
       const { error: insertError } = await supabase
         .from("messages")
         .insert([{
-          message_id: tempMessageId,
+          client_message_id: tempMessageId,
+          message_id: null,
           conversation_id: conversationId,
           contact_id: contactId,
           user_id: user.id,
@@ -70,7 +71,7 @@ export const useMessages = (conversationId: string | null) => {
           message_type: effectiveMediaType,
           status: "sending",
           metadata: Object.keys(metadata).length > 0 ? (metadata as any) : null,
-        }]);
+        }] as any);
 
       if (insertError) throw insertError;
 
