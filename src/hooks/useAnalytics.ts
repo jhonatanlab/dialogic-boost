@@ -49,12 +49,38 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
 
       const { data, error } = await supabase
         .from("messages")
-        .select("direction, status")
+        .select("direction, status, message_id, metadata")
         .eq("user_id", user.id)
         .gte("created_at", dateRange.start.toISOString())
         .lte("created_at", dateRange.end.toISOString());
 
       if (error) throw error;
+
+      // Deduplicar por message_id: manter apenas o status mais avançado
+      const statusPrio = (s: string) => {
+        switch (s) {
+          case "sending": return 0;
+          case "sent": case "server_ack": return 1;
+          case "delivered": case "received": return 2;
+          case "read": case "played": return 3;
+          case "failed": return 4;
+          default: return -1;
+        }
+      };
+
+      const dedupMap = new Map<string, { direction: string; status: string; metadata: any }>();
+      (data || []).forEach((msg) => {
+        const key = msg.message_id || msg.message_id === null ? null : msg.message_id;
+        if (key) {
+          const existing = dedupMap.get(key);
+          if (!existing || statusPrio(msg.status) > statusPrio(existing.status)) {
+            dedupMap.set(key, msg);
+          }
+        } else {
+          // Sem message_id, usar como está (não deduplicável)
+          dedupMap.set(crypto.randomUUID(), msg);
+        }
+      });
 
       const stats: MessageStats = {
         total_sent: 0,
@@ -64,11 +90,23 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
         total_failed: 0,
       };
 
-      (data || []).forEach((msg) => {
+      dedupMap.forEach((msg) => {
+        // Ignorar shells sem conteúdo
+        const meta = msg.metadata as Record<string, any> | null;
+        if (meta?.pending_content) return;
+
         if (msg.direction === "outbound") {
+          // Não contar mensagens ainda em "sending"
+          if (msg.status === "sending") return;
+
           stats.total_sent++;
-          if (msg.status === "delivered") stats.total_delivered++;
-          if (msg.status === "read") stats.total_read++;
+          // Hierarquia: read/played implica delivered
+          if (["delivered", "read", "played"].includes(msg.status)) {
+            stats.total_delivered++;
+          }
+          if (["read", "played"].includes(msg.status)) {
+            stats.total_read++;
+          }
           if (msg.status === "failed") stats.total_failed++;
         } else {
           stats.total_received++;
