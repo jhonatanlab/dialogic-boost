@@ -105,7 +105,7 @@ const MediaContent = ({ message }: { message: Message }) => {
             <FileText className="h-5 w-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{(msg.metadata as Record<string, unknown>)?.file_name as string || "Documento"}</p>
+            <p className="text-sm font-medium truncate">{(message.metadata as Record<string, unknown>)?.file_name as string || "Documento"}</p>
             <p className="text-[11px] opacity-60">Clique para baixar</p>
           </div>
         </a>
