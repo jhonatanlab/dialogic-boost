@@ -347,6 +347,7 @@ Deno.serve(async (req) => {
         company_id, instance_id, message_id, phone_number,
         contact_name, direction, content, media_type,
         media_url, mimetype, status, sent_at, internal_id,
+        file_name,
       } = data as Record<string, string>;
 
       if (!company_id || !message_id || !phone_number) {
@@ -370,6 +371,7 @@ Deno.serve(async (req) => {
       if (instance_id) messageMetadata.instance_id = instance_id;
       if (media_url) messageMetadata.media_url = media_url;
       if (mimetype) messageMetadata.mimetype = mimetype;
+      if (file_name) messageMetadata.file_name = file_name;
       messageMetadata.pending_content = false;
       const metaValue = Object.keys(messageMetadata).length > 0 ? messageMetadata : null;
 
@@ -461,6 +463,10 @@ Deno.serve(async (req) => {
             : mappedStatus;
           console.log("[upsert_message] reconcile status:", existing.status, "→", finalStatus);
 
+          // Merge metadata: preserve file_name, mimetype etc from temp row
+          const existingMeta = (existing as any).metadata || {};
+          const mergedMeta = { ...existingMeta, ...messageMetadata, pending_content: false };
+
           const { error: updateErr } = await supabase
             .from("messages")
             .update({
@@ -470,7 +476,7 @@ Deno.serve(async (req) => {
               status: finalStatus,
               content: messageContent || undefined,
               message_type: messageType,
-              metadata: metaValue,
+              metadata: mergedMeta,
             })
             .eq("id", existing.id);
           if (updateErr) throw updateErr;
