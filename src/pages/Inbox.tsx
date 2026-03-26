@@ -362,11 +362,15 @@ const Inbox = () => {
       // Legacy: message_id starting with app- OR no message_id (client_message_id flow)
       const isTemp = msg.message_id?.startsWith("app-") || (!msg.message_id && (msg as any).client_message_id);
       if (!isTemp) continue;
-      const hasReal = raw.some(
-        r => r.id !== msg.id && r.direction === msg.direction && r.content === msg.content
-          && r.message_id && !r.message_id.startsWith("app-")
-          && Math.abs(new Date(r.created_at).getTime() - new Date(msg.created_at).getTime()) < 30000
-      );
+      const hasReal = raw.some(r => {
+        if (r.id === msg.id || !r.message_id || r.message_id.startsWith("app-") || r.direction !== msg.direction) return false;
+        if (Math.abs(new Date(r.created_at).getTime() - new Date(msg.created_at).getTime()) >= 30000) return false;
+        // For media: compare by media_url instead of content
+        const rMedia = (r.metadata as Record<string, unknown>)?.media_url;
+        const msgMedia = (msg.metadata as Record<string, unknown>)?.media_url;
+        if (rMedia && msgMedia) return rMedia === msgMedia;
+        return r.content === msg.content;
+      });
       if (hasReal) reconciledIds.add(msg.id);
     }
     return reconciledIds.size > 0 ? raw.filter(m => !reconciledIds.has(m.id)) : raw;
@@ -630,6 +634,7 @@ const Inbox = () => {
       phone: selectedConversation.contact.phone || "",
       companyId,
       mediaType, mediaUrl, mimetype,
+      fileName: attachedFile ? attachedFile.name : undefined,
     });
   };
 
