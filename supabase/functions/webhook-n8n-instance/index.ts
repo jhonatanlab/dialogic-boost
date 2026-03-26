@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
         return json({ success: true, action: "updated_status", id: current.id, status: mappedStatus });
       }
 
-      // 2. Race condition — status arrived before upsert_message. Create a placeholder row via upsert.
+      // 2. Race condition — try to find a recent temp row (client_message_id flow) before creating shell
       if (!company_id) {
         console.log("[update_message_status] no match and no company_id — deferring");
         return json({ success: true, action: "status_deferred", message: "Message not yet in DB and no company_id to create placeholder" });
@@ -278,7 +278,6 @@ Deno.serve(async (req) => {
         return json({ success: true, action: "status_deferred", message: "No user found for company, deferring" });
       }
 
-      // Find or create a contact + conversation if phone_number is provided
       let contactId: string | null = null;
       let conversationId: string | null = null;
 
@@ -293,6 +292,30 @@ Deno.serve(async (req) => {
         return json({ success: true, action: "status_deferred", message: "Cannot resolve contact, deferring" });
       }
 
+      // Try to find an unreconciled temp row in the same conversation (outbound, no official message_id yet)
+      const { data: tempRow } = await supabase
+        .from("messages")
+        .select("id, status")
+        .eq("conversation_id", conversationId)
+        .eq("direction", "outbound")
+        .is("message_id", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (tempRow) {
+        // Reconcile: assign official message_id and update status
+        const finalStatus = statusPriority(mappedStatus) > statusPriority(tempRow.status) ? mappedStatus : tempRow.status;
+        const { error: reconErr } = await supabase
+          .from("messages")
+          .update({ message_id, status: finalStatus })
+          .eq("id", tempRow.id);
+        if (reconErr) throw reconErr;
+        console.log("[update_message_status] reconciled temp row:", tempRow.id, "→ message_id:", message_id, "status:", finalStatus);
+        return json({ success: true, action: "reconciled_temp", id: tempRow.id, status: finalStatus });
+      }
+
+      // Last resort: create placeholder shell
       const { data: upserted, error: upsertErr } = await supabase
         .from("messages")
         .upsert({

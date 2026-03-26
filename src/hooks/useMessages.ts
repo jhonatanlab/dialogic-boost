@@ -102,11 +102,11 @@ export const useMessages = (conversationId: string | null) => {
       });
 
       if (response.error) {
-        // Mark message as failed in DB
+        // Mark message as failed in DB (find by client_message_id)
         await supabase
           .from("messages")
-          .update({ status: "failed" })
-          .eq("message_id", tempMessageId);
+          .update({ status: "failed" } as any)
+          .eq("client_message_id" as any, tempMessageId);
         throw new Error(response.error.message);
       }
 
