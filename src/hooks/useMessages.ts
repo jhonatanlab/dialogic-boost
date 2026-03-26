@@ -112,10 +112,10 @@ export const useMessages = (conversationId: string | null) => {
 
       const result = response.data;
       if (result?.success === false) {
-        await supabase
+        await (supabase as any)
           .from("messages")
           .update({ status: "failed" })
-          .eq("message_id", tempMessageId);
+          .eq("client_message_id", tempMessageId);
         throw new Error(result.error || "Erro no envio via n8n");
       }
 
