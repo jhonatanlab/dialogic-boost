@@ -358,7 +358,7 @@ const Inbox = () => {
     // remove the stale app-xxx version
     const reconciledIds = new Set<string>();
     for (const msg of raw) {
-      if (!msg.message_id?.startsWith("app-") || msg.status !== "sending") continue;
+      if (!msg.message_id?.startsWith("app-")) continue;
       const hasReal = raw.some(
         r => r.id !== msg.id && r.direction === msg.direction && r.content === msg.content
           && r.message_id && !r.message_id.startsWith("app-")

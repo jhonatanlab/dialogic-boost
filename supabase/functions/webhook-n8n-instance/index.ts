@@ -242,18 +242,29 @@ Deno.serve(async (req) => {
 
       const mappedStatus = normalizeStatus(status);
 
-      // 1. Try exact match update by message_id (most common — message already exists)
-      const { data: updated, error: updateErr } = await supabase
+      // 1. Try exact match by message_id — check hierarchy before updating
+      const { data: current, error: findErr } = await supabase
         .from("messages")
-        .update({ status: mappedStatus })
+        .select("id, status")
         .eq("message_id", message_id)
-        .select("id")
         .maybeSingle();
-      if (updateErr) throw updateErr;
+      if (findErr) throw findErr;
 
-      if (updated) {
-        console.log("[update_message_status] found by message_id, id:", updated.id);
-        return json({ success: true, action: "updated_status", id: updated.id, status: mappedStatus });
+      if (current) {
+        // Only update if new status is higher in hierarchy
+        if (statusPriority(mappedStatus) <= statusPriority(current.status)) {
+          console.log("[update_message_status] keeping higher status:", current.status, "≥", mappedStatus);
+          return json({ success: true, action: "status_kept", id: current.id, kept: current.status, ignored: mappedStatus });
+        }
+
+        const { error: updateErr } = await supabase
+          .from("messages")
+          .update({ status: mappedStatus })
+          .eq("id", current.id);
+        if (updateErr) throw updateErr;
+
+        console.log("[update_message_status] updated status:", current.status, "→", mappedStatus, "id:", current.id);
+        return json({ success: true, action: "updated_status", id: current.id, status: mappedStatus });
       }
 
       // 2. Race condition — status arrived before upsert_message. Create a placeholder row via upsert.
