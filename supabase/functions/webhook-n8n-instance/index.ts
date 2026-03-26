@@ -22,6 +22,18 @@ const normalizeStatus = (status: string): string => {
   return status;
 };
 
+const statusPriority = (status: string): number => {
+  switch (status) {
+    case "sending": return 0;
+    case "sent": case "server_ack": return 1;
+    case "delivered": case "received": return 2;
+    case "read": return 3;
+    case "failed": return 4;
+    case "deleted": return 5;
+    default: return -1;
+  }
+};
+
 // Normalize phone: strip everything except digits
 const normalizePhone = (phone: string): string => {
   const basePhone = phone.split(':')[0];
@@ -329,25 +341,44 @@ Deno.serve(async (req) => {
 
       let upsertedId: string;
 
+      // ── Helper: resolve final status respecting hierarchy ──
+      const resolveStatus = async (targetMessageId: string, incomingStatus: string): Promise<string> => {
+        const { data: row } = await supabase
+          .from("messages")
+          .select("status")
+          .eq("message_id", targetMessageId)
+          .maybeSingle();
+        if (row && statusPriority(row.status) > statusPriority(incomingStatus)) {
+          console.log("[upsert_message] preserving higher status:", row.status, ">", incomingStatus);
+          return row.status;
+        }
+        return incomingStatus;
+      };
+
       // ── Reconciliation: if internal_id is provided, update existing row ──
       if (internal_id) {
         console.log("[upsert_message] internal_id provided:", internal_id, "→ official message_id:", message_id);
 
         const { data: existing } = await supabase
           .from("messages")
-          .select("id")
+          .select("id, status")
           .eq("message_id", internal_id)
           .maybeSingle();
 
         if (existing) {
-          // Update the existing row: swap message_id to official and fill fields
+          // Preserve status if existing is more advanced
+          const finalStatus = statusPriority(existing.status) > statusPriority(mappedStatus)
+            ? existing.status
+            : mappedStatus;
+          console.log("[upsert_message] reconcile status:", existing.status, "→", finalStatus);
+
           const { error: updateErr } = await supabase
             .from("messages")
             .update({
               message_id,
               conversation_id: conversationId,
               contact_id: contactId,
-              status: mappedStatus,
+              status: finalStatus,
               content: messageContent || undefined,
               message_type: messageType,
               metadata: metaValue,
@@ -360,6 +391,7 @@ Deno.serve(async (req) => {
         } else {
           // internal_id not found — fall through to normal upsert
           console.log("[upsert_message] internal_id not found in DB, doing normal upsert");
+          const finalStatus = await resolveStatus(message_id, mappedStatus);
           const fullRow = {
             message_id,
             conversation_id: conversationId,
@@ -370,7 +402,7 @@ Deno.serve(async (req) => {
             direction: messageDirection,
             content: messageContent,
             message_type: messageType,
-            status: mappedStatus,
+            status: finalStatus,
             metadata: metaValue,
             created_at: sent_at || new Date().toISOString(),
           };
@@ -384,6 +416,7 @@ Deno.serve(async (req) => {
         }
       } else {
         // ── Normal upsert (inbound messages or no internal_id) ──
+        const finalStatus = await resolveStatus(message_id, mappedStatus);
         const fullRow = {
           message_id,
           conversation_id: conversationId,
@@ -394,7 +427,7 @@ Deno.serve(async (req) => {
           direction: messageDirection,
           content: messageContent,
           message_type: messageType,
-          status: mappedStatus,
+          status: finalStatus,
           metadata: metaValue,
           created_at: sent_at || new Date().toISOString(),
         };
