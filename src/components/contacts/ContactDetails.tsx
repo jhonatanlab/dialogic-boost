@@ -329,7 +329,7 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                       </Label>
                       <div className="space-y-1.5">
                         {videos.map(msg => (
-                          <FileItem key={msg.id} msg={msg} icon={Film} label="Vídeo" />
+                          <FileItem key={msg.id} msg={msg} icon={Film} fallbackLabel="Vídeo" />
                         ))}
                       </div>
                     </div>
@@ -341,7 +341,7 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                       </Label>
                       <div className="space-y-1.5">
                         {audios.map(msg => (
-                          <FileItem key={msg.id} msg={msg} icon={Mic} label="Áudio" />
+                          <FileItem key={msg.id} msg={msg} icon={Mic} fallbackLabel="Áudio" />
                         ))}
                       </div>
                     </div>
@@ -353,7 +353,7 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                       </Label>
                       <div className="space-y-1.5">
                         {docs.map(msg => (
-                          <FileItem key={msg.id} msg={msg} icon={FileText} label="Documento" />
+                          <FileItem key={msg.id} msg={msg} icon={FileText} fallbackLabel="Documento" />
                         ))}
                       </div>
                     </div>
@@ -368,10 +368,28 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
   );
 }
 
-function FileItem({ msg, icon: Icon, label }: { msg: MediaMessage; icon: any; label: string }) {
+function resolveFileName(msg: MediaMessage, fallback: string): string {
+  const meta = msg.metadata;
+  if (meta?.file_name && typeof meta.file_name === "string") return meta.file_name as string;
+  const url = getMediaUrl(msg);
+  if (url) {
+    try {
+      const pathname = new URL(url as string).pathname;
+      const parts = pathname.split("/");
+      const last = parts[parts.length - 1];
+      const cleaned = last.replace(/^\d+_/, "");
+      if (cleaned && cleaned !== last && cleaned.includes(".")) return decodeURIComponent(cleaned);
+      if (last.includes(".")) return decodeURIComponent(last);
+    } catch { /* ignore */ }
+  }
+  return fallback;
+}
+
+function FileItem({ msg, icon: Icon, fallbackLabel }: { msg: MediaMessage; icon: any; fallbackLabel: string }) {
   const url = getMediaUrl(msg)!;
   const mimetype = getMimetype(msg);
   const src = resolveMediaSrc(url, mimetype, msg.message_type);
+  const label = resolveFileName(msg, fallbackLabel);
   return (
     <a href={src} target="_blank" rel="noopener noreferrer"
       className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors group">
