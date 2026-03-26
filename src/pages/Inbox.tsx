@@ -385,7 +385,9 @@ const Inbox = () => {
   const handleChatScroll = () => {
     if (!chatContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
-    setShowScrollBtn(scrollHeight - scrollTop - clientHeight > 200);
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    setShowScrollBtn(distanceFromBottom > 200);
+    isNearBottomRef.current = distanceFromBottom < 150;
   };
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
