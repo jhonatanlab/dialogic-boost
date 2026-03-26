@@ -103,10 +103,10 @@ export const useMessages = (conversationId: string | null) => {
 
       if (response.error) {
         // Mark message as failed in DB (find by client_message_id)
-        await supabase
+        await (supabase as any)
           .from("messages")
-          .update({ status: "failed" } as any)
-          .eq("client_message_id" as any, tempMessageId);
+          .update({ status: "failed" })
+          .eq("client_message_id", tempMessageId);
         throw new Error(response.error.message);
       }
 
