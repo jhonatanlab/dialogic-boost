@@ -1,37 +1,55 @@
 
 
-## Diagnóstico
+## Problemas identificados
 
-O status desaparece porque o `upsert_message` **sobrescreve** o status que já foi atualizado pelo `update_message_status`.
+**1. Status "read" não conta como "delivered":**
+Na linha 70-71, a contagem usa `===` (igualdade estrita). Uma mensagem com status `read` **não** incrementa `total_delivered` porque o código só conta `delivered` exato. Na hierarquia do WhatsApp, `read` implica que foi entregue. O mesmo vale para `played`.
 
-**Sequência real:**
-1. Mensagem enviada → status `sending` no banco
-2. `update_message_status` chega → atualiza para `sent` → depois `delivered` → depois `read` ✓
-3. `upsert_message` chega (reconciliação) → sobrescreve o status com `"sent"` ou o default `"received"` (linha 321) ✗
-
-O status volta para um valor inferior porque o `upsert_message` não respeita a hierarquia de status.
+**2. Duas mensagens "enviadas" para uma só mensagem:**
+O fluxo de reconciliação cria primeiro uma linha com ID `app-xxx` (status `sending`), e depois o n8n pode criar/atualizar outra linha com o ID oficial `3EB...`. Se a reconciliação via `internal_id` falhar, ficam duas linhas outbound. A contagem `total_sent` incrementa para **toda** mensagem outbound, incluindo as com status `sending` (ainda pendentes) e shells duplicadas.
 
 ## Solução
 
-Adicionar uma lógica de **hierarquia de status** na Edge Function `webhook-n8n-instance`:
+### Arquivo: `src/hooks/useAnalytics.ts` (linhas 67-76)
 
-### Alteração no `upsert_message`
+Ajustar a lógica de contagem para:
 
-1. **Criar um mapa de prioridade de status:**
-   ```
-   sending(0) < sent/server_ack(1) < delivered/received(2) < read(3) < failed(4)
-   ```
+1. **Hierarquia cumulativa de status:** Se `read` ou `played`, incrementar tanto `total_read` quanto `total_delivered`. Se `delivered`, incrementar apenas `total_delivered`.
 
-2. **No caminho de reconciliação (internal_id encontrado):** antes de fazer o UPDATE, buscar o status atual da linha. Se o status atual for mais avançado que o novo, **preservar o status atual**.
+2. **Filtrar duplicatas e shells:** Não contar mensagens com status `sending` como "enviadas" (são pendentes). Também ignorar mensagens com `metadata.pending_content: true` (shells de race condition).
 
-3. **No caminho de upsert normal (sem internal_id):** ao fazer o upsert, se a linha já existir (conflito), verificar se o status existente é mais avançado e preservá-lo.
+3. **Deduplicar por `message_id`:** Se duas linhas tiverem o mesmo `message_id` (não nulo), contar apenas a de status mais avançado.
 
-### Detalhes técnicos
+### Mudanças concretas
 
-- **Arquivo:** `supabase/functions/webhook-n8n-instance/index.ts`
-- Na reconciliação com `internal_id` (linha 336-358): fazer `select("id, status")` e comparar prioridades antes de incluir `status` no payload de update
-- No upsert normal (linha 386-408): buscar primeiro se existe pelo `message_id`, e se existir com status superior, não sobrescrever
-- Adicionar função helper `statusPriority(status: string): number`
+```typescript
+// Buscar também message_id e metadata para deduplicação
+.select("direction, status, message_id, metadata")
 
-Nenhuma mudança no frontend ou no banco de dados é necessária.
+// Deduplicar: agrupar por message_id, manter status mais avançado
+// Filtrar shells (pending_content) e status "sending"
+
+(data || []).forEach((msg) => {
+  if (msg.direction === "outbound") {
+    // Não contar mensagens ainda em "sending" como enviadas
+    if (msg.status === "sending") return;
+    // Ignorar shells sem conteúdo
+    if (msg.metadata?.pending_content) return;
+    
+    stats.total_sent++;
+    // Hierarquia: read/played implica delivered
+    if (msg.status === "delivered" || msg.status === "read" || msg.status === "played") {
+      stats.total_delivered++;
+    }
+    if (msg.status === "read" || msg.status === "played") {
+      stats.total_read++;
+    }
+    if (msg.status === "failed") stats.total_failed++;
+  } else {
+    stats.total_received++;
+  }
+});
+```
+
+Adicionar deduplicação por `message_id` antes do loop para eliminar contagem dupla de linhas `app-xxx` e `3EB...` que representam a mesma mensagem.
 
