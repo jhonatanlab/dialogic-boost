@@ -1,83 +1,57 @@
 
+Objetivo: eliminar a duplicidade física no banco, para que cada mensagem enviada pelo painel ocupe uma única linha e continue recebendo os status corretos.
 
-## Diagnóstico
+Diagnóstico confirmado
+- Hoje o frontend ainda cria uma linha temporária `app-...` em `messages`.
+- A Edge Function `webhook-n8n-instance` só reconcilia essa linha se o `internal_id` chegar e casar exatamente.
+- Quando isso falha, o `upsert_message` faz um upsert normal com o ID oficial `3EB...` e sobra a linha `app-...`.
+- O `Inbox` já tenta esconder parte disso visualmente, mas a duplicidade continua persistindo no banco.
 
-### 1. Status regredindo (read → sent)
-A causa está na ação `update_message_status` (linhas 246-248 da Edge Function). Ela faz um **UPDATE cego** sem verificar a hierarquia de status:
+Plano
+1. Tornar a reconciliação robusta no backend
+- Ajustar `upsert_message` para não depender só do `internal_id`.
+- Ordem de reconciliação:
+  1. procurar por `internal_id`;
+  2. se não achar, procurar uma mensagem temporária recente (`app-...`) da mesma conversa/direção/conteúdo ou mesma mídia;
+  3. se achar, atualizar a MESMA linha trocando para o `message_id` oficial `3EB...`;
+  4. só criar nova linha quando realmente não existir candidata válida.
 
-```typescript
-.update({ status: mappedStatus })  // sobrescreve QUALQUER status anterior
-```
+2. Separar melhor ID temporário de ID oficial
+- Adicionar uma coluna dedicada para o ID interno do app, por exemplo `client_message_id`.
+- O registro inicial do painel passa a salvar:
+  - `client_message_id = app-uuid`
+  - `message_id = null` até chegar o ID oficial
+- Assim o ID oficial deixa de disputar espaço com o ID temporário na mesma coluna.
 
-Quando o WhatsApp envia eventos atrasados (ex: um ACK `sent` chegando DEPOIS do `read`), o status é rebaixado. A proteção de hierarquia foi adicionada apenas ao `upsert_message`, mas **nunca ao `update_message_status`**.
+3. Ajustar o fluxo de envio no frontend
+- Em `useMessages`, continuar salvando a mensagem antes do POST, mas gravando o temporário em `client_message_id`.
+- Continuar enviando `internal_id` para o n8n.
+- Manter realtime como está, para a mesma linha mudar de `sending` para `sent/delivered/read`.
 
-### 2. Registro `app-xxx` sobrando
-Os dados confirmam que a reconciliação falhou — existem DUAS linhas para a mesma mensagem:
-- `app-5ca2eb9f...` → status `sending`, sem metadata
-- `3EB01147...` → status `sent`, com metadata
+4. Ajustar `update_message_status`
+- Buscar primeiro por `message_id` oficial, como já faz.
+- Se não encontrar, tentar reconciliar com uma mensagem temporária recente compatível antes de criar shell.
+- Criar shell só como último recurso, para evitar novas linhas desnecessárias.
 
-O n8n provavelmente não enviou o `internal_id` ou a busca não o encontrou, então criou uma linha nova em vez de atualizar a existente.
+5. Limpar o histórico duplicado já existente
+- Criar uma migração para identificar pares `app-...` + `3EB...` da mesma mensagem.
+- Preservar a linha mais completa/mais avançada e remover a redundante.
+- Isso reduz o crescimento inútil do banco e deixa os relatórios consistentes.
 
----
+Arquivos impactados
+- `supabase/functions/webhook-n8n-instance/index.ts`
+- `src/hooks/useMessages.ts`
+- `src/pages/Inbox.tsx` (apenas como proteção visual extra)
+- nova migração SQL em `supabase/migrations/`
 
-## Solução
+Detalhes técnicos
+- Manter `UNIQUE(message_id)` para o ID oficial.
+- Adicionar `UNIQUE(client_message_id)` para o ID temporário.
+- A reconciliação deve preservar o status mais avançado (`read` > `delivered` > `sent` > `sending`).
+- A limpeza antiga no `Inbox` pode continuar, mas vira só salvaguarda; a correção real fica no backend e na modelagem.
 
-### Alteração 1: Hierarquia de status no `update_message_status`
-**Arquivo:** `supabase/functions/webhook-n8n-instance/index.ts`
-
-Antes de fazer o UPDATE, buscar o status atual e só atualizar se o novo status for superior na hierarquia:
-
-```typescript
-// 1. Buscar status atual
-const { data: current } = await supabase
-  .from("messages")
-  .select("id, status")
-  .eq("message_id", message_id)
-  .maybeSingle();
-
-if (!current) { /* vai para o fluxo de placeholder/defer */ }
-
-// 2. Só atualizar se novo status é superior
-if (statusPriority(mappedStatus) <= statusPriority(current.status)) {
-  return json({ success: true, action: "status_kept", id: current.id, 
-    kept: current.status, ignored: mappedStatus });
-}
-
-// 3. Atualizar
-await supabase.from("messages").update({ status: mappedStatus }).eq("id", current.id);
-```
-
-### Alteração 2: Limpeza de registros `app-xxx` órfãos
-**Migração SQL:** Apagar linhas `app-xxx` que têm uma correspondente `3EB...` com mesmo conteúdo, direção e janela de 60 segundos.
-
-```sql
-DELETE FROM messages WHERE id IN (
-  SELECT a.id FROM messages a
-  JOIN messages b ON a.conversation_id = b.conversation_id
-    AND a.direction = b.direction AND a.content = b.content
-  WHERE a.message_id LIKE 'app-%'
-    AND b.message_id NOT LIKE 'app-%'
-    AND ABS(EXTRACT(EPOCH FROM (a.created_at - b.created_at))) < 60
-);
-```
-
-### Alteração 3: Deduplicação no frontend mais robusta
-**Arquivo:** `src/pages/Inbox.tsx` (linhas 359-369)
-
-Remover a restrição `msg.status !== "sending"` no filtro de deduplicação — qualquer `app-xxx` que tenha uma correspondente real deve ser escondido, independente do status:
-
-```typescript
-// Antes: if (!msg.message_id?.startsWith("app-") || msg.status !== "sending") continue;
-// Depois: if (!msg.message_id?.startsWith("app-")) continue;
-```
-
----
-
-## Resumo de arquivos alterados
-
-| Arquivo | Mudança |
-|---|---|
-| `supabase/functions/webhook-n8n-instance/index.ts` | Adicionar checagem de hierarquia no `update_message_status` |
-| `src/pages/Inbox.tsx` | Relaxar filtro de deduplicação app-xxx |
-| Nova migração SQL | Limpar registros app-xxx órfãos existentes |
-
+Resultado esperado
+- 1 envio do painel = 1 linha persistida.
+- A mesma linha recebe o ID oficial depois.
+- Os checks/status continuam funcionando.
+- O banco para de acumular duplicatas da mesma mensagem.
