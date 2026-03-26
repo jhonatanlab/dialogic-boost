@@ -22,6 +22,18 @@ const normalizeStatus = (status: string): string => {
   return status;
 };
 
+const statusPriority = (status: string): number => {
+  switch (status) {
+    case "sending": return 0;
+    case "sent": case "server_ack": return 1;
+    case "delivered": case "received": return 2;
+    case "read": return 3;
+    case "failed": return 4;
+    case "deleted": return 5;
+    default: return -1;
+  }
+};
+
 // Normalize phone: strip everything except digits
 const normalizePhone = (phone: string): string => {
   const basePhone = phone.split(':')[0];
