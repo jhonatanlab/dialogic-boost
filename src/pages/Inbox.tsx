@@ -354,21 +354,19 @@ const Inbox = () => {
   // Messages from DB, filtering out pending shells and stale optimistic duplicates
   const allMessages = (() => {
     const raw = (messages || []).filter(m => !isPendingShell(m));
-    // Deduplicate: if a 3EB message exists with same content/direction within 30s,
-    // remove the stale app-xxx version
-    // Deduplicate: hide any app-xxx (now in client_message_id) that has a real counterpart
+    // Deduplicate: hide any temp row (app-xxx or no message_id) that has a real counterpart
     const reconciledIds = new Set<string>();
     for (const msg of raw) {
-      // Legacy: message_id starting with app- OR no message_id (client_message_id flow)
       const isTemp = msg.message_id?.startsWith("app-") || (!msg.message_id && (msg as any).client_message_id);
       if (!isTemp) continue;
       const hasReal = raw.some(r => {
         if (r.id === msg.id || !r.message_id || r.message_id.startsWith("app-") || r.direction !== msg.direction) return false;
-        if (Math.abs(new Date(r.created_at).getTime() - new Date(msg.created_at).getTime()) >= 30000) return false;
-        // For media: compare by media_url instead of content
+        // For media: compare by media_url — no time window needed
         const rMedia = (r.metadata as Record<string, unknown>)?.media_url;
         const msgMedia = (msg.metadata as Record<string, unknown>)?.media_url;
         if (rMedia && msgMedia) return rMedia === msgMedia;
+        // For text: use time window
+        if (Math.abs(new Date(r.created_at).getTime() - new Date(msg.created_at).getTime()) >= 30000) return false;
         return r.content === msg.content;
       });
       if (hasReal) reconciledIds.add(msg.id);
@@ -1107,10 +1105,29 @@ const Inbox = () => {
                       const audios = mediaMessages.filter(m => m.message_type === "audio");
                       const docs = mediaMessages.filter(m => m.message_type === "document");
 
-                      const FileItem = ({ msg, icon: Icon, label }: { msg: Message; icon: any; label: string }) => {
+                      const resolveFileName = (msg: Message, fallback: string): string => {
+                        const meta = msg.metadata as Record<string, unknown> | null;
+                        if (meta?.file_name && typeof meta.file_name === "string") return meta.file_name;
+                        const url = getMediaUrl(msg);
+                        if (url) {
+                          try {
+                            const pathname = new URL(url).pathname;
+                            const parts = pathname.split("/");
+                            const last = parts[parts.length - 1];
+                            // Remove timestamp prefix (e.g. "1711475123456_report.pdf" → "report.pdf")
+                            const cleaned = last.replace(/^\d+_/, "");
+                            if (cleaned && cleaned !== last && cleaned.includes(".")) return decodeURIComponent(cleaned);
+                            if (last.includes(".")) return decodeURIComponent(last);
+                          } catch { /* ignore */ }
+                        }
+                        return fallback;
+                      };
+
+                      const FileItem = ({ msg, icon: Icon, fallbackLabel }: { msg: Message; icon: any; fallbackLabel: string }) => {
                         const url = getMediaUrl(msg)!;
                         const mimetype = getMimetype(msg);
                         const src = resolveMediaSrc(url, mimetype, msg.message_type);
+                        const label = resolveFileName(msg, fallbackLabel);
                         return (
                           <a href={src} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors group">
@@ -1154,7 +1171,7 @@ const Inbox = () => {
                                 <Film className="h-3 w-3" /> Vídeos ({videos.length})
                               </Label>
                               <div className="space-y-1.5">
-                                {videos.map(msg => <FileItem key={msg.id} msg={msg} icon={Film} label="Vídeo" />)}
+                                {videos.map(msg => <FileItem key={msg.id} msg={msg} icon={Film} fallbackLabel="Vídeo" />)}
                               </div>
                             </div>
                           )}
@@ -1164,7 +1181,7 @@ const Inbox = () => {
                                 <Mic className="h-3 w-3" /> Áudios ({audios.length})
                               </Label>
                               <div className="space-y-1.5">
-                                {audios.map(msg => <FileItem key={msg.id} msg={msg} icon={Mic} label="Áudio" />)}
+                                {audios.map(msg => <FileItem key={msg.id} msg={msg} icon={Mic} fallbackLabel="Áudio" />)}
                               </div>
                             </div>
                           )}
@@ -1174,7 +1191,7 @@ const Inbox = () => {
                                 <FileText className="h-3 w-3" /> Documentos ({docs.length})
                               </Label>
                               <div className="space-y-1.5">
-                                {docs.map(msg => <FileItem key={msg.id} msg={msg} icon={FileText} label="Documento" />)}
+                                {docs.map(msg => <FileItem key={msg.id} msg={msg} icon={FileText} fallbackLabel="Documento" />)}
                               </div>
                             </div>
                           )}
