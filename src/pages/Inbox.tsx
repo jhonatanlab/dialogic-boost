@@ -374,9 +374,12 @@ const Inbox = () => {
     return reconciledIds.size > 0 ? raw.filter(m => !reconciledIds.has(m.id)) : raw;
   })();
 
-  // Auto-scroll on new messages
+  // Auto-scroll only when user is already near bottom
+  const isNearBottomRef = useRef(true);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [allMessages]);
 
   const handleChatScroll = () => {
