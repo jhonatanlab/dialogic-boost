@@ -577,8 +577,7 @@ const Inbox = () => {
       if (!selectedConversation || !companyId) return;
       setIsUploading(true);
       try {
-        const audioExt = file.name.endsWith(".ogg") ? "ogg" : "webm";
-        const audioMime = audioExt === "ogg" ? "audio/ogg" : "audio/webm";
+        const filePath = `${companyId}/${Date.now()}.ogg`;
         const filePath = `${companyId}/${Date.now()}.${audioExt}`;
         const { error: uploadError } = await supabase.storage.from("chat-attachments").upload(filePath, file);
         if (uploadError) throw uploadError;
