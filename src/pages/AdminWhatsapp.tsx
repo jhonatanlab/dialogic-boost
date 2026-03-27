@@ -82,7 +82,7 @@ const AdminWhatsapp = () => {
           if (updated.status === 'connected') {
             setQrCodeData(null);
             setConnectedInstance(updated.company_name || updated.instance_id);
-            // Auto-close after 3 seconds
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
             setTimeout(() => {
               setQrDialogOpen(false);
               setConnectedInstance(null);
