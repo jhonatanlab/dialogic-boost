@@ -569,20 +569,15 @@ const Inbox = () => {
       setIsRecording(false);
       setRecordingTime(0);
 
-      const recorderMime = mediaRecorderRef.current?.mimeType || "audio/ogg;codecs=opus";
-      const isOgg = recorderMime.includes("ogg");
-      const blob = new Blob(audioChunksRef.current, { type: recorderMime });
-      const ext = isOgg ? "ogg" : "webm";
-      const file = new File([blob], `audio-${Date.now()}.${ext}`, { type: isOgg ? "audio/ogg" : "audio/webm" });
+      const blob = new Blob(audioChunksRef.current, { type: "audio/ogg;codecs=opus" });
+      const file = new File([blob], `audio-${Date.now()}.ogg`, { type: "audio/ogg" });
       setAttachedFile(file);
 
       // Auto-send after setting the file
       if (!selectedConversation || !companyId) return;
       setIsUploading(true);
       try {
-        const audioExt = file.name.endsWith(".ogg") ? "ogg" : "webm";
-        const audioMime = audioExt === "ogg" ? "audio/ogg" : "audio/webm";
-        const filePath = `${companyId}/${Date.now()}.${audioExt}`;
+        const filePath = `${companyId}/${Date.now()}.ogg`;
         const { error: uploadError } = await supabase.storage.from("chat-attachments").upload(filePath, file);
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
@@ -593,7 +588,7 @@ const Inbox = () => {
           conversationId: selectedConversation.id,
           contactId: selectedConversation.contact_id,
           content: "", phone: selectedConversation.contact.phone || "",
-          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: audioMime,
+          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: "audio/ogg",
         });
       } catch (err) {
         console.error("Upload audio error:", err);
