@@ -367,7 +367,7 @@ const AdminWhatsapp = () => {
                         {companyInstance && (
                           <Button
                             onClick={() => {
-                              deleteInstance.mutate(companyInstance.id);
+                              handleDeleteInstanceWebhook(companyInstance);
                               setSelectedCompany("");
                             }}
                             disabled={deleteInstance.isPending}
@@ -455,7 +455,7 @@ const AdminWhatsapp = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => deleteInstance.mutate(inst.id)}
+                                onClick={() => handleDeleteInstanceWebhook(inst)}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
