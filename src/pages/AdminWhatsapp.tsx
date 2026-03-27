@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +41,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 const AdminWhatsapp = () => {
   const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
   const { instances, isLoading: instancesLoading, createInstance, deleteInstance } = useWhatsappInstances();
+  const queryClient = useQueryClient();
 
   const { data: companies, isLoading: companiesLoading } = useQuery({
     queryKey: ["all-companies"],
@@ -62,6 +63,40 @@ const AdminWhatsapp = () => {
   const [generatingQr, setGeneratingQr] = useState<string | null>(null);
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [connectedInstance, setConnectedInstance] = useState<string | null>(null);
+
+  // Listen for instance status changes in realtime
+  useEffect(() => {
+    if (!qrDialogOpen) return;
+
+    const channel = supabase
+      .channel('instance-status')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'whatsapp_instances',
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          if (updated.status === 'connected') {
+            setQrCodeData(null);
+            setConnectedInstance(updated.company_name || updated.instance_id);
+            queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+            setTimeout(() => {
+              setQrDialogOpen(false);
+              setConnectedInstance(null);
+            }, 3000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qrDialogOpen]);
 
   useEffect(() => {
     if (!settingsLoading) {
@@ -522,14 +557,23 @@ const AdminWhatsapp = () => {
         <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>QR Code WhatsApp</DialogTitle>
+              <DialogTitle>
+                {connectedInstance ? "✅ Conectado!" : "QR Code WhatsApp"}
+              </DialogTitle>
             </DialogHeader>
             <div className="flex flex-col items-center justify-center p-4 gap-4">
-              {qrCodeData && (
+              {connectedInstance ? (
+                <div className="p-6 text-center space-y-3">
+                  <div className="p-4 rounded-full bg-green-500/20 inline-flex">
+                    <Wifi className="h-10 w-10 text-green-400" />
+                  </div>
+                  <p className="text-lg font-medium">Instância conectada com sucesso!</p>
+                  <p className="text-sm text-muted-foreground">{connectedInstance}</p>
+                </div>
+              ) : qrCodeData ? (
                 qrCodeData.startsWith("data:") || qrCodeData.startsWith("http") ? (
                   <img src={qrCodeData} alt="QR Code" className="max-w-[300px] w-full rounded-lg" />
                 ) : qrCodeData.length > 200 ? (
-                  // Likely a base64 without prefix
                   <img src={`data:image/png;base64,${qrCodeData}`} alt="QR Code" className="max-w-[300px] w-full rounded-lg" />
                 ) : (
                   <div className="p-6 bg-muted rounded-lg text-center space-y-2">
@@ -537,10 +581,14 @@ const AdminWhatsapp = () => {
                     <p className="text-2xl font-mono font-bold tracking-wider">{qrCodeData}</p>
                   </div>
                 )
+              ) : (
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               )}
-              <p className="text-xs text-muted-foreground text-center">
-                Escaneie o QR Code com o WhatsApp para conectar a instância
-              </p>
+              {!connectedInstance && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Escaneie o QR Code com o WhatsApp para conectar a instância
+                </p>
+              )}
             </div>
           </DialogContent>
         </Dialog>
