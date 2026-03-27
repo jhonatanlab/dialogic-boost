@@ -159,7 +159,6 @@ const ChatBubble = ({ message }: { message: Message }) => {
 
   const showText =
     !isContentImage &&
-    !hasMedia &&
     rawContent.length > 0 &&
     !isAutoLabel &&
     !rawContent.startsWith("data:") &&
