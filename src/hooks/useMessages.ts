@@ -38,11 +38,11 @@ export const useMessages = (conversationId: string | null) => {
   const sendMessage = useMutation({
     mutationFn: async ({
       conversationId, contactId, content, phone, companyId,
-      mediaType, mediaUrl, mimetype, fileName,
+      mediaType, mediaUrl, mimetype, fileName, ptt,
     }: {
       conversationId: string; contactId: string; content: string;
       phone: string; companyId: string;
-      mediaType?: string; mediaUrl?: string; mimetype?: string; fileName?: string;
+      mediaType?: string; mediaUrl?: string; mimetype?: string; fileName?: string; ptt?: boolean;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
@@ -80,7 +80,7 @@ export const useMessages = (conversationId: string | null) => {
       queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
 
       // 2. Build payload for n8n with internal_id
-      const payload: Record<string, string> = {
+      const payload: Record<string, string | boolean> = {
         company_id: companyId,
         number: phone,
         text: messageContent,
@@ -90,6 +90,7 @@ export const useMessages = (conversationId: string | null) => {
       if (mediaUrl) payload.media_url = mediaUrl;
       if (mimetype) payload.mimetype = mimetype;
       if (fileName) payload.file_name = fileName;
+      if (ptt) payload.ptt = true;
 
       const { data: settingsData } = await supabase
         .from("admin_settings")
