@@ -526,7 +526,8 @@ const Inbox = () => {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      const preferredMime = MediaRecorder.isTypeSupported("audio/ogg;codecs=opus") ? "audio/ogg;codecs=opus" : "audio/webm;codecs=opus";
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: preferredMime });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -568,15 +569,20 @@ const Inbox = () => {
       setIsRecording(false);
       setRecordingTime(0);
 
-      const blob = new Blob(audioChunksRef.current, { type: "audio/webm;codecs=opus" });
-      const file = new File([blob], `audio-${Date.now()}.webm`, { type: "audio/webm" });
+      const recorderMime = mediaRecorderRef.current?.mimeType || "audio/ogg;codecs=opus";
+      const isOgg = recorderMime.includes("ogg");
+      const blob = new Blob(audioChunksRef.current, { type: recorderMime });
+      const ext = isOgg ? "ogg" : "webm";
+      const file = new File([blob], `audio-${Date.now()}.${ext}`, { type: isOgg ? "audio/ogg" : "audio/webm" });
       setAttachedFile(file);
 
       // Auto-send after setting the file
       if (!selectedConversation || !companyId) return;
       setIsUploading(true);
       try {
-        const filePath = `${companyId}/${Date.now()}.webm`;
+        const audioExt = file.name.endsWith(".ogg") ? "ogg" : "webm";
+        const audioMime = audioExt === "ogg" ? "audio/ogg" : "audio/webm";
+        const filePath = `${companyId}/${Date.now()}.${audioExt}`;
         const { error: uploadError } = await supabase.storage.from("chat-attachments").upload(filePath, file);
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
@@ -587,7 +593,7 @@ const Inbox = () => {
           conversationId: selectedConversation.id,
           contactId: selectedConversation.contact_id,
           content: "", phone: selectedConversation.contact.phone || "",
-          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: "audio/webm",
+          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: audioMime,
         });
       } catch (err) {
         console.error("Upload audio error:", err);
