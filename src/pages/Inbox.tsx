@@ -569,11 +569,8 @@ const Inbox = () => {
       setIsRecording(false);
       setRecordingTime(0);
 
-      const recorderMime = mediaRecorderRef.current?.mimeType || "audio/ogg;codecs=opus";
-      const isOgg = recorderMime.includes("ogg");
-      const blob = new Blob(audioChunksRef.current, { type: recorderMime });
-      const ext = isOgg ? "ogg" : "webm";
-      const file = new File([blob], `audio-${Date.now()}.${ext}`, { type: isOgg ? "audio/ogg" : "audio/webm" });
+      const blob = new Blob(audioChunksRef.current, { type: "audio/ogg;codecs=opus" });
+      const file = new File([blob], `audio-${Date.now()}.ogg`, { type: "audio/ogg" });
       setAttachedFile(file);
 
       // Auto-send after setting the file
