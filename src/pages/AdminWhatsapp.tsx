@@ -114,10 +114,29 @@ const AdminWhatsapp = () => {
     }
   };
 
-  const handleDeleteInstance = () => {
-    if (!selectedCompany) return;
-    deleteInstance.mutate(selectedCompany);
-    setSelectedCompany("");
+  const handleDeleteInstanceWebhook = async (inst: { id: string; instance_id: string | null; company_id: string | null }) => {
+    if (!deleteEndpoint) {
+      toast({ title: "Endpoint não configurado", description: "Configure o Delete Instance Endpoint primeiro.", variant: "destructive" });
+      return;
+    }
+    try {
+      const response = await supabase.functions.invoke("proxy-n8n", {
+        body: {
+          endpoint: deleteEndpoint,
+          payload: {
+            company_id: inst.company_id,
+            instance_id: inst.instance_id,
+            ...(webhookSecret ? { secret: webhookSecret } : {}),
+          },
+        },
+      });
+      if (response.error) throw new Error(response.error.message);
+      // Delete from DB after successful webhook
+      deleteInstance.mutate(inst.id);
+      toast({ title: "Instância deletada com sucesso!" });
+    } catch (error: any) {
+      toast({ title: "Erro ao deletar instância", description: error.message, variant: "destructive" });
+    }
   };
 
   const handleRefreshInstance = (id: string) => {
@@ -348,7 +367,7 @@ const AdminWhatsapp = () => {
                         {companyInstance && (
                           <Button
                             onClick={() => {
-                              deleteInstance.mutate(companyInstance.id);
+                              handleDeleteInstanceWebhook(companyInstance);
                               setSelectedCompany("");
                             }}
                             disabled={deleteInstance.isPending}
@@ -436,7 +455,7 @@ const AdminWhatsapp = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => deleteInstance.mutate(inst.id)}
+                                onClick={() => handleDeleteInstanceWebhook(inst)}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
