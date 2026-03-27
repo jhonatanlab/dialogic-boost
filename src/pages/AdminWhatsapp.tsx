@@ -62,6 +62,40 @@ const AdminWhatsapp = () => {
   const [generatingQr, setGeneratingQr] = useState<string | null>(null);
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [connectedInstance, setConnectedInstance] = useState<string | null>(null);
+
+  // Listen for instance status changes in realtime
+  useEffect(() => {
+    if (!qrDialogOpen) return;
+
+    const channel = supabase
+      .channel('instance-status')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'whatsapp_instances',
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          if (updated.status === 'connected') {
+            setQrCodeData(null);
+            setConnectedInstance(updated.company_name || updated.instance_id);
+            // Auto-close after 3 seconds
+            setTimeout(() => {
+              setQrDialogOpen(false);
+              setConnectedInstance(null);
+            }, 3000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qrDialogOpen]);
 
   useEffect(() => {
     if (!settingsLoading) {
