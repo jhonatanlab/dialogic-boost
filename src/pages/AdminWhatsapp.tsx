@@ -41,6 +41,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 const AdminWhatsapp = () => {
   const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
   const { instances, isLoading: instancesLoading, createInstance, deleteInstance } = useWhatsappInstances();
+  const queryClient = useQueryClient();
 
   const { data: companies, isLoading: companiesLoading } = useQuery({
     queryKey: ["all-companies"],
