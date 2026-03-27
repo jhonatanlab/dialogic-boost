@@ -588,7 +588,8 @@ const Inbox = () => {
           conversationId: selectedConversation.id,
           contactId: selectedConversation.contact_id,
           content: "", phone: selectedConversation.contact.phone || "",
-          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: "audio/ogg",
+          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl,
+          mimetype: "audio/ogg; codecs=opus", ptt: true,
         });
       } catch (err) {
         console.error("Upload audio error:", err);
