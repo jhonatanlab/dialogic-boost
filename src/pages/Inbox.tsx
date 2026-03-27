@@ -578,7 +578,6 @@ const Inbox = () => {
       setIsUploading(true);
       try {
         const filePath = `${companyId}/${Date.now()}.ogg`;
-        const filePath = `${companyId}/${Date.now()}.${audioExt}`;
         const { error: uploadError } = await supabase.storage.from("chat-attachments").upload(filePath, file);
         if (uploadError) throw uploadError;
         const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
@@ -589,7 +588,7 @@ const Inbox = () => {
           conversationId: selectedConversation.id,
           contactId: selectedConversation.contact_id,
           content: "", phone: selectedConversation.contact.phone || "",
-          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: audioMime,
+          companyId, mediaType: "audio", mediaUrl: urlData.publicUrl, mimetype: "audio/ogg",
         });
       } catch (err) {
         console.error("Upload audio error:", err);
