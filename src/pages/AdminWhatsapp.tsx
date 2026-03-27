@@ -588,7 +588,6 @@ const AdminWhatsapp = () => {
                   Escaneie o QR Code com o WhatsApp para conectar a instância
                 </p>
               )}
-              </p>
             </div>
           </DialogContent>
         </Dialog>
