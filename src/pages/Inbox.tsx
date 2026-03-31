@@ -991,15 +991,34 @@ const Inbox = () => {
                       <p className="text-sm">Nenhuma mensagem ainda</p>
                     </div>
                   ) : (
-                    groupedMessages.map((group, gi) => (
-                      <div key={gi}>
-                        <DateSeparator date={group.date} />
-                        <div className="space-y-1">
-                          {group.msgs.map(msg => <ChatBubble key={msg.id} message={msg} />)}
+                    groupedMessages.map((group, gi) => {
+                      const groupDate = format(new Date(group.date), "yyyy-MM-dd");
+                      // Find events for this date group
+                      const dayEvents = conversationEvents.filter(ev =>
+                        format(new Date(ev.created_at), "yyyy-MM-dd") === groupDate
+                      );
+                      return (
+                        <div key={gi}>
+                          <DateSeparator date={group.date} />
+                          {/* Show events that happened on this day */}
+                          {dayEvents.map(ev => (
+                            <EventBubble key={ev.id} event={ev} />
+                          ))}
+                          <div className="space-y-1">
+                            {group.msgs.map(msg => <ChatBubble key={msg.id} message={msg} />)}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
+                  {/* Show events that don't match any message date group */}
+                  {(() => {
+                    const msgDates = new Set(groupedMessages.map(g => format(new Date(g.date), "yyyy-MM-dd")));
+                    const orphanEvents = conversationEvents.filter(ev =>
+                      !msgDates.has(format(new Date(ev.created_at), "yyyy-MM-dd"))
+                    );
+                    return orphanEvents.map(ev => <EventBubble key={ev.id} event={ev} />);
+                  })()}
                   <div ref={messagesEndRef} />
                 </div>
 
