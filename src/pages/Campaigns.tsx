@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { useCampaigns } from "@/hooks/useCampaigns";
+import { useCampaigns, type CampaignWithStats } from "@/hooks/useCampaigns";
 import { Button } from "@/components/ui/button";
 import { Plus, MoreVertical, Send, Trash2, Calendar } from "lucide-react";
 import { CampaignForm } from "@/components/campaigns/CampaignForm";
+import { CampaignDetailsModal } from "@/components/campaigns/CampaignDetailsModal";
 import {
   Table,
   TableBody,
@@ -42,6 +43,7 @@ const statusLabels = {
 const Campaigns = () => {
   const navigate = useNavigate();
   const [formOpen, setFormOpen] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithStats | null>(null);
   const { campaigns, isLoading, createCampaign, deleteCampaign } = useCampaigns();
 
   const handleCreateCampaign = (data: { name: string; message: string; contactIds: string[] }) => {
@@ -81,7 +83,7 @@ const Campaigns = () => {
               </TableHeader>
               <TableBody>
                 {campaigns.map((campaign) => (
-                  <TableRow key={campaign.id}>
+                  <TableRow key={campaign.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedCampaign(campaign)}>
                     <TableCell className="font-medium">{campaign.name}</TableCell>
                     <TableCell>
                       <Badge
@@ -109,7 +111,7 @@ const Campaigns = () => {
                         locale: ptBR,
                       })}
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -162,6 +164,12 @@ const Campaigns = () => {
           open={formOpen}
           onOpenChange={setFormOpen}
           onSubmit={handleCreateCampaign}
+        />
+
+        <CampaignDetailsModal
+          campaign={selectedCampaign}
+          open={!!selectedCampaign}
+          onOpenChange={(open) => !open && setSelectedCampaign(null)}
         />
       </div>
     </DashboardLayout>
