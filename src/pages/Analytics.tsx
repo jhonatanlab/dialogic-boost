@@ -10,20 +10,36 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Send, 
-  MessageSquare, 
-  CheckCheck, 
-  Eye, 
-  AlertCircle, 
-  Megaphone, 
-  Users, 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Send,
+  MessageSquare,
+  CheckCheck,
+  Eye,
+  AlertCircle,
+  Megaphone,
+  Users,
   Target,
-  CalendarIcon
+  CalendarIcon,
+  PlayCircle,
+  CheckCircle2,
+  Clock3,
+  Timer,
+  UserCheck,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+
+const formatDuration = (ms: number) => {
+  if (!ms) return "—";
+  const minutes = Math.floor(ms / 1000 / 60);
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+
+  if (hours > 0) return `${hours}h ${remMinutes}min`;
+  return `${Math.max(minutes, 1)}min`;
+};
 
 const Analytics = () => {
   const [dateRange, setDateRange] = useState({
@@ -31,13 +47,13 @@ const Analytics = () => {
     end: endOfMonth(new Date()),
   });
 
-  const { 
-    messageStats, 
-    dailyMessages, 
-    campaignStats, 
+  const {
+    messageStats,
+    dailyMessages,
+    campaignStats,
     campaignPerformance,
     conversationStats,
-    isLoading 
+    isLoading,
   } = useAnalytics(dateRange);
 
   const presetRanges = [
@@ -49,13 +65,10 @@ const Analytics = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Relatórios</h1>
-            <p className="text-muted-foreground mt-1">
-              Análise de mensagens, conversas e campanhas
-            </p>
+            <p className="text-muted-foreground mt-1">Análise de mensagens, conversas e campanhas</p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -86,9 +99,7 @@ const Analytics = () => {
                   mode="range"
                   selected={{ from: dateRange.start, to: dateRange.end }}
                   onSelect={(range) => {
-                    if (range?.from && range?.to) {
-                      setDateRange({ start: range.from, end: range.to });
-                    }
+                    if (range?.from && range?.to) setDateRange({ start: range.from, end: range.to });
                   }}
                   locale={ptBR}
                   numberOfMonths={2}
@@ -98,20 +109,93 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* Date Range Display */}
         <p className="text-sm text-muted-foreground">
-          Período: {format(dateRange.start, "dd 'de' MMMM", { locale: ptBR })} a{" "}
+          Período: {format(dateRange.start, "dd 'de' MMMM", { locale: ptBR })} a {" "}
           {format(dateRange.end, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </p>
 
-        {/* Message Stats */}
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Atendimento (Conversas)</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-32" />)
+            ) : (
+              <>
+                <StatCard
+                  title="Iniciadas"
+                  value={conversationStats?.started_count || 0}
+                  icon={PlayCircle}
+                  description="Conversas iniciadas no período"
+                />
+                <StatCard
+                  title="Concluídas"
+                  value={conversationStats?.closed_count || 0}
+                  icon={CheckCircle2}
+                  description="Conversas encerradas"
+                  variant="success"
+                />
+                <StatCard
+                  title="Tempo p/ Concluir"
+                  value={formatDuration(conversationStats?.avg_resolution_ms || 0)}
+                  icon={Clock3}
+                  description="Média do início ao fim"
+                />
+                <StatCard
+                  title="Tempo Médio Resposta"
+                  value={formatDuration(conversationStats?.avg_response_ms || 0)}
+                  icon={Timer}
+                  description="Primeira resposta ao cliente"
+                  variant="warning"
+                />
+                <StatCard
+                  title="Em Atendimento"
+                  value={conversationStats?.in_progress || 0}
+                  icon={UserCheck}
+                  description="Conversas ativas"
+                />
+              </>
+            )}
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Conversas por Atendente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-40" />
+            ) : conversationStats?.agent_conversations?.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Atendente</TableHead>
+                    <TableHead className="text-right">Conversas</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {conversationStats.agent_conversations.map((agent, index) => (
+                    <TableRow key={`${agent.agent_name}-${index}`}>
+                      <TableCell className="font-medium">{agent.agent_name}</TableCell>
+                      <TableCell className="text-right">{agent.count}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sem atendimentos atribuídos no período.</p>
+            )}
+          </CardContent>
+        </Card>
+
         <div>
           <h2 className="text-lg font-semibold mb-4">Mensagens</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-32" />
-              ))
+              Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-32" />)
             ) : (
               <>
                 <StatCard
@@ -152,21 +236,13 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* Messages Chart */}
-        {isLoading ? (
-          <Skeleton className="h-[380px]" />
-        ) : (
-          dailyMessages && <MessagesChart data={dailyMessages} />
-        )}
+        {isLoading ? <Skeleton className="h-[380px]" /> : dailyMessages && <MessagesChart data={dailyMessages} />}
 
-        {/* Campaign Stats */}
         <div>
           <h2 className="text-lg font-semibold mb-4">Campanhas</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-32" />
-              ))
+              Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32" />)
             ) : (
               <>
                 <StatCard
@@ -206,7 +282,6 @@ const Analytics = () => {
           </div>
         </div>
 
-        {/* Charts Row */}
         <div className="grid gap-4 md:grid-cols-2">
           {isLoading ? (
             <>
@@ -221,7 +296,6 @@ const Analytics = () => {
           )}
         </div>
 
-        {/* Campaigns Table */}
         {isLoading ? (
           <Skeleton className="h-[400px]" />
         ) : (
