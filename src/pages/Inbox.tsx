@@ -11,16 +11,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
   X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic, Square,
-  ImageOff,
+  ImageOff, UserCheck, CheckCircle2, ArrowRightLeft, Users, User, Inbox as InboxIcon,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useQuickReplies } from "@/hooks/useQuickReplies";
-import { useConversations } from "@/hooks/useConversations";
+import { useConversations, Conversation } from "@/hooks/useConversations";
 import { useMessages, Message } from "@/hooks/useMessages";
 import { useCompany } from "@/hooks/useCompany";
 import { useTags, useCreateTag, useAddTagToContact, useRemoveTagFromContact } from "@/hooks/useTags";
@@ -296,7 +297,6 @@ const Inbox = () => {
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  // optimisticMessages no longer needed — messages are persisted to DB before n8n call
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -307,6 +307,16 @@ const Inbox = () => {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+
+  // Filter & queue state
+  const [activeFilter, setActiveFilter] = useState<"mine" | "all" | "queue" | "closed">("mine");
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [transferType, setTransferType] = useState<"agent" | "team">("agent");
+  const [transferTargetId, setTransferTargetId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string>("agent");
+  const [companyAgents, setCompanyAgents] = useState<{ user_id: string; full_name: string }[]>([]);
+  const [companyTeams, setCompanyTeams] = useState<{ id: string; name: string }[]>([]);
 
   const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
@@ -324,6 +334,39 @@ const Inbox = () => {
   const [newInboxTagName, setNewInboxTagName] = useState("");
   const [newInboxTagColor, setNewInboxTagColor] = useState("#FC6625");
   const [contactTags, setContactTags] = useState<{ id: string; name: string; color: string }[]>([]);
+
+  // Fetch current user info, agents, and teams
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setCurrentUserId(user.id);
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, company_id")
+        .eq("user_id", user.id)
+        .single();
+      if (profile) {
+        setCurrentUserRole(profile.role || "agent");
+
+        // Fetch company agents
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .eq("company_id", profile.company_id);
+        setCompanyAgents((profiles || []).filter(p => p.user_id !== user.id));
+
+        // Fetch company teams
+        const { data: teams } = await supabase
+          .from("teams")
+          .select("id, name")
+          .eq("company_id", profile.company_id);
+        setCompanyTeams(teams || []);
+      }
+    };
+    fetchUserData();
+  }, []);
 
   // Fetch contact tags for selected conversation
   useEffect(() => {
@@ -647,11 +690,90 @@ const Inbox = () => {
     setShowQuickReplies(false);
   };
 
-  const filteredConversations = conversations?.filter(conv =>
-    !searchQuery ||
-    conv.contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.contact.phone?.includes(searchQuery)
-  ) || [];
+  // Take conversation (assign to current user)
+  const handleTakeConversation = async () => {
+    if (!selectedConversation || !currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ assigned_to: currentUserId, status: "in_progress", updated_at: new Date().toISOString() })
+        .eq("id", selectedConversation.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      toast.success("Conversa atribuída a você!");
+    } catch { toast.error("Erro ao assumir conversa"); }
+  };
+
+  // Close conversation
+  const handleCloseConversation = async () => {
+    if (!selectedConversation) return;
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ status: "closed", updated_at: new Date().toISOString() })
+        .eq("id", selectedConversation.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setSelectedConversationId(null);
+      toast.success("Conversa concluída!");
+    } catch { toast.error("Erro ao concluir conversa"); }
+  };
+
+  // Transfer conversation
+  const handleTransfer = async () => {
+    if (!selectedConversation || !transferTargetId) return;
+    try {
+      const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (transferType === "agent") {
+        updatePayload.assigned_to = transferTargetId;
+        updatePayload.status = "in_progress";
+      } else {
+        updatePayload.assigned_team = transferTargetId;
+      }
+      const { error } = await supabase
+        .from("conversations")
+        .update(updatePayload)
+        .eq("id", selectedConversation.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setShowTransferDialog(false);
+      setTransferTargetId("");
+      toast.success(transferType === "agent" ? "Transferido para atendente!" : "Transferido para equipe!");
+    } catch { toast.error("Erro ao transferir conversa"); }
+  };
+
+  // Filter conversations based on active tab
+  const isManagerOrAdmin = currentUserRole === "admin" || currentUserRole === "manager";
+
+  const filteredConversations = (() => {
+    let filtered = conversations || [];
+
+    // Apply filter tab
+    switch (activeFilter) {
+      case "mine":
+        filtered = filtered.filter(c => c.assigned_to === currentUserId && c.status !== "closed");
+        break;
+      case "all":
+        filtered = filtered.filter(c => c.status !== "closed");
+        break;
+      case "queue":
+        filtered = filtered.filter(c => !c.assigned_to && c.status === "open");
+        break;
+      case "closed":
+        filtered = filtered.filter(c => c.status === "closed");
+        break;
+    }
+
+    // Apply search
+    if (searchQuery) {
+      filtered = filtered.filter(conv =>
+        conv.contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        conv.contact.phone?.includes(searchQuery)
+      );
+    }
+
+    return filtered;
+  })();
 
   // Group messages by date
   const groupedMessages = (() => {
@@ -675,17 +797,51 @@ const Inbox = () => {
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* ─── Col 1: Conversations ─── */}
         <div className="w-[340px] border-r border-border flex flex-col bg-card shrink-0">
-          <div className="h-16 px-4 flex items-center justify-between border-b border-border bg-card">
+          <div className="h-14 px-4 flex items-center justify-between border-b border-border bg-card">
             <h1 className="text-lg font-bold text-foreground">Conversas</h1>
             <Badge variant="secondary" className="font-semibold text-xs">
-              {conversations?.length || 0}
+              {filteredConversations.length}
             </Badge>
+          </div>
+
+          {/* Filter tabs */}
+          <div className="flex border-b border-border/50 bg-card">
+            <button onClick={() => setActiveFilter("mine")}
+              className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                activeFilter === "mine" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}>
+              <User className="h-3 w-3 mx-auto mb-0.5" />
+              Minhas
+            </button>
+            {isManagerOrAdmin && (
+              <button onClick={() => setActiveFilter("all")}
+                className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                  activeFilter === "all" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}>
+                <Users className="h-3 w-3 mx-auto mb-0.5" />
+                Todos
+              </button>
+            )}
+            <button onClick={() => setActiveFilter("queue")}
+              className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                activeFilter === "queue" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}>
+              <InboxIcon className="h-3 w-3 mx-auto mb-0.5" />
+              Fila
+            </button>
+            <button onClick={() => setActiveFilter("closed")}
+              className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                activeFilter === "closed" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}>
+              <CheckCircle2 className="h-3 w-3 mx-auto mb-0.5" />
+              Concluídas
+            </button>
           </div>
 
           <div className="px-3 py-2 border-b border-border/50">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar ou começar nova conversa"
+              <Input placeholder="Buscar conversa..."
                 className="pl-10 h-9 bg-secondary border-0 text-sm rounded-lg"
                 value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
@@ -731,9 +887,32 @@ const Inbox = () => {
                     {selectedConversation.contact.phone || "Sem telefone"}
                   </p>
                 </div>
-                <Badge variant={selectedConversation.status === "open" ? "default" : "secondary"} className="text-[11px]">
-                  {selectedConversation.status === "open" ? "Aberto" : selectedConversation.status === "closed" ? "Fechado" : selectedConversation.status}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  {/* Take conversation button — show if unassigned or assigned to someone else */}
+                  {selectedConversation.status !== "closed" && selectedConversation.assigned_to !== currentUserId && (
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={handleTakeConversation}>
+                      <UserCheck className="h-3.5 w-3.5" />
+                      Iniciar
+                    </Button>
+                  )}
+                  {/* Transfer button */}
+                  {selectedConversation.status !== "closed" && (
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => setShowTransferDialog(true)}>
+                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                      Transferir
+                    </Button>
+                  )}
+                  {/* Close conversation button */}
+                  {selectedConversation.status !== "closed" && (
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={handleCloseConversation}>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Concluir
+                    </Button>
+                  )}
+                  <Badge variant={selectedConversation.status === "open" ? "default" : selectedConversation.status === "in_progress" ? "secondary" : "outline"} className="text-[11px]">
+                    {selectedConversation.status === "open" ? "Na fila" : selectedConversation.status === "in_progress" ? "Em atendimento" : selectedConversation.status === "closed" ? "Concluído" : selectedConversation.status}
+                  </Badge>
+                </div>
               </div>
 
               {/* Messages */}
@@ -948,6 +1127,24 @@ const Inbox = () => {
                         <Label className="text-muted-foreground text-xs">Canal</Label>
                         <span className="text-xs font-medium text-foreground capitalize">
                           {selectedConversation.channel}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-muted-foreground text-xs flex items-center gap-1">
+                          <UserCheck className="h-3 w-3" /> Atendente
+                        </Label>
+                        <span className="text-xs font-medium text-foreground">
+                          {selectedConversation.assigned_to === currentUserId
+                            ? "Você"
+                            : selectedConversation.assigned_agent_name || "Não atribuído"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-muted-foreground text-xs flex items-center gap-1">
+                          <Users className="h-3 w-3" /> Equipe
+                        </Label>
+                        <span className="text-xs font-medium text-foreground">
+                          {selectedConversation.assigned_team_name || "Nenhuma"}
                         </span>
                       </div>
                     </div>
@@ -1211,6 +1408,48 @@ const Inbox = () => {
           </div>
         )}
       </div>
+
+      {/* Transfer Dialog */}
+      <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transferir conversa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex gap-2">
+              <Button variant={transferType === "agent" ? "default" : "outline"}
+                className="flex-1 h-9 text-xs" size="sm"
+                onClick={() => { setTransferType("agent"); setTransferTargetId(""); }}>
+                <User className="h-3.5 w-3.5 mr-1" /> Atendente
+              </Button>
+              <Button variant={transferType === "team" ? "default" : "outline"}
+                className="flex-1 h-9 text-xs" size="sm"
+                onClick={() => { setTransferType("team"); setTransferTargetId(""); }}>
+                <Users className="h-3.5 w-3.5 mr-1" /> Equipe
+              </Button>
+            </div>
+            <Select value={transferTargetId} onValueChange={setTransferTargetId}>
+              <SelectTrigger className="h-10 text-sm">
+                <SelectValue placeholder={transferType === "agent" ? "Selecione um atendente" : "Selecione uma equipe"} />
+              </SelectTrigger>
+              <SelectContent>
+                {transferType === "agent"
+                  ? companyAgents.map(a => (
+                      <SelectItem key={a.user_id} value={a.user_id}>{a.full_name || "Atendente"}</SelectItem>
+                    ))
+                  : companyTeams.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))
+                }
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTransferDialog(false)}>Cancelar</Button>
+            <Button onClick={handleTransfer} disabled={!transferTargetId}>Transferir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

@@ -11,6 +11,9 @@ export interface Conversation {
   last_message_at: string;
   unread_count: number;
   created_at: string;
+  assigned_to: string | null;
+  assigned_team: string | null;
+  company_id: string | null;
   contact: {
     id: string;
     name: string;
@@ -24,6 +27,8 @@ export interface Conversation {
     message_type?: string;
     metadata?: unknown;
   };
+  assigned_agent_name?: string | null;
+  assigned_team_name?: string | null;
 }
 
 export const useConversations = () => {
@@ -35,16 +40,48 @@ export const useConversations = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
+      // Get user's company_id
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!profile?.company_id) throw new Error("Company not found");
+
+      // Fetch ALL conversations for this company (not just user's own)
       const { data, error } = await supabase
         .from("conversations")
         .select(`*, contact:contacts (id, name, phone, email, avatar_url)`)
-        .eq("user_id", user.id)
+        .eq("company_id", profile.company_id)
         .order("last_message_at", { ascending: false });
       if (error) throw error;
 
+      // Fetch agent names and team names for assignment display
+      const agentIds = [...new Set((data || []).map(c => c.assigned_to).filter(Boolean))] as string[];
+      const teamIds = [...new Set((data || []).map(c => c.assigned_team).filter(Boolean))] as string[];
+
+      let agentMap: Record<string, string> = {};
+      let teamMap: Record<string, string> = {};
+
+      if (agentIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", agentIds);
+        agentMap = Object.fromEntries((profiles || []).map(p => [p.user_id, p.full_name || "Atendente"]));
+      }
+
+      if (teamIds.length > 0) {
+        const { data: teams } = await supabase
+          .from("teams")
+          .select("id, name")
+          .in("id", teamIds);
+        teamMap = Object.fromEntries((teams || []).map(t => [t.id, t.name]));
+      }
+
       const conversationsWithMessages = await Promise.all(
         (data || []).map(async (conv) => {
-          // Fetch a few recent messages to skip pending shells
           const { data: lastMessages } = await supabase
             .from("messages")
             .select("content, direction, message_type, metadata")
@@ -52,7 +89,6 @@ export const useConversations = () => {
             .order("created_at", { ascending: false })
             .limit(5);
 
-          // Find first message that isn't a pending shell
           const validMsg = lastMessages?.find(m => {
             const meta = m.metadata as Record<string, unknown> | null;
             if (meta?.pending_content === true) return false;
@@ -60,7 +96,12 @@ export const useConversations = () => {
             return true;
           });
 
-          return { ...conv, last_message: validMsg || undefined };
+          return {
+            ...conv,
+            last_message: validMsg || undefined,
+            assigned_agent_name: conv.assigned_to ? (agentMap[conv.assigned_to] || "Atendente") : null,
+            assigned_team_name: conv.assigned_team ? (teamMap[conv.assigned_team] || "Equipe") : null,
+          };
         })
       );
 
