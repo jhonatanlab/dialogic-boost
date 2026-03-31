@@ -722,29 +722,33 @@ const Inbox = () => {
     setShowQuickReplies(false);
   };
 
-  // Helper to log conversation events
+  // Helper to log conversation events (non-blocking, never throws)
   const logConversationEvent = async (
     conversationId: string,
     eventType: string,
     extras?: { target_user_id?: string; target_name?: string; target_team_id?: string; target_team_name?: string; details?: Record<string, unknown> }
   ) => {
-    if (!currentUserId || !companyId) return;
-    // Get current user name
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("user_id", currentUserId)
-      .single();
+    try {
+      if (!currentUserId || !companyId) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", currentUserId)
+        .single();
 
-    await (supabase as any).from("conversation_events").insert({
-      conversation_id: conversationId,
-      company_id: companyId,
-      event_type: eventType,
-      actor_user_id: currentUserId,
-      actor_name: profile?.full_name || "Atendente",
-      ...(extras || {}),
-    });
-    queryClient.invalidateQueries({ queryKey: ["conversation-events", conversationId] });
+      const { error } = await (supabase as any).from("conversation_events").insert({
+        conversation_id: conversationId,
+        company_id: companyId,
+        event_type: eventType,
+        actor_user_id: currentUserId,
+        actor_name: profile?.full_name || "Atendente",
+        ...(extras || {}),
+      });
+      if (error) console.error("Error logging conversation event:", error);
+      queryClient.invalidateQueries({ queryKey: ["conversation-events", conversationId] });
+    } catch (err) {
+      console.error("Error in logConversationEvent:", err);
+    }
   };
 
   // Take conversation (assign to current user)
@@ -755,10 +759,10 @@ const Inbox = () => {
         .from("conversations")
         .update({ assigned_to: currentUserId, status: "in_progress", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
-      if (error) throw error;
-      await logConversationEvent(selectedConversation.id, "started");
+      if (error) { console.error("Take error:", error); throw error; }
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa atribuída a você!");
+      logConversationEvent(selectedConversation.id, "started");
     } catch { toast.error("Erro ao assumir conversa"); }
   };
 
@@ -770,11 +774,11 @@ const Inbox = () => {
         .from("conversations")
         .update({ status: "closed", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
-      if (error) throw error;
-      await logConversationEvent(selectedConversation.id, "closed");
+      if (error) { console.error("Close error:", error); throw error; }
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      setSelectedConversationId(null);
       toast.success("Conversa concluída!");
+      logConversationEvent(selectedConversation.id, "closed");
+      setSelectedConversationId(null);
     } catch { toast.error("Erro ao concluir conversa"); }
   };
 
@@ -1077,11 +1081,18 @@ const Inbox = () => {
                           .from("conversations")
                           .update({ assigned_to: currentUserId, status: "in_progress", updated_at: new Date().toISOString() })
                           .eq("id", selectedConversation.id);
-                        if (error) throw error;
-                        await logConversationEvent(selectedConversation.id, selectedConversation.status === "closed" ? "reopened" : "started");
+                        if (error) {
+                          console.error("Error updating conversation:", error);
+                          throw error;
+                        }
                         queryClient.invalidateQueries({ queryKey: ["conversations"] });
                         toast.success("Conversa atribuída a você!");
-                      } catch { toast.error("Erro ao assumir conversa"); }
+                        // Log event in background (non-blocking)
+                        logConversationEvent(selectedConversation.id, selectedConversation.status === "closed" ? "reopened" : "started");
+                      } catch (err) {
+                        console.error("Take conversation error:", err);
+                        toast.error("Erro ao assumir conversa");
+                      }
                     }} className="gap-2">
                       <PlayCircle className="h-4 w-4" />
                       Iniciar Atendimento
