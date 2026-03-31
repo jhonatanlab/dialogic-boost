@@ -195,7 +195,9 @@ export const useCampaigns = () => {
           message: campaign.message,
           status,
           scheduled_at: campaign.scheduledAt || null,
-        })
+          attachment_url: campaign.attachmentUrl || null,
+          media_type: campaign.mediaType || 'text',
+        } as any)
         .select()
         .single();
 
