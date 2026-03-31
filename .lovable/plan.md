@@ -1,49 +1,46 @@
 
 
-## Problema
+## Análise do Problema
 
-O `dispatchCampaignNow` no `useCampaigns.ts` tem dois problemas:
+O erro **não é no nosso código** — é no workflow do n8n. O fluxo funciona assim:
 
-1. **Payload incompleto**: O payload enviado ao `proxy-n8n` não inclui `company_id`, `type`, `internal_id` — campos que o n8n espera (como visto no print: "company_id is required"). O Inbox envia esses campos via `useMessages.ts`.
+1. Nossa app envia payload ao `proxy-n8n` → ✅ funciona
+2. n8n recebe e envia mensagem via WhatsApp → ✅ funciona (status PENDING no print)
+3. n8n tenta chamar nosso webhook (`HTTP Request3`) para salvar a mensagem no banco → ❌ falha
 
-2. **Sem intervalo entre mensagens**: O loop de envio dispara todos os contatos sequencialmente sem delay, ignorando o `intervalo_segundos` configurado pelo usuário no formulário.
+O erro "JSON parameter needs to be valid JSON" acontece no **nó HTTP Request3 do n8n**, que monta um JSON com expressões template (`{{ $json.key?.id }}`). Isso falha provavelmente porque:
+- O conteúdo da mensagem contém `\n` (quebra de linha) ou `{nome}` (chaves literais) que quebram o JSON template do n8n
+- O campo extra `campaign_id` no payload pode não estar sendo tratado pelo workflow
 
-## Solução
+### O que podemos corrigir do nosso lado
 
-### 1. Corrigir payload do dispatchCampaignNow (`src/hooks/useCampaigns.ts`)
+**1. Resolver variáveis antes do envio** — A mensagem está indo como `"Fala {nome}\nSegue o teste..."` ao invés de `"Fala João\nSegue o teste..."`. As variáveis `{nome}`, `{telefone}`, `{email}` devem ser substituídas pelos dados reais do contato antes de enviar.
 
-Alinhar o payload com o padrão do `useMessages.ts`:
+**2. O restante é ajuste no n8n** — O workflow precisa tratar corretamente o JSON escaping do campo `message.conversation`. Isso não é algo que possamos corrigir pelo código da aplicação.
 
-```typescript
-payload: {
-  company_id: companyId,  // NOVO - obrigatório no n8n
-  number: contact.phone,  // era "phone"
-  text: message,           // era "message"
-  type: "text",            // NOVO
-  internal_id: `campaign-${campaignId}-${contact.id}`, // NOVO
-  contact_name: contact.name,
-  campaign_id: campaignId,
-}
-```
+### Implementação
 
-A função `dispatchCampaignNow` precisa receber `companyId` como parâmetro adicional.
+**Arquivo: `src/hooks/useCampaigns.ts`**
 
-### 2. Passar `disparoConfig` ao hook e aplicar delay (`src/hooks/useCampaigns.ts` + `src/pages/NewCampaign.tsx`)
-
-- Adicionar parâmetro `intervalSeconds` na interface do `createCampaign`.
-- No `NewCampaign.tsx`, passar `disparoConfig.intervalo_segundos` na chamada.
-- No loop de envio, adicionar `await sleep(intervalSeconds * 1000)` entre cada contato:
+Na função `dispatchCampaignNow`, antes de enviar cada mensagem, resolver as variáveis do template com os dados do contato:
 
 ```typescript
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+// Buscar contatos com campos adicionais
+.select("id, phone, name, email")
 
-for (const contact of contactsData) {
-  // ... envio ...
-  if (intervalSeconds > 0) await sleep(intervalSeconds * 1000);
-}
+// Antes de enviar, resolver variáveis
+const resolvedMessage = message
+  .replace(/\{nome\}/gi, contact.name || '')
+  .replace(/\{telefone\}/gi, contact.phone || '')
+  .replace(/\{email\}/gi, contact.email || '');
 ```
 
-### Arquivos impactados
-- `src/hooks/useCampaigns.ts` — corrigir payload + adicionar delay
-- `src/pages/NewCampaign.tsx` — passar `intervalo_segundos` na chamada
+Usar `resolvedMessage` no payload em vez de `message`.
+
+### Sobre o erro no n8n
+
+O workflow n8n precisa ser ajustado para fazer escape correto do conteúdo da mensagem ao montar o JSON do HTTP Request3. Isso é configuração do n8n — o nó deve usar o modo "Fields" em vez de "Using JSON" para evitar problemas com caracteres especiais no corpo da mensagem, ou aplicar `.toJsonString()` nas expressões.
+
+### Arquivo impactado
+- `src/hooks/useCampaigns.ts` — resolver variáveis de template por contato antes do envio
 
