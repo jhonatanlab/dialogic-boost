@@ -209,7 +209,7 @@ export const useCampaigns = () => {
 
       // Dispatch immediately if not scheduled
       if (!campaign.scheduledAt && campaign.contactIds.length > 0) {
-        const result = await dispatchCampaignNow(campaignData.id, campaign.contactIds, campaign.message);
+        const result = await dispatchCampaignNow(campaignData.id, campaign.contactIds, campaign.message, companyId, campaign.intervalSeconds ?? 2);
         return { ...campaignData, ...result };
       }
 

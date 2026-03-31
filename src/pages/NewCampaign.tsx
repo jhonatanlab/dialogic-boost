@@ -146,6 +146,7 @@ export default function NewCampaign() {
         scheduledAt: data.inicio_disparo === "agendar" && data.data_agendamento
           ? data.data_agendamento.toISOString()
           : undefined,
+        intervalSeconds: disparoConfig.intervalo_segundos,
       });
 
       setTimeout(() => {
