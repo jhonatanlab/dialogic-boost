@@ -909,6 +909,13 @@ const Inbox = () => {
 
           {/* Filter tabs */}
           <div className="flex border-b border-border/50 bg-card">
+            <button onClick={() => setActiveFilter("queue")}
+              className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                activeFilter === "queue" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}>
+              <InboxIcon className="h-3 w-3 mx-auto mb-0.5" />
+              Fila
+            </button>
             <button onClick={() => setActiveFilter("mine")}
               className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
                 activeFilter === "mine" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -925,13 +932,6 @@ const Inbox = () => {
                 Todos
               </button>
             )}
-            <button onClick={() => setActiveFilter("queue")}
-              className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
-                activeFilter === "queue" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}>
-              <InboxIcon className="h-3 w-3 mx-auto mb-0.5" />
-              Fila
-            </button>
             <button onClick={() => setActiveFilter("closed")}
               className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
                 activeFilter === "closed" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
