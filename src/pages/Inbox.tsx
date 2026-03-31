@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
   X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic, Square,
-  ImageOff, UserCheck, CheckCircle2, ArrowRightLeft, Users, User, Inbox as InboxIcon,
+  ImageOff, UserCheck, CheckCircle2, ArrowRightLeft, Users, User, Inbox as InboxIcon, History, PlayCircle,
+  XCircle, ArrowRight, Clock,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -281,7 +282,38 @@ const ConversationItem = ({
   );
 };
 
-/* ═══════════════════════════════════════════ */
+/* ─── Event Bubble (system message in chat) ─── */
+const EventBubble = ({ event }: { event: any }) => {
+  const getEventInfo = () => {
+    switch (event.event_type) {
+      case "started":
+        return { icon: PlayCircle, text: `${event.actor_name} iniciou o atendimento`, color: "text-primary" };
+      case "reopened":
+        return { icon: PlayCircle, text: `${event.actor_name} reabriu a conversa`, color: "text-primary" };
+      case "closed":
+        return { icon: XCircle, text: `${event.actor_name} concluiu a conversa`, color: "text-destructive" };
+      case "transferred_agent":
+        return { icon: ArrowRight, text: `${event.actor_name} transferiu para ${event.target_name || "atendente"}`, color: "text-muted-foreground" };
+      case "transferred_team":
+        return { icon: Users, text: `${event.actor_name} transferiu para equipe ${event.target_team_name || ""}`, color: "text-muted-foreground" };
+      default:
+        return { icon: Clock, text: event.event_type, color: "text-muted-foreground" };
+    }
+  };
+  const { icon: Icon, text, color } = getEventInfo();
+  return (
+    <div className="flex items-center justify-center py-2 px-4">
+      <div className="flex items-center gap-1.5 bg-card/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm border border-border/50">
+        <Icon className={`h-3 w-3 ${color}`} />
+        <span className="text-[11px] text-muted-foreground">{text}</span>
+        <span className="text-[10px] text-muted-foreground/60 ml-1">
+          {format(new Date(event.created_at), "HH:mm")}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 /* ─── MAIN INBOX ─── */
 /* ═══════════════════════════════════════════ */
 const Inbox = () => {
@@ -690,6 +722,31 @@ const Inbox = () => {
     setShowQuickReplies(false);
   };
 
+  // Helper to log conversation events
+  const logConversationEvent = async (
+    conversationId: string,
+    eventType: string,
+    extras?: { target_user_id?: string; target_name?: string; target_team_id?: string; target_team_name?: string; details?: Record<string, unknown> }
+  ) => {
+    if (!currentUserId || !companyId) return;
+    // Get current user name
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", currentUserId)
+      .single();
+
+    await (supabase as any).from("conversation_events").insert({
+      conversation_id: conversationId,
+      company_id: companyId,
+      event_type: eventType,
+      actor_user_id: currentUserId,
+      actor_name: profile?.full_name || "Atendente",
+      ...(extras || {}),
+    });
+    queryClient.invalidateQueries({ queryKey: ["conversation-events", conversationId] });
+  };
+
   // Take conversation (assign to current user)
   const handleTakeConversation = async () => {
     if (!selectedConversation || !currentUserId) return;
@@ -699,6 +756,7 @@ const Inbox = () => {
         .update({ assigned_to: currentUserId, status: "in_progress", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
       if (error) throw error;
+      await logConversationEvent(selectedConversation.id, "started");
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa atribuída a você!");
     } catch { toast.error("Erro ao assumir conversa"); }
@@ -713,6 +771,7 @@ const Inbox = () => {
         .update({ status: "closed", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
       if (error) throw error;
+      await logConversationEvent(selectedConversation.id, "closed");
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       setSelectedConversationId(null);
       toast.success("Conversa concluída!");
@@ -724,17 +783,27 @@ const Inbox = () => {
     if (!selectedConversation || !transferTargetId) return;
     try {
       const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      let eventExtras: Record<string, unknown> = {};
       if (transferType === "agent") {
         updatePayload.assigned_to = transferTargetId;
         updatePayload.status = "in_progress";
+        const agent = companyAgents.find(a => a.user_id === transferTargetId);
+        eventExtras = { target_user_id: transferTargetId, target_name: agent?.full_name || "Atendente" };
       } else {
         updatePayload.assigned_team = transferTargetId;
+        const team = companyTeams.find(t => t.id === transferTargetId);
+        eventExtras = { target_team_id: transferTargetId, target_team_name: team?.name || "Equipe" };
       }
       const { error } = await supabase
         .from("conversations")
         .update(updatePayload)
         .eq("id", selectedConversation.id);
       if (error) throw error;
+      await logConversationEvent(
+        selectedConversation.id,
+        transferType === "agent" ? "transferred_agent" : "transferred_team",
+        eventExtras as any
+      );
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       setShowTransferDialog(false);
       setTransferTargetId("");
@@ -774,6 +843,36 @@ const Inbox = () => {
 
     return filtered;
   })();
+
+  // Conversation events query
+  const [conversationEvents, setConversationEvents] = useState<any[]>([]);
+  useEffect(() => {
+    if (!selectedConversationId) { setConversationEvents([]); return; }
+    const fetchEvents = async () => {
+      const { data } = await (supabase as any)
+        .from("conversation_events")
+        .select("*")
+        .eq("conversation_id", selectedConversationId)
+        .order("created_at", { ascending: true });
+      setConversationEvents(data || []);
+    };
+    fetchEvents();
+
+    const channel = supabase
+      .channel(`conv-events-${selectedConversationId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "conversation_events",
+        filter: `conversation_id=eq.${selectedConversationId}`,
+      }, () => fetchEvents())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedConversationId]);
+
+  // Check if current user can send messages (must be assigned to them)
+  const canSendMessages = selectedConversation?.assigned_to === currentUserId && selectedConversation?.status !== "closed";
+  const showInitButton = selectedConversation && (
+    selectedConversation.assigned_to !== currentUserId || selectedConversation.status === "closed"
+  );
 
   // Group messages by date
   const groupedMessages = (() => {
@@ -888,22 +987,15 @@ const Inbox = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {/* Take conversation button — show if unassigned or assigned to someone else */}
-                  {selectedConversation.status !== "closed" && selectedConversation.assigned_to !== currentUserId && (
-                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={handleTakeConversation}>
-                      <UserCheck className="h-3.5 w-3.5" />
-                      Iniciar
-                    </Button>
-                  )}
                   {/* Transfer button */}
-                  {selectedConversation.status !== "closed" && (
+                  {selectedConversation.status !== "closed" && selectedConversation.assigned_to === currentUserId && (
                     <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => setShowTransferDialog(true)}>
                       <ArrowRightLeft className="h-3.5 w-3.5" />
                       Transferir
                     </Button>
                   )}
                   {/* Close conversation button */}
-                  {selectedConversation.status !== "closed" && (
+                  {selectedConversation.status !== "closed" && selectedConversation.assigned_to === currentUserId && (
                     <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={handleCloseConversation}>
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Concluir
@@ -930,15 +1022,34 @@ const Inbox = () => {
                       <p className="text-sm">Nenhuma mensagem ainda</p>
                     </div>
                   ) : (
-                    groupedMessages.map((group, gi) => (
-                      <div key={gi}>
-                        <DateSeparator date={group.date} />
-                        <div className="space-y-1">
-                          {group.msgs.map(msg => <ChatBubble key={msg.id} message={msg} />)}
+                    groupedMessages.map((group, gi) => {
+                      const groupDate = format(new Date(group.date), "yyyy-MM-dd");
+                      // Find events for this date group
+                      const dayEvents = conversationEvents.filter(ev =>
+                        format(new Date(ev.created_at), "yyyy-MM-dd") === groupDate
+                      );
+                      return (
+                        <div key={gi}>
+                          <DateSeparator date={group.date} />
+                          {/* Show events that happened on this day */}
+                          {dayEvents.map(ev => (
+                            <EventBubble key={ev.id} event={ev} />
+                          ))}
+                          <div className="space-y-1">
+                            {group.msgs.map(msg => <ChatBubble key={msg.id} message={msg} />)}
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
+                  {/* Show events that don't match any message date group */}
+                  {(() => {
+                    const msgDates = new Set(groupedMessages.map(g => format(new Date(g.date), "yyyy-MM-dd")));
+                    const orphanEvents = conversationEvents.filter(ev =>
+                      !msgDates.has(format(new Date(ev.created_at), "yyyy-MM-dd"))
+                    );
+                    return orphanEvents.map(ev => <EventBubble key={ev.id} event={ev} />);
+                  })()}
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -950,91 +1061,119 @@ const Inbox = () => {
                 )}
               </div>
 
-              {/* Input */}
+              {/* Input area or Iniciar button */}
               <div className="bg-card border-t border-border px-4 py-3 shrink-0">
-                {attachedFile && !isRecording && (
-                  <div className="flex items-center gap-2 mb-2 p-2.5 bg-secondary rounded-lg">
-                    <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="text-sm truncate flex-1">{attachedFile.name}</span>
-                    <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={removeAttachment}>
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-                <input type="file" ref={fileInputRef} className="hidden"
-                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
-                  onChange={handleFileSelect} />
-
-                {isRecording ? (
-                  <div className="flex items-center gap-3">
-                    <Button type="button" size="icon" variant="ghost"
-                      className="h-10 w-10 rounded-full shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={cancelRecording}>
-                      <X className="h-5 w-5" />
-                    </Button>
-                    <div className="flex-1 flex items-center gap-3 px-3 h-11 rounded-xl bg-secondary">
-                      <div className="h-2.5 w-2.5 rounded-full bg-destructive animate-pulse shrink-0" />
-                      <span className="text-sm font-mono font-medium text-foreground">{formatRecordingTime(recordingTime)}</span>
-                      <div className="flex-1">
-                        <Progress value={(recordingTime % 60) / 60 * 100} className="h-1.5" />
-                      </div>
-                    </div>
-                    <Button size="icon" onClick={sendRecording}
-                      className="h-11 w-11 rounded-full shrink-0">
-                      <Send className="h-5 w-5" />
+                {showInitButton ? (
+                  <div className="flex flex-col items-center gap-2 py-2">
+                    {selectedConversation.status === "closed" ? (
+                      <p className="text-xs text-muted-foreground">Conversa concluída. Clique para reabrir e iniciar atendimento.</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Clique para iniciar o atendimento desta conversa</p>
+                    )}
+                    <Button onClick={async () => {
+                      if (!selectedConversation || !currentUserId) return;
+                      try {
+                        const { error } = await supabase
+                          .from("conversations")
+                          .update({ assigned_to: currentUserId, status: "in_progress", updated_at: new Date().toISOString() })
+                          .eq("id", selectedConversation.id);
+                        if (error) throw error;
+                        await logConversationEvent(selectedConversation.id, selectedConversation.status === "closed" ? "reopened" : "started");
+                        queryClient.invalidateQueries({ queryKey: ["conversations"] });
+                        toast.success("Conversa atribuída a você!");
+                      } catch { toast.error("Erro ao assumir conversa"); }
+                    }} className="gap-2">
+                      <PlayCircle className="h-4 w-4" />
+                      Iniciar Atendimento
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <Button type="button" size="icon" variant="ghost"
-                      className="h-10 w-10 rounded-full shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={() => fileInputRef.current?.click()}>
-                      <Paperclip className="h-5 w-5" />
-                    </Button>
-                    <div className="relative flex-1">
-                      <Input placeholder="Digite uma mensagem" value={messageInput}
-                        className="h-11 rounded-xl bg-secondary border-0 pr-12 text-sm"
-                        onChange={(e) => setMessageInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
-                        }} />
-                      <Button type="button" size="icon" variant="ghost"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
-                        onClick={() => setShowQuickReplies(!showQuickReplies)}>
-                        <Zap className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {messageInput.trim() || attachedFile ? (
-                      <Button size="icon" onClick={handleSendMessage}
-                        className="h-11 w-11 rounded-full shrink-0"
-                        disabled={isUploading}>
-                        {isUploading
-                          ? <Loader2 className="h-5 w-5 animate-spin" />
-                          : <Send className="h-5 w-5" />}
-                      </Button>
-                    ) : (
-                      <Button size="icon" onClick={startRecording}
-                        className="h-11 w-11 rounded-full shrink-0"
-                        variant="ghost">
-                        <Mic className="h-5 w-5" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {showQuickReplies && quickReplies && quickReplies.length > 0 && (
-                  <div className="absolute bottom-20 left-4 right-4 bg-card border border-border rounded-xl shadow-lg p-2 z-50 max-h-56 overflow-y-auto">
-                    {quickReplies.map((reply) => (
-                      <div key={reply.id} onClick={() => insertQuickReply(reply.text)}
-                        className="p-3 hover:bg-secondary cursor-pointer rounded-lg transition-colors">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <Zap className="h-3 w-3 text-primary" />
-                          <span className="font-medium text-sm">{reply.name}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">{reply.text}</p>
+                  <>
+                    {attachedFile && !isRecording && (
+                      <div className="flex items-center gap-2 mb-2 p-2.5 bg-secondary rounded-lg">
+                        <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm truncate flex-1">{attachedFile.name}</span>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={removeAttachment}>
+                          <X className="h-3 w-3" />
+                        </Button>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                    <input type="file" ref={fileInputRef} className="hidden"
+                      accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
+                      onChange={handleFileSelect} />
+
+                    {isRecording ? (
+                      <div className="flex items-center gap-3">
+                        <Button type="button" size="icon" variant="ghost"
+                          className="h-10 w-10 rounded-full shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={cancelRecording}>
+                          <X className="h-5 w-5" />
+                        </Button>
+                        <div className="flex-1 flex items-center gap-3 px-3 h-11 rounded-xl bg-secondary">
+                          <div className="h-2.5 w-2.5 rounded-full bg-destructive animate-pulse shrink-0" />
+                          <span className="text-sm font-mono font-medium text-foreground">{formatRecordingTime(recordingTime)}</span>
+                          <div className="flex-1">
+                            <Progress value={(recordingTime % 60) / 60 * 100} className="h-1.5" />
+                          </div>
+                        </div>
+                        <Button size="icon" onClick={sendRecording}
+                          className="h-11 w-11 rounded-full shrink-0">
+                          <Send className="h-5 w-5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Button type="button" size="icon" variant="ghost"
+                          className="h-10 w-10 rounded-full shrink-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => fileInputRef.current?.click()}>
+                          <Paperclip className="h-5 w-5" />
+                        </Button>
+                        <div className="relative flex-1">
+                          <Input placeholder="Digite uma mensagem" value={messageInput}
+                            className="h-11 rounded-xl bg-secondary border-0 pr-12 text-sm"
+                            onChange={(e) => setMessageInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
+                            }} />
+                          <Button type="button" size="icon" variant="ghost"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                            onClick={() => setShowQuickReplies(!showQuickReplies)}>
+                            <Zap className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {messageInput.trim() || attachedFile ? (
+                          <Button size="icon" onClick={handleSendMessage}
+                            className="h-11 w-11 rounded-full shrink-0"
+                            disabled={isUploading}>
+                            {isUploading
+                              ? <Loader2 className="h-5 w-5 animate-spin" />
+                              : <Send className="h-5 w-5" />}
+                          </Button>
+                        ) : (
+                          <Button size="icon" onClick={startRecording}
+                            className="h-11 w-11 rounded-full shrink-0"
+                            variant="ghost">
+                            <Mic className="h-5 w-5" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {showQuickReplies && quickReplies && quickReplies.length > 0 && (
+                      <div className="absolute bottom-20 left-4 right-4 bg-card border border-border rounded-xl shadow-lg p-2 z-50 max-h-56 overflow-y-auto">
+                        {quickReplies.map((reply) => (
+                          <div key={reply.id} onClick={() => insertQuickReply(reply.text)}
+                            className="p-3 hover:bg-secondary cursor-pointer rounded-lg transition-colors">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <Zap className="h-3 w-3 text-primary" />
+                              <span className="font-medium text-sm">{reply.name}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{reply.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </>
@@ -1057,8 +1196,9 @@ const Inbox = () => {
             <Tabs defaultValue="details" className="flex flex-col flex-1 overflow-hidden">
               <div className="h-16 px-4 flex items-center justify-between border-b border-border shrink-0">
                 <TabsList className="h-8 bg-secondary/60">
-                  <TabsTrigger value="details" className="text-xs h-7 px-3">Detalhes</TabsTrigger>
-                  <TabsTrigger value="files" className="text-xs h-7 px-3">Arquivos</TabsTrigger>
+                  <TabsTrigger value="details" className="text-xs h-7 px-2">Detalhes</TabsTrigger>
+                  <TabsTrigger value="files" className="text-xs h-7 px-2">Arquivos</TabsTrigger>
+                  <TabsTrigger value="history" className="text-xs h-7 px-2">Histórico</TabsTrigger>
                 </TabsList>
                 <Button size="icon" variant="ghost" className="h-8 w-8"
                   onClick={() => {
@@ -1401,6 +1541,62 @@ const Inbox = () => {
                         </div>
                       );
                     })()}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+
+              <TabsContent value="history" className="flex-1 overflow-hidden m-0">
+                <ScrollArea className="h-full">
+                  <div className="p-4 space-y-2">
+                    {conversationEvents.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                        <History className="h-8 w-8 opacity-30 mb-2" />
+                        <p className="text-xs">Nenhum evento registrado</p>
+                      </div>
+                    ) : (
+                      conversationEvents.map((ev: any) => {
+                        const getIcon = () => {
+                          switch (ev.event_type) {
+                            case "started": case "reopened": return PlayCircle;
+                            case "closed": return XCircle;
+                            case "transferred_agent": return ArrowRight;
+                            case "transferred_team": return Users;
+                            default: return Clock;
+                          }
+                        };
+                        const getLabel = () => {
+                          switch (ev.event_type) {
+                            case "started": return "Conversa iniciada";
+                            case "reopened": return "Conversa reaberta";
+                            case "closed": return "Conversa concluída";
+                            case "transferred_agent": return "Transferido para atendente";
+                            case "transferred_team": return "Transferido para equipe";
+                            default: return ev.event_type;
+                          }
+                        };
+                        const Icon = getIcon();
+                        return (
+                          <div key={ev.id} className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                              <Icon className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-foreground">{getLabel()}</p>
+                              <p className="text-[11px] text-muted-foreground">Por: {ev.actor_name}</p>
+                              {ev.target_name && (
+                                <p className="text-[11px] text-muted-foreground">Para: {ev.target_name}</p>
+                              )}
+                              {ev.target_team_name && (
+                                <p className="text-[11px] text-muted-foreground">Equipe: {ev.target_team_name}</p>
+                              )}
+                              <p className="text-[10px] text-muted-foreground/60 mt-1">
+                                {format(new Date(ev.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </ScrollArea>
               </TabsContent>
