@@ -1,37 +1,57 @@
 
+Objetivo: corrigir o fluxo de “Disparo Imediato” para realmente enviar a mensagem aos contatos selecionados, e não apenas criar registros com status `sending`.
 
-## Por que a campanha aparece como "Rascunho"
+1) Diagnóstico confirmado
+- O fluxo atual de `src/hooks/useCampaigns.ts` apenas:
+  - cria `campaigns`
+  - cria `campaign_contacts` com `status: pending`
+- Não existe rotina de envio para campanhas (nem no frontend, nem em função backend dedicada de campanha).
+- Resultado real no banco: campanha `sending` + contatos `pending` (sem disparo).
+- Em `src/pages/NewCampaign.tsx`, o sucesso/redirect acontece imediatamente após chamar `createCampaign`, sem aguardar conclusão real do processo.
+- `campaigns.company_id` está ficando `null`, o que prejudica consistência multi-tenant.
 
-A campanha "TESTE 01" foi salva no banco com `scheduled_at: null`, o que significa que foi criada com a opção "Enviar agora" (não "Agendar"). Nesse caso, o código define `status = 'draft'` porque não há data agendada.
+2) Implementação proposta (sem mudar arquitetura principal)
+- Arquivo: `src/hooks/useCampaigns.ts`
+  - Adicionar contexto do usuário (buscar `company_id` no `profiles`) dentro da criação.
+  - Salvar `company_id` em `campaigns` e `campaign_contacts`.
+  - Criar rotina interna `dispatchCampaignNow(...)` para campanhas sem agendamento:
+    - Buscar contatos por `contactIds` e validar telefone.
+    - Buscar endpoint `n8n_send_message` em `admin_settings`.
+    - Enviar 1 a 1 via `supabase.functions.invoke("proxy-n8n")`.
+    - Atualizar cada `campaign_contacts` para:
+      - `sent` + `sent_at` em sucesso
+      - `failed` + `error_message` em falha
+    - Ao final:
+      - atualizar campanha para `sent` + `sent_at` (mantendo estatística de falhas em `campaign_contacts`)
+      - se nenhum envio for possível, manter `sending` e registrar erro descritivo (evitar falso sucesso silencioso).
 
-O problema: quando o usuário escolhe "Enviar agora", a campanha deveria ter status `sending` (ou iniciar o envio imediatamente), não ficar como rascunho.
+3) Correção de UX/fluxo de submissão
+- Arquivo: `src/pages/NewCampaign.tsx`
+  - Trocar uso de `mutate` por `mutateAsync` (ou expor `createCampaignAsync` no hook).
+  - Aguardar conclusão antes de mostrar toast de sucesso e redirecionar.
+  - Em erro, mostrar toast destrutivo e não redirecionar.
+  - Desabilitar botão “Ativar Campanha” durante processamento para evitar clique duplicado.
 
-### Correção
+4) Compatibilidade com campanhas agendadas
+- Manter comportamento:
+  - `scheduledAt` definido => status `scheduled`, sem disparo imediato.
+  - sem `scheduledAt` => dispara imediatamente.
+- (Fora deste ajuste) o executor automático de agendadas pode ser implementado depois como rotina backend periódica.
 
-**Arquivo: `src/hooks/useCampaigns.ts`** (linha 71)
+5) Validação funcional (E2E)
+- Cenário A (imediato):
+  - Criar campanha com 2+ contatos.
+  - Confirmar chamadas ao `proxy-n8n`.
+  - Confirmar `campaign_contacts` saindo de `pending` para `sent/failed`.
+  - Confirmar campanha finalizada (`sent`) com `sent_at`.
+- Cenário B (agendada):
+  - Criar com data/hora.
+  - Confirmar status `scheduled` e ausência de envio imediato.
+- Cenário C (falha de endpoint):
+  - Forçar erro no endpoint e validar mensagens de erro + marcação `failed` por contato.
 
-Alterar a lógica de status na criação:
-- Se `scheduledAt` foi fornecido → status = `scheduled`
-- Se não tem `scheduledAt` (enviar agora) → status = `sending`
-- Manter `draft` apenas se explicitamente solicitado (ex: salvar sem enviar)
-
-```typescript
-// Antes
-const status = campaign.scheduledAt ? 'scheduled' : 'draft';
-
-// Depois
-const status = campaign.scheduledAt ? 'scheduled' : 'sending';
-```
-
-**Arquivo: `src/pages/NewCampaign.tsx`** (linha 158)
-
-Também passar a mensagem real do template selecionado em vez do texto fixo "Mensagem da campanha":
-
-```typescript
-message: selectedTemplate?.message || data.modelo_disparo,
-```
-
-### Resumo
-- Uma linha alterada em `useCampaigns.ts`
-- Uma linha ajustada em `NewCampaign.tsx` (mensagem real do template)
-
+Detalhes técnicos
+- Não exige migração de banco para esta correção.
+- Reutiliza integração existente com n8n via `proxy-n8n` (com autenticação e allowlist já implementadas).
+- Corrige consistência multi-tenant preenchendo `company_id` na criação de campanha/itens.
+- Evita falso positivo de sucesso no frontend ao sincronizar toasts/navegação com o resultado real do envio.
