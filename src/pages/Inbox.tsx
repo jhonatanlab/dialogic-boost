@@ -774,11 +774,11 @@ const Inbox = () => {
         .from("conversations")
         .update({ status: "closed", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
-      if (error) throw error;
-      await logConversationEvent(selectedConversation.id, "closed");
+      if (error) { console.error("Close error:", error); throw error; }
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      setSelectedConversationId(null);
       toast.success("Conversa concluída!");
+      logConversationEvent(selectedConversation.id, "closed");
+      setSelectedConversationId(null);
     } catch { toast.error("Erro ao concluir conversa"); }
   };
 
