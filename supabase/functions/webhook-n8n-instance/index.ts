@@ -14,12 +14,18 @@ const json = (body: unknown, status = 200) =>
 
 // Status mapping: 'played' → 'read' for display purposes
 const KNOWN_STATUSES = new Set([
-  "sending", "sent", "server_ack", "received", "delivered", "read", "failed", "played", "deleted",
+  "sending", "sent", "server_ack", "received", "delivered", "read", "failed", "played", "deleted", "pending",
 ]);
 
 const normalizeStatus = (status: string): string => {
-  if (status === "played") return "read";
-  return status;
+  const normalized = (status || "").toLowerCase().trim();
+
+  if (normalized === "played") return "read";
+  if (normalized === "server_ack") return "sent";
+  if (normalized === "received") return "delivered";
+  if (normalized === "pending") return "sent";
+
+  return normalized;
 };
 
 const statusPriority = (status: string): number => {
@@ -267,11 +273,12 @@ Deno.serve(async (req) => {
 
       console.log("[update_message_status] message_id:", message_id, "status:", status, "company_id:", company_id || "N/A", "phone:", phone_number || "N/A");
 
-      if (!KNOWN_STATUSES.has(status)) {
+      const incomingStatus = (status || "").toLowerCase().trim();
+      if (!KNOWN_STATUSES.has(incomingStatus)) {
         return json({ success: true, action: "status_ignored", message: `Status '${status}' not recognized, ignored` });
       }
 
-      const mappedStatus = normalizeStatus(status);
+      const mappedStatus = normalizeStatus(incomingStatus);
 
       // 1. Try exact match by message_id — check hierarchy before updating
       const { data: current, error: findErr } = await supabase
@@ -414,7 +421,7 @@ Deno.serve(async (req) => {
       // ── Build message fields ──
       const messageType = media_type && media_type !== "text" ? media_type : "text";
       const messageContent = typeof content === "string" ? content : "";
-      const rawStatus = status || "received";
+      const rawStatus = (status || "received").toLowerCase().trim();
       const mappedStatus = normalizeStatus(rawStatus);
       const messageMetadata: Record<string, unknown> = {};
       if (instance_id) messageMetadata.instance_id = instance_id;
