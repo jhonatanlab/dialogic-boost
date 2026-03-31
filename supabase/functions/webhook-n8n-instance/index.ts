@@ -177,6 +177,105 @@ Deno.serve(async (req) => {
       return newConv.id;
     };
 
+    const campaignStatusPriority = (status: string): number => {
+      switch (normalizeStatus(status)) {
+        case "pending": return 0;
+        case "sent": return 1;
+        case "delivered": return 2;
+        case "read": return 3;
+        case "replied": return 4;
+        case "failed": return 5;
+        default: return -1;
+      }
+    };
+
+    const lowerCampaignStatuses = (status: string): string[] => {
+      const p = campaignStatusPriority(status);
+      if (p <= 0) return [];
+      return ["pending", "sent", "delivered", "read", "replied", "failed"]
+        .filter((s) => campaignStatusPriority(s) < p);
+    };
+
+    const syncCampaignContactStatus = async (
+      campaignId: string,
+      contactId: string,
+      nextStatus: string,
+      source: string,
+    ) => {
+      const normalized = normalizeStatus(nextStatus);
+      const { error: rpcError } = await supabase.rpc("update_campaign_contact_status", {
+        p_campaign_id: campaignId,
+        p_contact_id: contactId,
+        p_new_status: normalized,
+      });
+
+      if (!rpcError) {
+        console.log(`[${source}] campaign sync (atomic):`, campaignId, "→", normalized);
+        return;
+      }
+
+      console.error(`[${source}] campaign sync rpc error:`, rpcError.message);
+
+      const allowedPrevious = lowerCampaignStatuses(normalized);
+      if (allowedPrevious.length === 0) return;
+
+      const { error: fallbackError } = await supabase
+        .from("campaign_contacts")
+        .update({ status: normalized })
+        .eq("campaign_id", campaignId)
+        .eq("contact_id", contactId)
+        .in("status", allowedPrevious);
+
+      if (fallbackError) {
+        console.error(`[${source}] campaign sync fallback error:`, fallbackError.message);
+      } else {
+        console.log(`[${source}] campaign sync fallback applied:`, campaignId, "→", normalized);
+      }
+    };
+
+    const resolveCampaignRefForMessage = async (
+      messageRowId: string,
+      fallbackInternalId?: string | null,
+    ): Promise<{ campaignId: string; contactId: string } | null> => {
+      const { data: msgRow } = await supabase
+        .from("messages")
+        .select("client_message_id, metadata, contact_id, company_id")
+        .eq("id", messageRowId)
+        .maybeSingle();
+
+      if (!msgRow) return parseCampaignInternalId(fallbackInternalId || null);
+
+      let parsed = parseCampaignInternalId(msgRow.client_message_id || null);
+      if (!parsed) parsed = parseCampaignInternalId(fallbackInternalId || null);
+      if (parsed) return parsed;
+
+      const metadata = (msgRow.metadata || {}) as Record<string, unknown>;
+      const metadataCampaignId = typeof metadata.campaign_id === "string" ? metadata.campaign_id : null;
+      if (metadataCampaignId && msgRow.contact_id) {
+        return { campaignId: metadataCampaignId, contactId: msgRow.contact_id };
+      }
+
+      if (msgRow.contact_id && msgRow.company_id) {
+        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+        const { data: fallbackCc } = await supabase
+          .from("campaign_contacts")
+          .select("campaign_id, contact_id")
+          .eq("contact_id", msgRow.contact_id)
+          .eq("company_id", msgRow.company_id)
+          .gte("created_at", twoHoursAgo)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (fallbackCc) {
+          console.log("[resolveCampaignRefForMessage] campaign sync fallback:", fallbackCc.campaign_id);
+          return { campaignId: fallbackCc.campaign_id, contactId: fallbackCc.contact_id };
+        }
+      }
+
+      return null;
+    };
+
     // ═══════════════════════════════════════════
     // ACTION: upsert_instance
     // ═══════════════════════════════════════════
