@@ -718,7 +718,12 @@ const Inbox = () => {
   };
 
   const insertQuickReply = (text: string) => {
-    setMessageInput(text);
+    const contact = selectedConversation?.contact;
+    const resolved = text
+      .replace(/\{nome\}/gi, contact?.name || "")
+      .replace(/\{telefone\}/gi, contact?.phone || "")
+      .replace(/\{email\}/gi, contact?.email || "");
+    setMessageInput(resolved);
     setShowQuickReplies(false);
   };
 
