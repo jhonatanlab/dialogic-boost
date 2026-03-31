@@ -137,39 +137,23 @@ export default function NewCampaign() {
     }
   };
 
-  const onSubmit = (data: CampaignFormData) => {
-    const campaignPayload = {
-      nome_campanha: data.nome_campanha,
-      equipe_id: data.equipe_id || "default",
-      canal_id: data.canal_id || "whatsapp",
-      chatbot_habilitado: data.chatbot_habilitado,
-      inicio_disparo: data.inicio_disparo === "agora" 
-        ? new Date().toISOString() 
-        : data.data_agendamento?.toISOString() || new Date().toISOString(),
-      config_disparo: disparoConfig,
-      publico,
-      modelo_disparo: data.modelo_disparo,
-      mensagem_preview: "Olá! 👋 Esta é uma mensagem automática.",
-      status: "rascunho" as const,
-    };
+  const onSubmit = async (data: CampaignFormData) => {
+    try {
+      await createCampaignAsync({
+        name: data.nome_campanha,
+        message: templates?.find(t => t.id === data.modelo_disparo)?.message || data.modelo_disparo,
+        contactIds: publico.filtros,
+        scheduledAt: data.inicio_disparo === "agendar" && data.data_agendamento
+          ? data.data_agendamento.toISOString()
+          : undefined,
+      });
 
-    createCampaign({
-      name: data.nome_campanha,
-      message: templates?.find(t => t.id === data.modelo_disparo)?.message || data.modelo_disparo,
-      contactIds: publico.filtros,
-      scheduledAt: data.inicio_disparo === "agendar" && data.data_agendamento
-        ? data.data_agendamento.toISOString()
-        : undefined,
-    });
-
-    toast({
-      title: "✅ Campanha criada com sucesso!",
-      description: "Redirecionando para a listagem...",
-    });
-
-    setTimeout(() => {
-      navigate("/campaigns");
-    }, 1500);
+      setTimeout(() => {
+        navigate("/campaigns");
+      }, 1500);
+    } catch (error: any) {
+      // Toast já é mostrado pelo hook
+    }
   };
 
   const handleSaveDraft = () => {
