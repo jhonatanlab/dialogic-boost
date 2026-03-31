@@ -1145,12 +1145,13 @@ const Inbox = () => {
                           <Paperclip className="h-5 w-5" />
                         </Button>
                         <div className="relative flex-1">
-                          <Input placeholder="Digite uma mensagem" value={messageInput}
-                            className="h-11 rounded-xl bg-secondary border-0 pr-12 text-sm"
+                          <Textarea placeholder="Digite uma mensagem" value={messageInput}
+                            className="min-h-[44px] max-h-[120px] rounded-xl bg-secondary border-0 pr-12 text-sm resize-none py-3"
                             onChange={(e) => setMessageInput(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }
-                            }} />
+                            }}
+                            rows={1} />
                           <Button type="button" size="icon" variant="ghost"
                             className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
                             onClick={() => setShowQuickReplies(!showQuickReplies)}>

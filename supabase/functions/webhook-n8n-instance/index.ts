@@ -53,7 +53,19 @@ Deno.serve(async (req) => {
     try {
       body = JSON.parse(rawBody);
     } catch {
-      return json({ error: "Invalid JSON", received: rawBody.substring(0, 200) }, 400);
+      // Attempt to fix unescaped newlines/tabs inside JSON string values (common n8n issue)
+      try {
+        const sanitized = rawBody.replace(/[\n\r\t]/g, (match) => {
+          if (match === '\n') return '\\n';
+          if (match === '\r') return '\\r';
+          if (match === '\t') return '\\t';
+          return match;
+        });
+        body = JSON.parse(sanitized);
+        console.warn("JSON parsed after sanitizing unescaped control characters");
+      } catch {
+        return json({ error: "Invalid JSON", received: rawBody.substring(0, 200) }, 400);
+      }
     }
 
     const { action, data } = body;
