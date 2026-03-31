@@ -253,20 +253,116 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
+      // Get company_id
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .single();
+
+      const companyId = profile?.company_id;
+
       const { data, error } = await supabase
         .from("conversations")
-        .select("status, created_at")
-        .eq("user_id", user.id)
+        .select("id, status, created_at, updated_at, assigned_to")
+        .eq("company_id", companyId || "")
         .gte("created_at", dateRange.start.toISOString())
         .lte("created_at", dateRange.end.toISOString());
 
       if (error) throw error;
 
+      // Fetch conversation events for the period (started/closed)
+      const { data: events } = await supabase
+        .from("conversation_events")
+        .select("conversation_id, event_type, created_at, actor_name, actor_user_id")
+        .eq("company_id", companyId || "")
+        .gte("created_at", dateRange.start.toISOString())
+        .lte("created_at", dateRange.end.toISOString());
+
+      const startedEvents = (events || []).filter(e => e.event_type === "started");
+      const closedEvents = (events || []).filter(e => e.event_type === "closed");
+
+      // Calculate avg resolution time from events
+      const resolutionTimes: number[] = [];
+      closedEvents.forEach(closeEvt => {
+        const startEvt = startedEvents.find(s => s.conversation_id === closeEvt.conversation_id);
+        if (startEvt) {
+          const diff = new Date(closeEvt.created_at).getTime() - new Date(startEvt.created_at).getTime();
+          if (diff > 0) resolutionTimes.push(diff);
+        }
+      });
+
+      const avgResolutionMs = resolutionTimes.length > 0
+        ? resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length
+        : 0;
+
+      // Avg response time: time between first inbound message and first outbound reply per conversation
+      let avgResponseMs = 0;
+      if (companyId && data && data.length > 0) {
+        const convIds = data.map(c => c.id);
+        // Fetch messages for these conversations
+        const { data: msgs } = await supabase
+          .from("messages")
+          .select("conversation_id, direction, created_at")
+          .in("conversation_id", convIds.slice(0, 100)) // limit for performance
+          .order("created_at", { ascending: true });
+
+        if (msgs && msgs.length > 0) {
+          const responseTimes: number[] = [];
+          const grouped = new Map<string, typeof msgs>();
+          msgs.forEach(m => {
+            if (!grouped.has(m.conversation_id)) grouped.set(m.conversation_id, []);
+            grouped.get(m.conversation_id)!.push(m);
+          });
+          grouped.forEach((convMsgs) => {
+            const firstInbound = convMsgs.find(m => m.direction === "inbound");
+            if (!firstInbound) return;
+            const firstReply = convMsgs.find(m => m.direction === "outbound" && new Date(m.created_at) > new Date(firstInbound.created_at));
+            if (firstReply) {
+              const diff = new Date(firstReply.created_at).getTime() - new Date(firstInbound.created_at).getTime();
+              if (diff > 0) responseTimes.push(diff);
+            }
+          });
+          avgResponseMs = responseTimes.length > 0
+            ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+            : 0;
+        }
+      }
+
+      // Conversations per agent
+      const agentMap = new Map<string, number>();
+      (data || []).forEach(c => {
+        if (c.assigned_to) {
+          agentMap.set(c.assigned_to, (agentMap.get(c.assigned_to) || 0) + 1);
+        }
+      });
+
+      // Fetch agent names from profiles
+      const agentIds = Array.from(agentMap.keys());
+      let agentConversations: { agent_name: string; count: number }[] = [];
+      if (agentIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", agentIds);
+
+        agentConversations = agentIds.map(id => ({
+          agent_name: profiles?.find(p => p.user_id === id)?.full_name || "Sem nome",
+          count: agentMap.get(id) || 0,
+        })).sort((a, b) => b.count - a.count);
+      }
+
       return {
         total: data?.length || 0,
         open: data?.filter((c) => c.status === "open").length || 0,
+        in_progress: data?.filter((c) => c.status === "in_progress").length || 0,
         pending: data?.filter((c) => c.status === "pending").length || 0,
         closed: data?.filter((c) => c.status === "closed").length || 0,
+        started_count: startedEvents.length,
+        closed_count: closedEvents.length,
+        avg_resolution_ms: avgResolutionMs,
+        avg_response_ms: avgResponseMs,
+        agent_conversations: agentConversations,
       };
     },
   });
