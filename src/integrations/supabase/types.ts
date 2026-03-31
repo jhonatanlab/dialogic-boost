@@ -583,6 +583,66 @@ export type Database = {
           },
         ]
       }
+      conversation_events: {
+        Row: {
+          actor_name: string | null
+          actor_user_id: string
+          company_id: string | null
+          conversation_id: string
+          created_at: string
+          details: Json | null
+          event_type: string
+          id: string
+          target_name: string | null
+          target_team_id: string | null
+          target_team_name: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          actor_name?: string | null
+          actor_user_id: string
+          company_id?: string | null
+          conversation_id: string
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          id?: string
+          target_name?: string | null
+          target_team_id?: string | null
+          target_team_name?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          actor_name?: string | null
+          actor_user_id?: string
+          company_id?: string | null
+          conversation_id?: string
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          id?: string
+          target_name?: string | null
+          target_team_id?: string | null
+          target_team_name?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_events_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           assigned_team: string | null
