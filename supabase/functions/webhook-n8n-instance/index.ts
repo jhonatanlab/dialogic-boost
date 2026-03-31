@@ -14,12 +14,18 @@ const json = (body: unknown, status = 200) =>
 
 // Status mapping: 'played' → 'read' for display purposes
 const KNOWN_STATUSES = new Set([
-  "sending", "sent", "server_ack", "received", "delivered", "read", "failed", "played", "deleted",
+  "sending", "sent", "server_ack", "received", "delivered", "read", "failed", "played", "deleted", "pending",
 ]);
 
 const normalizeStatus = (status: string): string => {
-  if (status === "played") return "read";
-  return status;
+  const normalized = (status || "").toLowerCase().trim();
+
+  if (normalized === "played") return "read";
+  if (normalized === "server_ack") return "sent";
+  if (normalized === "received") return "delivered";
+  if (normalized === "pending") return "sent";
+
+  return normalized;
 };
 
 const statusPriority = (status: string): number => {
@@ -38,6 +44,25 @@ const statusPriority = (status: string): number => {
 const normalizePhone = (phone: string): string => {
   const basePhone = phone.split(':')[0];
   return basePhone.replace(/\D/g, "");
+};
+
+const parseCampaignInternalId = (value?: string | null) => {
+  if (!value) return null;
+
+  // New safe format: campaign|{campaignId}|{contactId}
+  if (value.startsWith("campaign|")) {
+    const [, campaignId, contactId] = value.split("|");
+    if (campaignId && contactId) return { campaignId, contactId };
+  }
+
+  // Legacy format: campaign-{campaignId}-{contactId}
+  const uuidPattern = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+  const match = value.match(new RegExp(`^campaign-(${uuidPattern})-(${uuidPattern})$`));
+  if (match) {
+    return { campaignId: match[1], contactId: match[2] };
+  }
+
+  return null;
 };
 
 Deno.serve(async (req) => {
@@ -243,16 +268,17 @@ Deno.serve(async (req) => {
     // ACTION: update_message_status
     // ═══════════════════════════════════════════
     if (action === "update_message_status") {
-      const { message_id, status, company_id, phone_number } = data as Record<string, string>;
+      const { message_id, status, company_id, phone_number, internal_id } = data as Record<string, string>;
       if (!message_id || !status) return json({ error: "message_id and status are required" }, 400);
 
       console.log("[update_message_status] message_id:", message_id, "status:", status, "company_id:", company_id || "N/A", "phone:", phone_number || "N/A");
 
-      if (!KNOWN_STATUSES.has(status)) {
+      const incomingStatus = (status || "").toLowerCase().trim();
+      if (!KNOWN_STATUSES.has(incomingStatus)) {
         return json({ success: true, action: "status_ignored", message: `Status '${status}' not recognized, ignored` });
       }
 
-      const mappedStatus = normalizeStatus(status);
+      const mappedStatus = normalizeStatus(incomingStatus);
 
       // 1. Try exact match by message_id — check hierarchy before updating
       const { data: current, error: findErr } = await supabase
@@ -282,19 +308,14 @@ Deno.serve(async (req) => {
             .select("client_message_id")
             .eq("id", current.id)
             .single();
-          const cid = msgRow?.client_message_id;
-          if (cid && cid.startsWith("campaign-")) {
-            const parts = cid.split("-");
-            if (parts.length >= 3) {
-              const campaignId = parts[1];
-              const contactId = parts[2];
-              await supabase
-                .from("campaign_contacts")
-                .update({ status: mappedStatus })
-                .eq("campaign_id", campaignId)
-                .eq("contact_id", contactId);
-              console.log("[update_message_status] synced campaign_contacts:", campaignId, contactId, "→", mappedStatus);
-            }
+          const parsedCampaignRef = parseCampaignInternalId(msgRow?.client_message_id || internal_id || null);
+          if (parsedCampaignRef) {
+            await supabase
+              .from("campaign_contacts")
+              .update({ status: mappedStatus })
+              .eq("campaign_id", parsedCampaignRef.campaignId)
+              .eq("contact_id", parsedCampaignRef.contactId);
+            console.log("[update_message_status] synced campaign_contacts:", parsedCampaignRef.campaignId, parsedCampaignRef.contactId, "→", mappedStatus);
           }
         }
 
@@ -382,7 +403,7 @@ Deno.serve(async (req) => {
         company_id, instance_id, message_id, phone_number,
         contact_name, direction, content, media_type,
         media_url, mimetype, status, sent_at, internal_id,
-        file_name,
+        file_name, campaign_id,
       } = data as Record<string, string>;
 
       if (!company_id || !message_id || !phone_number) {
@@ -400,13 +421,15 @@ Deno.serve(async (req) => {
       // ── Build message fields ──
       const messageType = media_type && media_type !== "text" ? media_type : "text";
       const messageContent = typeof content === "string" ? content : "";
-      const rawStatus = status || "received";
+      const rawStatus = (status || "received").toLowerCase().trim();
       const mappedStatus = normalizeStatus(rawStatus);
       const messageMetadata: Record<string, unknown> = {};
       if (instance_id) messageMetadata.instance_id = instance_id;
       if (media_url) messageMetadata.media_url = media_url;
       if (mimetype) messageMetadata.mimetype = mimetype;
       if (file_name) messageMetadata.file_name = file_name;
+      if (campaign_id) messageMetadata.campaign_id = campaign_id;
+      if (contactId) messageMetadata.campaign_contact_id = contactId;
       messageMetadata.pending_content = false;
       const metaValue = Object.keys(messageMetadata).length > 0 ? messageMetadata : null;
 
@@ -506,6 +529,7 @@ Deno.serve(async (req) => {
             .from("messages")
             .update({
               message_id: message_id,
+              client_message_id: internal_id || undefined,
               conversation_id: conversationId,
               contact_id: contactId,
               status: finalStatus,
@@ -524,6 +548,7 @@ Deno.serve(async (req) => {
           const finalStatus = await resolveStatus(message_id, mappedStatus);
           const fullRow = {
             message_id,
+            client_message_id: internal_id,
             conversation_id: conversationId,
             contact_id: contactId,
             user_id: userId,
@@ -618,19 +643,21 @@ Deno.serve(async (req) => {
       await supabase.from("conversations").update(updateData).eq("id", conversationId);
 
       // ── Sync campaign_contacts status ──
-      const resolvedClientId = internal_id || null;
-      if (resolvedClientId && resolvedClientId.startsWith("campaign-")) {
-        const parts = resolvedClientId.split("-");
-        if (parts.length >= 3) {
-          const campaignId = parts[1];
-          const cContactId = parts[2];
-          await supabase
-            .from("campaign_contacts")
-            .update({ status: mappedStatus })
-            .eq("campaign_id", campaignId)
-            .eq("contact_id", cContactId);
-          console.log("[upsert_message] synced campaign_contacts:", campaignId, cContactId, "→", mappedStatus);
-        }
+      const parsedCampaignRef = parseCampaignInternalId(internal_id || null);
+      if (parsedCampaignRef) {
+        await supabase
+          .from("campaign_contacts")
+          .update({ status: mappedStatus })
+          .eq("campaign_id", parsedCampaignRef.campaignId)
+          .eq("contact_id", parsedCampaignRef.contactId);
+        console.log("[upsert_message] synced campaign_contacts:", parsedCampaignRef.campaignId, parsedCampaignRef.contactId, "→", mappedStatus);
+      } else if (campaign_id) {
+        await supabase
+          .from("campaign_contacts")
+          .update({ status: mappedStatus })
+          .eq("campaign_id", campaign_id)
+          .eq("contact_id", contactId);
+        console.log("[upsert_message] synced campaign_contacts (fallback campaign_id):", campaign_id, contactId, "→", mappedStatus);
       }
 
       return json({ success: true, action: "upserted_message", id: upsertedId });
