@@ -64,9 +64,11 @@ export const useCampaigns = () => {
   });
 
   const createCampaign = useMutation({
-    mutationFn: async (campaign: { name: string; message: string; contactIds: string[] }) => {
+    mutationFn: async (campaign: { name: string; message: string; contactIds: string[]; scheduledAt?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
+
+      const status = campaign.scheduledAt ? 'scheduled' : 'draft';
 
       const { data: campaignData, error: campaignError } = await supabase
         .from("campaigns")
@@ -74,7 +76,8 @@ export const useCampaigns = () => {
           user_id: user.id,
           name: campaign.name,
           message: campaign.message,
-          status: 'draft',
+          status,
+          scheduled_at: campaign.scheduledAt || null,
         })
         .select()
         .single();
