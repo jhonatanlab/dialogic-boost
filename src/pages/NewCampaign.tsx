@@ -157,6 +157,9 @@ export default function NewCampaign() {
       name: data.nome_campanha,
       message: "Mensagem da campanha",
       contactIds: publico.filtros,
+      scheduledAt: data.inicio_disparo === "agendar" && data.data_agendamento
+        ? data.data_agendamento.toISOString()
+        : undefined,
     });
 
     toast({
