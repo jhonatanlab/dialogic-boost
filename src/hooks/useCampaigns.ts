@@ -35,8 +35,9 @@ async function getUserContext() {
   return { userId: user.id, companyId: profile?.company_id ?? null };
 }
 
-async function dispatchCampaignNow(campaignId: string, contactIds: string[], message: string) {
-  // Fetch contacts with phones
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+async function dispatchCampaignNow(campaignId: string, contactIds: string[], message: string, companyId: string | null, intervalSeconds: number = 2) {
   const { data: contactsData, error: contactsErr } = await supabase
     .from("contacts")
     .select("id, phone, name")
@@ -44,7 +45,6 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
 
   if (contactsErr) throw contactsErr;
 
-  // Get n8n send message endpoint
   const { data: settings } = await supabase
     .from("admin_settings")
     .select("setting_value")
@@ -53,7 +53,6 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
 
   const endpoint = settings?.setting_value;
   if (!endpoint) {
-    // Update all contacts as failed
     await supabase
       .from("campaign_contacts")
       .update({ status: "failed", error_message: "Endpoint de envio não configurado" })
@@ -70,7 +69,9 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
   let sentCount = 0;
   let failedCount = 0;
 
-  for (const contact of (contactsData || [])) {
+  for (let i = 0; i < (contactsData || []).length; i++) {
+    const contact = contactsData![i];
+
     if (!contact.phone) {
       await supabase
         .from("campaign_contacts")
@@ -81,13 +82,21 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
       continue;
     }
 
+    // Apply interval between messages (skip delay for the first contact)
+    if (i > 0 && intervalSeconds > 0) {
+      await sleep(intervalSeconds * 1000);
+    }
+
     try {
       const { data: response, error: invokeError } = await supabase.functions.invoke("proxy-n8n", {
         body: {
           endpoint,
           payload: {
-            phone: contact.phone,
-            message,
+            company_id: companyId,
+            number: contact.phone,
+            text: message,
+            type: "text",
+            internal_id: `campaign-${campaignId}-${contact.id}`,
             contact_name: contact.name,
             campaign_id: campaignId,
           },
@@ -112,7 +121,6 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
     }
   }
 
-  // Mark campaign as sent
   await supabase
     .from("campaigns")
     .update({ status: "sent", sent_at: new Date().toISOString() })
