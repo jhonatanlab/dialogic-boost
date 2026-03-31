@@ -71,6 +71,48 @@ const resolveDataUrlMimeType = (value?: string) => {
   return match?.[1] ?? null;
 };
 
+const extractFileExtensionFromMimeType = (mimeType: string) => {
+  const map: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "video/mp4": "mp4",
+    "audio/ogg": "ogg",
+    "audio/mpeg": "mp3",
+    "application/pdf": "pdf",
+  };
+  return map[mimeType.toLowerCase()] || "bin";
+};
+
+const ensureCampaignMediaUrl = async (attachmentUrl?: string | null) => {
+  if (!attachmentUrl) return null;
+  if (!attachmentUrl.startsWith("data:")) return attachmentUrl;
+
+  const mimeType = resolveDataUrlMimeType(attachmentUrl);
+  if (!mimeType) return null;
+
+  const base64Data = attachmentUrl.split(",")[1] || "";
+  if (!base64Data) return null;
+
+  const binary = atob(base64Data);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  const extension = extractFileExtensionFromMimeType(mimeType);
+  const filePath = `campaign-media/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("chat-attachments")
+    .upload(filePath, bytes, {
+      contentType: mimeType,
+      upsert: false,
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from("chat-attachments").getPublicUrl(filePath);
+  return data.publicUrl;
+};
+
 async function dispatchCampaignNow(campaignId: string, contactIds: string[], message: string, companyId: string | null, intervalSeconds: number = 2, attachmentUrl?: string, mediaType?: string) {
   const { data: contactsData, error: contactsErr } = await supabase
     .from("contacts")
@@ -135,7 +177,7 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
             number: contact.phone,
             text: resolvedMessage,
             type: effectiveType,
-            internal_id: `campaign-${campaignId}-${contact.id}`,
+            internal_id: `campaign|${campaignId}|${contact.id}`,
             contact_name: contact.name,
             campaign_id: campaignId,
           };
@@ -224,6 +266,9 @@ export const useCampaigns = () => {
     mutationFn: async (campaign: { name: string; message: string; contactIds: string[]; scheduledAt?: string; intervalSeconds?: number; attachmentUrl?: string; mediaType?: string }) => {
       const { userId, companyId } = await getUserContext();
 
+      const normalizedMediaUrl = await ensureCampaignMediaUrl(campaign.attachmentUrl);
+      const normalizedMediaType = resolveCampaignMediaType(campaign.mediaType, normalizedMediaUrl ?? campaign.attachmentUrl);
+
       const status = campaign.scheduledAt ? 'scheduled' : 'sending';
 
       const { data: campaignData, error: campaignError } = await supabase
@@ -235,8 +280,8 @@ export const useCampaigns = () => {
           message: campaign.message,
           status,
           scheduled_at: campaign.scheduledAt || null,
-          attachment_url: campaign.attachmentUrl || null,
-          media_type: campaign.mediaType || 'text',
+          attachment_url: normalizedMediaUrl || null,
+          media_type: normalizedMediaType,
         } as any)
         .select()
         .single();
@@ -261,7 +306,15 @@ export const useCampaigns = () => {
 
       // Dispatch immediately if not scheduled
       if (!campaign.scheduledAt && campaign.contactIds.length > 0) {
-        const result = await dispatchCampaignNow(campaignData.id, campaign.contactIds, campaign.message, companyId, campaign.intervalSeconds ?? 2, campaign.attachmentUrl, campaign.mediaType);
+        const result = await dispatchCampaignNow(
+          campaignData.id,
+          campaign.contactIds,
+          campaign.message,
+          companyId,
+          campaign.intervalSeconds ?? 2,
+          normalizedMediaUrl || undefined,
+          normalizedMediaType
+        );
         return { ...campaignData, ...result };
       }
 
