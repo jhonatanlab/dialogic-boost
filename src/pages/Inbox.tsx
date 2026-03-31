@@ -722,29 +722,33 @@ const Inbox = () => {
     setShowQuickReplies(false);
   };
 
-  // Helper to log conversation events
+  // Helper to log conversation events (non-blocking, never throws)
   const logConversationEvent = async (
     conversationId: string,
     eventType: string,
     extras?: { target_user_id?: string; target_name?: string; target_team_id?: string; target_team_name?: string; details?: Record<string, unknown> }
   ) => {
-    if (!currentUserId || !companyId) return;
-    // Get current user name
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("user_id", currentUserId)
-      .single();
+    try {
+      if (!currentUserId || !companyId) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", currentUserId)
+        .single();
 
-    await (supabase as any).from("conversation_events").insert({
-      conversation_id: conversationId,
-      company_id: companyId,
-      event_type: eventType,
-      actor_user_id: currentUserId,
-      actor_name: profile?.full_name || "Atendente",
-      ...(extras || {}),
-    });
-    queryClient.invalidateQueries({ queryKey: ["conversation-events", conversationId] });
+      const { error } = await (supabase as any).from("conversation_events").insert({
+        conversation_id: conversationId,
+        company_id: companyId,
+        event_type: eventType,
+        actor_user_id: currentUserId,
+        actor_name: profile?.full_name || "Atendente",
+        ...(extras || {}),
+      });
+      if (error) console.error("Error logging conversation event:", error);
+      queryClient.invalidateQueries({ queryKey: ["conversation-events", conversationId] });
+    } catch (err) {
+      console.error("Error in logConversationEvent:", err);
+    }
   };
 
   // Take conversation (assign to current user)
