@@ -1,27 +1,37 @@
 
 
-## Problema
+## Por que a campanha aparece como "Rascunho"
 
-A constraint `conversations_status_check` no banco só permite os status `open`, `closed` e `pending`. O código tenta definir `status = 'in_progress'` ao iniciar atendimento, o que viola a constraint e gera o erro.
+A campanha "TESTE 01" foi salva no banco com `scheduled_at: null`, o que significa que foi criada com a opção "Enviar agora" (não "Agendar"). Nesse caso, o código define `status = 'draft'` porque não há data agendada.
 
-Não é um problema de permissão do proprietário — é uma incompatibilidade entre os valores permitidos no banco e os usados no código.
+O problema: quando o usuário escolhe "Enviar agora", a campanha deveria ter status `sending` (ou iniciar o envio imediatamente), não ficar como rascunho.
 
-## Solução
+### Correção
 
-### 1. Migração SQL — Atualizar a constraint
+**Arquivo: `src/hooks/useCampaigns.ts`** (linha 71)
 
-Remover a constraint antiga e criar uma nova que inclua `in_progress`:
+Alterar a lógica de status na criação:
+- Se `scheduledAt` foi fornecido → status = `scheduled`
+- Se não tem `scheduledAt` (enviar agora) → status = `sending`
+- Manter `draft` apenas se explicitamente solicitado (ex: salvar sem enviar)
 
-```sql
-ALTER TABLE conversations DROP CONSTRAINT conversations_status_check;
-ALTER TABLE conversations ADD CONSTRAINT conversations_status_check
-  CHECK (status IN ('open', 'in_progress', 'closed', 'pending'));
+```typescript
+// Antes
+const status = campaign.scheduledAt ? 'scheduled' : 'draft';
+
+// Depois
+const status = campaign.scheduledAt ? 'scheduled' : 'sending';
 ```
 
-### 2. Nenhuma mudança no frontend
+**Arquivo: `src/pages/NewCampaign.tsx`** (linha 158)
 
-O código do `Inbox.tsx` já usa `in_progress` corretamente — o problema está exclusivamente no banco.
+Também passar a mensagem real do template selecionado em vez do texto fixo "Mensagem da campanha":
 
-## Arquivos impactados
-- Nova migração SQL (único arquivo)
+```typescript
+message: selectedTemplate?.message || data.modelo_disparo,
+```
+
+### Resumo
+- Uma linha alterada em `useCampaigns.ts`
+- Uma linha ajustada em `NewCampaign.tsx` (mensagem real do template)
 
