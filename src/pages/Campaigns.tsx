@@ -165,6 +165,12 @@ const Campaigns = () => {
           onOpenChange={setFormOpen}
           onSubmit={handleCreateCampaign}
         />
+
+        <CampaignDetailsModal
+          campaign={selectedCampaign}
+          open={!!selectedCampaign}
+          onOpenChange={(open) => !open && setSelectedCampaign(null)}
+        />
       </div>
     </DashboardLayout>
   );
