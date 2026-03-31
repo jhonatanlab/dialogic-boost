@@ -718,7 +718,7 @@ const Inbox = () => {
   };
 
   const insertQuickReply = (text: string) => {
-    const contact = selectedConversation?.contacts;
+    const contact = selectedConversation?.contact;
     const resolved = text
       .replace(/\{nome\}/gi, contact?.name || "")
       .replace(/\{telefone\}/gi, contact?.phone || "")
