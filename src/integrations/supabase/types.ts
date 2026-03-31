@@ -107,6 +107,36 @@ export type Database = {
           },
         ]
       }
+      agents: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_online: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_online?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_online?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       campaign_contacts: {
         Row: {
           campaign_id: string
@@ -194,6 +224,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      chat_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          distribution_mode: string
+          id: string
+          max_conversations_per_agent: number | null
+          only_assign_online_agents: boolean
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          distribution_mode?: string
+          id?: string
+          max_conversations_per_agent?: number | null
+          only_assign_online_agents?: boolean
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          distribution_mode?: string
+          id?: string
+          max_conversations_per_agent?: number | null
+          only_assign_online_agents?: boolean
+          updated_at?: string
+        }
+        Relationships: []
       }
       checkin_links: {
         Row: {
@@ -630,6 +690,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      distribution_state: {
+        Row: {
+          company_id: string
+          id: string
+          last_assigned_index: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          id?: string
+          last_assigned_index?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          last_assigned_index?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       fidelity_cards: {
         Row: {
@@ -1239,6 +1320,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      distribute_conversation: {
+        Args: { p_conversation_id: string }
+        Returns: undefined
+      }
       get_user_company_id: { Args: never; Returns: string }
       has_role: {
         Args: {

@@ -25,6 +25,7 @@ import AdminWhatsapp from "./pages/AdminWhatsapp";
 import Users from "./pages/Users";
 import Teams from "./pages/Teams";
 import CompanyProfile from "./pages/CompanyProfile";
+import ChatDistribution from "./pages/ChatDistribution";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +56,7 @@ const App = () => (
           <Route path="/settings/users" element={<Users />} />
           <Route path="/settings/teams" element={<Teams />} />
           <Route path="/settings/company" element={<CompanyProfile />} />
+          <Route path="/settings/distribution" element={<ChatDistribution />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

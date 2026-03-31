@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon } from "lucide-react";
+import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Settings = () => {
@@ -46,6 +46,14 @@ const Settings = () => {
       action: () => navigate("/settings/teams"),
       actionLabel: "Gerenciar equipes",
       color: "text-primary",
+    },
+    {
+      icon: Shuffle,
+      title: "Distribuição de Conversas",
+      description: "Configure a distribuição automática de atendimentos.",
+      action: () => navigate("/settings/distribution"),
+      actionLabel: "Configurar distribuição",
+      color: "text-teal-500",
     },
   ];
 
