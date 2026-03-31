@@ -40,17 +40,28 @@ export interface CampaignPerformance {
   sent_at: string | null;
 }
 
+// Helper to get company_id
+const getCompanyId = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("company_id")
+    .eq("user_id", user.id)
+    .single();
+  return { userId: user.id, companyId: profile?.company_id };
+};
+
 export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
   const { data: messageStats, isLoading: isLoadingMessages } = useQuery({
     queryKey: ["analytics", "messages", dateRange.start, dateRange.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { companyId } = await getCompanyId();
 
       const { data, error } = await supabase
         .from("messages")
         .select("direction, status, message_id, metadata")
-        .eq("user_id", user.id)
+        .eq("company_id", companyId || "")
         .gte("created_at", dateRange.start.toISOString())
         .lte("created_at", dateRange.end.toISOString());
 
@@ -120,13 +131,12 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
   const { data: dailyMessages, isLoading: isLoadingDaily } = useQuery({
     queryKey: ["analytics", "daily-messages", dateRange.start, dateRange.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { companyId } = await getCompanyId();
 
       const { data, error } = await supabase
         .from("messages")
         .select("direction, created_at")
-        .eq("user_id", user.id)
+        .eq("company_id", companyId || "")
         .gte("created_at", dateRange.start.toISOString())
         .lte("created_at", dateRange.end.toISOString());
 
@@ -158,13 +168,12 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
   const { data: campaignStats, isLoading: isLoadingCampaigns } = useQuery({
     queryKey: ["analytics", "campaigns", dateRange.start, dateRange.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { companyId } = await getCompanyId();
 
       const { data: campaigns, error: campaignsError } = await supabase
         .from("campaigns")
         .select("id, status")
-        .eq("user_id", user.id)
+        .eq("company_id", companyId || "")
         .gte("created_at", dateRange.start.toISOString())
         .lte("created_at", dateRange.end.toISOString());
 
@@ -203,13 +212,12 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
   const { data: campaignPerformance, isLoading: isLoadingPerformance } = useQuery({
     queryKey: ["analytics", "campaign-performance", dateRange.start, dateRange.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { companyId } = await getCompanyId();
 
       const { data: campaigns, error } = await supabase
         .from("campaigns")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("company_id", companyId || "")
         .gte("created_at", dateRange.start.toISOString())
         .lte("created_at", dateRange.end.toISOString())
         .order("created_at", { ascending: false });
@@ -250,17 +258,7 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
   const { data: conversationStats, isLoading: isLoadingConversations } = useQuery({
     queryKey: ["analytics", "conversations", dateRange.start, dateRange.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      // Get company_id
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("company_id")
-        .eq("user_id", user.id)
-        .single();
-
-      const companyId = profile?.company_id;
+      const { companyId } = await getCompanyId();
 
       const { data, error } = await supabase
         .from("conversations")
