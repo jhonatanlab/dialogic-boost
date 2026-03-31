@@ -175,6 +175,49 @@ Deno.serve(async (req) => {
             .replace(/\{email\}/gi, contact.email || "");
 
           const mediaType = resolveCampaignMediaType(campaign.media_type, campaign.attachment_url);
+          const clientMessageId = `campaign|${campaign.id}|${contact.id}`;
+
+          // Pre-register outbound message for reconciliation
+          const userId = await (async () => {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("user_id")
+              .eq("company_id", campaign.company_id)
+              .limit(1)
+              .single();
+            return profile?.user_id;
+          })();
+
+          if (userId) {
+            // Find conversation
+            const { data: conv } = await supabase
+              .from("conversations")
+              .select("id")
+              .eq("company_id", campaign.company_id)
+              .eq("contact_id", contact.id)
+              .order("last_message_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (conv) {
+              await supabase.from("messages").insert({
+                conversation_id: conv.id,
+                contact_id: contact.id,
+                user_id: userId,
+                company_id: campaign.company_id,
+                channel: "whatsapp",
+                direction: "outbound",
+                content: resolvedMessage,
+                message_type: mediaType !== "text" ? mediaType : "text",
+                status: "sending",
+                client_message_id: clientMessageId,
+                metadata: {
+                  campaign_id: campaign.id,
+                  ...(campaign.attachment_url && mediaType !== "text" ? { media_url: campaign.attachment_url } : {}),
+                },
+              });
+            }
+          }
 
           const response = await fetch(endpoint, {
             method: "POST",
@@ -185,7 +228,7 @@ Deno.serve(async (req) => {
               text: resolvedMessage,
               type: mediaType,
               ...(campaign.attachment_url ? { media_url: campaign.attachment_url } : {}),
-              internal_id: `campaign|${campaign.id}|${contact.id}`,
+              internal_id: clientMessageId,
               contact_name: contact.name,
               campaign_id: campaign.id,
             }),
@@ -203,6 +246,13 @@ Deno.serve(async (req) => {
           sentCount++;
         } catch (err: any) {
           console.error(`Failed to send to ${contact.phone}:`, err.message);
+          // Mark pre-registered message as failed
+          await supabase
+            .from("messages")
+            .update({ status: "failed" })
+            .eq("client_message_id", `campaign|${campaign.id}|${contact.id}`)
+            .eq("status", "sending");
+
           await supabase
             .from("campaign_contacts")
             .update({ status: "failed", error_message: err.message?.substring(0, 500) || "Erro desconhecido" })

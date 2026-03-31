@@ -119,6 +119,34 @@ export function CampaignDetailsModal({
     };
 
     fetchContacts();
+
+    // Realtime subscription for live status updates
+    const channel = supabase
+      .channel(`campaign-contacts-${campaign.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'campaign_contacts',
+          filter: `campaign_id=eq.${campaign.id}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          setContacts((prev) =>
+            prev.map((c) =>
+              c.id === updated.id
+                ? { ...c, status: updated.status, sent_at: updated.sent_at, error_message: updated.error_message }
+                : c
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [campaign, open]);
 
   if (!campaign) return null;
