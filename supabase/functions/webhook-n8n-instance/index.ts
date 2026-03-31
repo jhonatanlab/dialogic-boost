@@ -262,7 +262,7 @@ Deno.serve(async (req) => {
     // ACTION: update_message_status
     // ═══════════════════════════════════════════
     if (action === "update_message_status") {
-      const { message_id, status, company_id, phone_number } = data as Record<string, string>;
+      const { message_id, status, company_id, phone_number, internal_id } = data as Record<string, string>;
       if (!message_id || !status) return json({ error: "message_id and status are required" }, 400);
 
       console.log("[update_message_status] message_id:", message_id, "status:", status, "company_id:", company_id || "N/A", "phone:", phone_number || "N/A");
@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
             .select("client_message_id")
             .eq("id", current.id)
             .single();
-          const parsedCampaignRef = parseCampaignInternalId(msgRow?.client_message_id);
+          const parsedCampaignRef = parseCampaignInternalId(msgRow?.client_message_id || internal_id || null);
           if (parsedCampaignRef) {
             await supabase
               .from("campaign_contacts")
@@ -520,6 +520,7 @@ Deno.serve(async (req) => {
             .from("messages")
             .update({
               message_id: message_id,
+              client_message_id: internal_id || undefined,
               conversation_id: conversationId,
               contact_id: contactId,
               status: finalStatus,
@@ -538,6 +539,7 @@ Deno.serve(async (req) => {
           const finalStatus = await resolveStatus(message_id, mappedStatus);
           const fullRow = {
             message_id,
+            client_message_id: internal_id,
             conversation_id: conversationId,
             contact_id: contactId,
             user_id: userId,
