@@ -462,7 +462,11 @@ Deno.serve(async (req) => {
       if (mimetype) messageMetadata.mimetype = mimetype;
       if (file_name) messageMetadata.file_name = file_name;
       if (campaign_id) messageMetadata.campaign_id = campaign_id;
-      if (contactId) messageMetadata.campaign_contact_id = contactId;
+      // Only set campaign_contact_id when there's actual campaign evidence
+      const parsedCampaignOnUpsert = parseCampaignInternalId(internal_id || null);
+      if (parsedCampaignOnUpsert) {
+        messageMetadata.campaign_contact_id = parsedCampaignOnUpsert.contactId;
+      }
       messageMetadata.pending_content = false;
       const metaValue = Object.keys(messageMetadata).length > 0 ? messageMetadata : null;
 
