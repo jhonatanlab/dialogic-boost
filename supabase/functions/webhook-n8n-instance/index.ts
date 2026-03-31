@@ -40,6 +40,25 @@ const normalizePhone = (phone: string): string => {
   return basePhone.replace(/\D/g, "");
 };
 
+const parseCampaignInternalId = (value?: string | null) => {
+  if (!value) return null;
+
+  // New safe format: campaign|{campaignId}|{contactId}
+  if (value.startsWith("campaign|")) {
+    const [, campaignId, contactId] = value.split("|");
+    if (campaignId && contactId) return { campaignId, contactId };
+  }
+
+  // Legacy format: campaign-{campaignId}-{contactId}
+  const uuidPattern = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+  const match = value.match(new RegExp(`^campaign-(${uuidPattern})-(${uuidPattern})$`));
+  if (match) {
+    return { campaignId: match[1], contactId: match[2] };
+  }
+
+  return null;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -282,19 +301,14 @@ Deno.serve(async (req) => {
             .select("client_message_id")
             .eq("id", current.id)
             .single();
-          const cid = msgRow?.client_message_id;
-          if (cid && cid.startsWith("campaign-")) {
-            const parts = cid.split("-");
-            if (parts.length >= 3) {
-              const campaignId = parts[1];
-              const contactId = parts[2];
-              await supabase
-                .from("campaign_contacts")
-                .update({ status: mappedStatus })
-                .eq("campaign_id", campaignId)
-                .eq("contact_id", contactId);
-              console.log("[update_message_status] synced campaign_contacts:", campaignId, contactId, "→", mappedStatus);
-            }
+          const parsedCampaignRef = parseCampaignInternalId(msgRow?.client_message_id);
+          if (parsedCampaignRef) {
+            await supabase
+              .from("campaign_contacts")
+              .update({ status: mappedStatus })
+              .eq("campaign_id", parsedCampaignRef.campaignId)
+              .eq("contact_id", parsedCampaignRef.contactId);
+            console.log("[update_message_status] synced campaign_contacts:", parsedCampaignRef.campaignId, parsedCampaignRef.contactId, "→", mappedStatus);
           }
         }
 
@@ -618,19 +632,14 @@ Deno.serve(async (req) => {
       await supabase.from("conversations").update(updateData).eq("id", conversationId);
 
       // ── Sync campaign_contacts status ──
-      const resolvedClientId = internal_id || null;
-      if (resolvedClientId && resolvedClientId.startsWith("campaign-")) {
-        const parts = resolvedClientId.split("-");
-        if (parts.length >= 3) {
-          const campaignId = parts[1];
-          const cContactId = parts[2];
-          await supabase
-            .from("campaign_contacts")
-            .update({ status: mappedStatus })
-            .eq("campaign_id", campaignId)
-            .eq("contact_id", cContactId);
-          console.log("[upsert_message] synced campaign_contacts:", campaignId, cContactId, "→", mappedStatus);
-        }
+      const parsedCampaignRef = parseCampaignInternalId(internal_id || null);
+      if (parsedCampaignRef) {
+        await supabase
+          .from("campaign_contacts")
+          .update({ status: mappedStatus })
+          .eq("campaign_id", parsedCampaignRef.campaignId)
+          .eq("contact_id", parsedCampaignRef.contactId);
+        console.log("[upsert_message] synced campaign_contacts:", parsedCampaignRef.campaignId, parsedCampaignRef.contactId, "→", mappedStatus);
       }
 
       return json({ success: true, action: "upserted_message", id: upsertedId });
