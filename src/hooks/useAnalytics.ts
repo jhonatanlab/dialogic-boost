@@ -258,17 +258,7 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
   const { data: conversationStats, isLoading: isLoadingConversations } = useQuery({
     queryKey: ["analytics", "conversations", dateRange.start, dateRange.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      // Get company_id
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("company_id")
-        .eq("user_id", user.id)
-        .single();
-
-      const companyId = profile?.company_id;
+      const { companyId } = await getCompanyId();
 
       const { data, error } = await supabase
         .from("conversations")
