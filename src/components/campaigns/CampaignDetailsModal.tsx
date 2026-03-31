@@ -81,44 +81,45 @@ export function CampaignDetailsModal({
   const [contacts, setContacts] = useState<CampaignContact[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const fetchContacts = async (showLoading = true) => {
+    if (!campaign) return;
+    if (showLoading) setLoading(true);
+    const { data: campaignContacts } = await supabase
+      .from("campaign_contacts")
+      .select("id, contact_id, status, sent_at, error_message")
+      .eq("campaign_id", campaign.id);
+
+    if (campaignContacts && campaignContacts.length > 0) {
+      const contactIds = campaignContacts.map((c) => c.contact_id);
+      const { data: contactsData } = await supabase
+        .from("contacts")
+        .select("id, name, phone")
+        .in("id", contactIds);
+
+      const contactsMap = new Map(
+        (contactsData || []).map((c) => [c.id, c])
+      );
+
+      setContacts(
+        campaignContacts.map((cc) => {
+          const contact = contactsMap.get(cc.contact_id);
+          return {
+            ...cc,
+            contact_name: contact?.name || "Desconhecido",
+            contact_phone: contact?.phone || "-",
+          };
+        })
+      );
+    } else {
+      setContacts([]);
+    }
+    if (showLoading) setLoading(false);
+  };
+
   useEffect(() => {
     if (!campaign || !open) return;
 
-    const fetchContacts = async () => {
-      setLoading(true);
-      const { data: campaignContacts } = await supabase
-        .from("campaign_contacts")
-        .select("id, contact_id, status, sent_at, error_message")
-        .eq("campaign_id", campaign.id);
-
-      if (campaignContacts && campaignContacts.length > 0) {
-        const contactIds = campaignContacts.map((c) => c.contact_id);
-        const { data: contactsData } = await supabase
-          .from("contacts")
-          .select("id, name, phone")
-          .in("id", contactIds);
-
-        const contactsMap = new Map(
-          (contactsData || []).map((c) => [c.id, c])
-        );
-
-        setContacts(
-          campaignContacts.map((cc) => {
-            const contact = contactsMap.get(cc.contact_id);
-            return {
-              ...cc,
-              contact_name: contact?.name || "Desconhecido",
-              contact_phone: contact?.phone || "-",
-            };
-          })
-        );
-      } else {
-        setContacts([]);
-      }
-      setLoading(false);
-    };
-
-    fetchContacts();
+    fetchContacts(true);
 
     // Realtime subscription for live status updates
     const channel = supabase
@@ -144,8 +145,12 @@ export function CampaignDetailsModal({
       )
       .subscribe();
 
+    // Safety refetch every 10s while modal is open
+    const interval = setInterval(() => fetchContacts(false), 10000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [campaign, open]);
 
