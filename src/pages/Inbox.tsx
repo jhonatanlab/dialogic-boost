@@ -1081,11 +1081,18 @@ const Inbox = () => {
                           .from("conversations")
                           .update({ assigned_to: currentUserId, status: "in_progress", updated_at: new Date().toISOString() })
                           .eq("id", selectedConversation.id);
-                        if (error) throw error;
-                        await logConversationEvent(selectedConversation.id, selectedConversation.status === "closed" ? "reopened" : "started");
+                        if (error) {
+                          console.error("Error updating conversation:", error);
+                          throw error;
+                        }
                         queryClient.invalidateQueries({ queryKey: ["conversations"] });
                         toast.success("Conversa atribuída a você!");
-                      } catch { toast.error("Erro ao assumir conversa"); }
+                        // Log event in background (non-blocking)
+                        logConversationEvent(selectedConversation.id, selectedConversation.status === "closed" ? "reopened" : "started");
+                      } catch (err) {
+                        console.error("Take conversation error:", err);
+                        toast.error("Erro ao assumir conversa");
+                      }
                     }} className="gap-2">
                       <PlayCircle className="h-4 w-4" />
                       Iniciar Atendimento
