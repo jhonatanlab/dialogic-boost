@@ -797,17 +797,51 @@ const Inbox = () => {
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* ─── Col 1: Conversations ─── */}
         <div className="w-[340px] border-r border-border flex flex-col bg-card shrink-0">
-          <div className="h-16 px-4 flex items-center justify-between border-b border-border bg-card">
+          <div className="h-14 px-4 flex items-center justify-between border-b border-border bg-card">
             <h1 className="text-lg font-bold text-foreground">Conversas</h1>
             <Badge variant="secondary" className="font-semibold text-xs">
-              {conversations?.length || 0}
+              {filteredConversations.length}
             </Badge>
+          </div>
+
+          {/* Filter tabs */}
+          <div className="flex border-b border-border/50 bg-card">
+            <button onClick={() => setActiveFilter("mine")}
+              className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                activeFilter === "mine" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}>
+              <User className="h-3 w-3 mx-auto mb-0.5" />
+              Minhas
+            </button>
+            {isManagerOrAdmin && (
+              <button onClick={() => setActiveFilter("all")}
+                className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                  activeFilter === "all" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}>
+                <Users className="h-3 w-3 mx-auto mb-0.5" />
+                Todos
+              </button>
+            )}
+            <button onClick={() => setActiveFilter("queue")}
+              className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                activeFilter === "queue" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}>
+              <InboxIcon className="h-3 w-3 mx-auto mb-0.5" />
+              Fila
+            </button>
+            <button onClick={() => setActiveFilter("closed")}
+              className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
+                activeFilter === "closed" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}>
+              <CheckCircle2 className="h-3 w-3 mx-auto mb-0.5" />
+              Concluídas
+            </button>
           </div>
 
           <div className="px-3 py-2 border-b border-border/50">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar ou começar nova conversa"
+              <Input placeholder="Buscar conversa..."
                 className="pl-10 h-9 bg-secondary border-0 text-sm rounded-lg"
                 value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
