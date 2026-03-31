@@ -37,7 +37,7 @@ async function getUserContext() {
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-async function dispatchCampaignNow(campaignId: string, contactIds: string[], message: string, companyId: string | null, intervalSeconds: number = 2) {
+async function dispatchCampaignNow(campaignId: string, contactIds: string[], message: string, companyId: string | null, intervalSeconds: number = 2, attachmentUrl?: string, mediaType?: string) {
   const { data: contactsData, error: contactsErr } = await supabase
     .from("contacts")
     .select("id, phone, name, email")
