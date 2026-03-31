@@ -6,8 +6,14 @@ interface ConversationsChartProps {
   data: {
     total: number;
     open: number;
+    in_progress?: number;
     pending: number;
     closed: number;
+    started_count?: number;
+    closed_count?: number;
+    avg_resolution_ms?: number;
+    avg_response_ms?: number;
+    agent_conversations?: { agent_name: string; count: number }[];
   };
 }
 
