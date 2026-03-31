@@ -2,39 +2,26 @@
 
 ## Problema
 
-Quando uma mensagem de imagem (ou vídeo/documento) chega com legenda (caption), o campo `content` contém o texto da legenda e `media_url` contém a imagem. Porém, no ChatBubble, a condição `showText` exige `!hasMedia` — ou seja, se tem mídia, o texto nunca aparece. A legenda é silenciosamente descartada na renderização.
+A constraint `conversations_status_check` no banco só permite os status `open`, `closed` e `pending`. O código tenta definir `status = 'in_progress'` ao iniciar atendimento, o que viola a constraint e gera o erro.
+
+Não é um problema de permissão do proprietário — é uma incompatibilidade entre os valores permitidos no banco e os usados no código.
 
 ## Solução
 
-Alterar a lógica do `showText` no componente `ChatBubble` para permitir exibir texto **junto com mídia**, desde que o texto não seja um label automático nem a própria URL/base64 da imagem.
+### 1. Migração SQL — Atualizar a constraint
 
-### Mudança — `src/pages/Inbox.tsx`
+Remover a constraint antiga e criar uma nova que inclua `in_progress`:
 
-**Lógica atual (linha 160-167):**
-```typescript
-const showText =
-    !isContentImage &&
-    !hasMedia &&          // ← bloqueia texto quando tem mídia
-    rawContent.length > 0 &&
-    !isAutoLabel &&
-    !rawContent.startsWith("data:") &&
-    !isImageUrl(rawContent) &&
-    !looksLikeBase64;
+```sql
+ALTER TABLE conversations DROP CONSTRAINT conversations_status_check;
+ALTER TABLE conversations ADD CONSTRAINT conversations_status_check
+  CHECK (status IN ('open', 'in_progress', 'closed', 'pending'));
 ```
 
-**Nova lógica:**
-```typescript
-const showText =
-    !isContentImage &&
-    rawContent.length > 0 &&
-    !isAutoLabel &&
-    !rawContent.startsWith("data:") &&
-    !isImageUrl(rawContent) &&
-    !looksLikeBase64;
-```
+### 2. Nenhuma mudança no frontend
 
-Remover apenas o `!hasMedia` da condição. Isso permite que legendas de imagens, vídeos e documentos apareçam abaixo da mídia no balão, exatamente como no WhatsApp.
+O código do `Inbox.tsx` já usa `in_progress` corretamente — o problema está exclusivamente no banco.
 
-### Arquivo impactado
-- `src/pages/Inbox.tsx` — uma linha removida na condição `showText`
+## Arquivos impactados
+- Nova migração SQL (único arquivo)
 
