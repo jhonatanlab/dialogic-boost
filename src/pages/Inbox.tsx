@@ -690,11 +690,90 @@ const Inbox = () => {
     setShowQuickReplies(false);
   };
 
-  const filteredConversations = conversations?.filter(conv =>
-    !searchQuery ||
-    conv.contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.contact.phone?.includes(searchQuery)
-  ) || [];
+  // Take conversation (assign to current user)
+  const handleTakeConversation = async () => {
+    if (!selectedConversation || !currentUserId) return;
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ assigned_to: currentUserId, status: "in_progress", updated_at: new Date().toISOString() })
+        .eq("id", selectedConversation.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      toast.success("Conversa atribuída a você!");
+    } catch { toast.error("Erro ao assumir conversa"); }
+  };
+
+  // Close conversation
+  const handleCloseConversation = async () => {
+    if (!selectedConversation) return;
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ status: "closed", updated_at: new Date().toISOString() })
+        .eq("id", selectedConversation.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setSelectedConversationId(null);
+      toast.success("Conversa concluída!");
+    } catch { toast.error("Erro ao concluir conversa"); }
+  };
+
+  // Transfer conversation
+  const handleTransfer = async () => {
+    if (!selectedConversation || !transferTargetId) return;
+    try {
+      const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (transferType === "agent") {
+        updatePayload.assigned_to = transferTargetId;
+        updatePayload.status = "in_progress";
+      } else {
+        updatePayload.assigned_team = transferTargetId;
+      }
+      const { error } = await supabase
+        .from("conversations")
+        .update(updatePayload)
+        .eq("id", selectedConversation.id);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setShowTransferDialog(false);
+      setTransferTargetId("");
+      toast.success(transferType === "agent" ? "Transferido para atendente!" : "Transferido para equipe!");
+    } catch { toast.error("Erro ao transferir conversa"); }
+  };
+
+  // Filter conversations based on active tab
+  const isManagerOrAdmin = currentUserRole === "admin" || currentUserRole === "manager";
+
+  const filteredConversations = (() => {
+    let filtered = conversations || [];
+
+    // Apply filter tab
+    switch (activeFilter) {
+      case "mine":
+        filtered = filtered.filter(c => c.assigned_to === currentUserId && c.status !== "closed");
+        break;
+      case "all":
+        filtered = filtered.filter(c => c.status !== "closed");
+        break;
+      case "queue":
+        filtered = filtered.filter(c => !c.assigned_to && c.status === "open");
+        break;
+      case "closed":
+        filtered = filtered.filter(c => c.status === "closed");
+        break;
+    }
+
+    // Apply search
+    if (searchQuery) {
+      filtered = filtered.filter(conv =>
+        conv.contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        conv.contact.phone?.includes(searchQuery)
+      );
+    }
+
+    return filtered;
+  })();
 
   // Group messages by date
   const groupedMessages = (() => {
