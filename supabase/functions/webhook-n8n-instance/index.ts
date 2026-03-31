@@ -402,40 +402,17 @@ Deno.serve(async (req) => {
 
         // Sync campaign_contacts if this is a campaign message
         if (current.id) {
-          const { data: msgRow } = await supabase
-            .from("messages")
-            .select("client_message_id, metadata")
-            .eq("id", current.id)
-            .single();
-
-          // Try multiple strategies to find campaign link
-          let parsedCampaignRef = parseCampaignInternalId(msgRow?.client_message_id || null);
-          if (!parsedCampaignRef) parsedCampaignRef = parseCampaignInternalId(internal_id || null);
-
-          // Fallback: check metadata for campaign_id + resolve contact from conversation
-          if (!parsedCampaignRef && msgRow?.metadata) {
-            const meta = msgRow.metadata as Record<string, unknown>;
-            if (meta.campaign_id) {
-              // Get contact_id from the message row's conversation
-              const { data: msgFull } = await supabase
-                .from("messages")
-                .select("contact_id")
-                .eq("id", current.id)
-                .single();
-              if (msgFull?.contact_id) {
-                parsedCampaignRef = { campaignId: meta.campaign_id as string, contactId: msgFull.contact_id };
-                console.log("[update_message_status] campaign ref from metadata:", meta.campaign_id);
-              }
-            }
-          }
+          const parsedCampaignRef = await resolveCampaignRefForMessage(current.id, internal_id || null);
 
           if (parsedCampaignRef) {
-            await supabase.rpc("update_campaign_contact_status", {
-              p_campaign_id: parsedCampaignRef.campaignId,
-              p_contact_id: parsedCampaignRef.contactId,
-              p_new_status: mappedStatus,
-            });
-            console.log("[update_message_status] campaign sync (atomic):", parsedCampaignRef.campaignId, "→", mappedStatus);
+            await syncCampaignContactStatus(
+              parsedCampaignRef.campaignId,
+              parsedCampaignRef.contactId,
+              mappedStatus,
+              "update_message_status",
+            );
+          } else {
+            console.log("[update_message_status] campaign sync skipped: no campaign reference found");
           }
         }
 
