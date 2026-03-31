@@ -155,7 +155,7 @@ export default function NewCampaign() {
 
     createCampaign({
       name: data.nome_campanha,
-      message: "Mensagem da campanha",
+      message: selectedTemplate?.message || data.modelo_disparo,
       contactIds: publico.filtros,
       scheduledAt: data.inicio_disparo === "agendar" && data.data_agendamento
         ? data.data_agendamento.toISOString()
