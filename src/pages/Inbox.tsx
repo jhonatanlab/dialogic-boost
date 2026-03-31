@@ -956,22 +956,15 @@ const Inbox = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {/* Take conversation button — show if unassigned or assigned to someone else */}
-                  {selectedConversation.status !== "closed" && selectedConversation.assigned_to !== currentUserId && (
-                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={handleTakeConversation}>
-                      <UserCheck className="h-3.5 w-3.5" />
-                      Iniciar
-                    </Button>
-                  )}
                   {/* Transfer button */}
-                  {selectedConversation.status !== "closed" && (
+                  {selectedConversation.status !== "closed" && selectedConversation.assigned_to === currentUserId && (
                     <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => setShowTransferDialog(true)}>
                       <ArrowRightLeft className="h-3.5 w-3.5" />
                       Transferir
                     </Button>
                   )}
                   {/* Close conversation button */}
-                  {selectedConversation.status !== "closed" && (
+                  {selectedConversation.status !== "closed" && selectedConversation.assigned_to === currentUserId && (
                     <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={handleCloseConversation}>
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Concluir
