@@ -813,6 +813,36 @@ const Inbox = () => {
     return filtered;
   })();
 
+  // Conversation events query
+  const [conversationEvents, setConversationEvents] = useState<any[]>([]);
+  useEffect(() => {
+    if (!selectedConversationId) { setConversationEvents([]); return; }
+    const fetchEvents = async () => {
+      const { data } = await (supabase as any)
+        .from("conversation_events")
+        .select("*")
+        .eq("conversation_id", selectedConversationId)
+        .order("created_at", { ascending: true });
+      setConversationEvents(data || []);
+    };
+    fetchEvents();
+
+    const channel = supabase
+      .channel(`conv-events-${selectedConversationId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "conversation_events",
+        filter: `conversation_id=eq.${selectedConversationId}`,
+      }, () => fetchEvents())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [selectedConversationId]);
+
+  // Check if current user can send messages (must be assigned to them)
+  const canSendMessages = selectedConversation?.assigned_to === currentUserId && selectedConversation?.status !== "closed";
+  const showInitButton = selectedConversation && (
+    selectedConversation.assigned_to !== currentUserId || selectedConversation.status === "closed"
+  );
+
   // Group messages by date
   const groupedMessages = (() => {
     if (!allMessages || allMessages.length === 0) return [];
