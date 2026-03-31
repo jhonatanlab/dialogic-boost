@@ -168,13 +168,12 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
   const { data: campaignStats, isLoading: isLoadingCampaigns } = useQuery({
     queryKey: ["analytics", "campaigns", dateRange.start, dateRange.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { companyId } = await getCompanyId();
 
       const { data: campaigns, error: campaignsError } = await supabase
         .from("campaigns")
         .select("id, status")
-        .eq("user_id", user.id)
+        .eq("company_id", companyId || "")
         .gte("created_at", dateRange.start.toISOString())
         .lte("created_at", dateRange.end.toISOString());
 
