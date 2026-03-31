@@ -1544,6 +1544,62 @@ const Inbox = () => {
                   </div>
                 </ScrollArea>
               </TabsContent>
+
+              <TabsContent value="history" className="flex-1 overflow-hidden m-0">
+                <ScrollArea className="h-full">
+                  <div className="p-4 space-y-2">
+                    {conversationEvents.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                        <History className="h-8 w-8 opacity-30 mb-2" />
+                        <p className="text-xs">Nenhum evento registrado</p>
+                      </div>
+                    ) : (
+                      conversationEvents.map((ev: any) => {
+                        const getIcon = () => {
+                          switch (ev.event_type) {
+                            case "started": case "reopened": return PlayCircle;
+                            case "closed": return XCircle;
+                            case "transferred_agent": return ArrowRight;
+                            case "transferred_team": return Users;
+                            default: return Clock;
+                          }
+                        };
+                        const getLabel = () => {
+                          switch (ev.event_type) {
+                            case "started": return "Conversa iniciada";
+                            case "reopened": return "Conversa reaberta";
+                            case "closed": return "Conversa concluída";
+                            case "transferred_agent": return "Transferido para atendente";
+                            case "transferred_team": return "Transferido para equipe";
+                            default: return ev.event_type;
+                          }
+                        };
+                        const Icon = getIcon();
+                        return (
+                          <div key={ev.id} className="flex items-start gap-3 p-3 bg-secondary rounded-lg">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                              <Icon className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-foreground">{getLabel()}</p>
+                              <p className="text-[11px] text-muted-foreground">Por: {ev.actor_name}</p>
+                              {ev.target_name && (
+                                <p className="text-[11px] text-muted-foreground">Para: {ev.target_name}</p>
+                              )}
+                              {ev.target_team_name && (
+                                <p className="text-[11px] text-muted-foreground">Equipe: {ev.target_team_name}</p>
+                              )}
+                              <p className="text-[10px] text-muted-foreground/60 mt-1">
+                                {format(new Date(ev.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
             </Tabs>
           </div>
         )}
