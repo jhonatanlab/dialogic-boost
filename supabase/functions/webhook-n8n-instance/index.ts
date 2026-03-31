@@ -305,17 +305,50 @@ Deno.serve(async (req) => {
         if (current.id) {
           const { data: msgRow } = await supabase
             .from("messages")
-            .select("client_message_id")
+            .select("client_message_id, metadata")
             .eq("id", current.id)
             .single();
-          const parsedCampaignRef = parseCampaignInternalId(msgRow?.client_message_id || internal_id || null);
+
+          // Try multiple strategies to find campaign link
+          let parsedCampaignRef = parseCampaignInternalId(msgRow?.client_message_id || null);
+          if (!parsedCampaignRef) parsedCampaignRef = parseCampaignInternalId(internal_id || null);
+
+          // Fallback: check metadata for campaign_id + resolve contact from conversation
+          if (!parsedCampaignRef && msgRow?.metadata) {
+            const meta = msgRow.metadata as Record<string, unknown>;
+            if (meta.campaign_id) {
+              // Get contact_id from the message row's conversation
+              const { data: msgFull } = await supabase
+                .from("messages")
+                .select("contact_id")
+                .eq("id", current.id)
+                .single();
+              if (msgFull?.contact_id) {
+                parsedCampaignRef = { campaignId: meta.campaign_id as string, contactId: msgFull.contact_id };
+                console.log("[update_message_status] campaign ref from metadata:", meta.campaign_id);
+              }
+            }
+          }
+
           if (parsedCampaignRef) {
-            await supabase
+            // Only update if new status has higher priority (avoid regression)
+            const { data: ccRow } = await supabase
               .from("campaign_contacts")
-              .update({ status: mappedStatus })
+              .select("status")
               .eq("campaign_id", parsedCampaignRef.campaignId)
-              .eq("contact_id", parsedCampaignRef.contactId);
-            console.log("[update_message_status] synced campaign_contacts:", parsedCampaignRef.campaignId, parsedCampaignRef.contactId, "→", mappedStatus);
+              .eq("contact_id", parsedCampaignRef.contactId)
+              .maybeSingle();
+
+            if (!ccRow || statusPriority(mappedStatus) > statusPriority(normalizeStatus(ccRow.status))) {
+              await supabase
+                .from("campaign_contacts")
+                .update({ status: mappedStatus })
+                .eq("campaign_id", parsedCampaignRef.campaignId)
+                .eq("contact_id", parsedCampaignRef.contactId);
+              console.log("[update_message_status] campaign sync success:", parsedCampaignRef.campaignId, "→", mappedStatus);
+            } else {
+              console.log("[update_message_status] campaign sync skipped (higher status exists):", ccRow.status, "≥", mappedStatus);
+            }
           }
         }
 

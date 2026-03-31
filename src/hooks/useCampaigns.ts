@@ -171,22 +171,55 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
 
       const effectiveType = resolveCampaignMediaType(mediaType, attachmentUrl);
       const dataUrlMimeType = resolveDataUrlMimeType(attachmentUrl);
+      const clientMessageId = `campaign|${campaignId}|${contact.id}`;
+
+      // Pre-register outbound message (same strategy as Inbox)
+      // Find the conversation for this contact
+      const { data: conversation } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("contact_id", contact.id)
+        .order("last_message_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (conversation) {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from("messages").insert({
+          conversation_id: conversation.id,
+          contact_id: contact.id,
+          user_id: user!.id,
+          company_id: companyId,
+          channel: "whatsapp",
+          direction: "outbound",
+          content: resolvedMessage,
+          message_type: effectiveType !== "text" ? effectiveType : "text",
+          status: "sending",
+          client_message_id: clientMessageId,
+          metadata: {
+            campaign_id: campaignId,
+            ...(attachmentUrl && effectiveType !== "text" ? { media_url: attachmentUrl } : {}),
+            ...(dataUrlMimeType ? { mimetype: dataUrlMimeType } : {}),
+          },
+        });
+      }
 
       const payload: Record<string, unknown> = {
-            company_id: companyId,
-            number: contact.phone,
-            text: resolvedMessage,
-            type: effectiveType,
-            internal_id: `campaign|${campaignId}|${contact.id}`,
-            contact_name: contact.name,
-            campaign_id: campaignId,
-          };
-          if (attachmentUrl && effectiveType !== "text") {
-            payload.media_url = attachmentUrl;
-            if (dataUrlMimeType) {
-              payload.mimetype = dataUrlMimeType;
-            }
-          }
+        company_id: companyId,
+        number: contact.phone,
+        text: resolvedMessage,
+        type: effectiveType,
+        internal_id: clientMessageId,
+        contact_name: contact.name,
+        campaign_id: campaignId,
+      };
+      if (attachmentUrl && effectiveType !== "text") {
+        payload.media_url = attachmentUrl;
+        if (dataUrlMimeType) {
+          payload.mimetype = dataUrlMimeType;
+        }
+      }
 
       const { data: response, error: invokeError } = await supabase.functions.invoke("proxy-n8n", {
         body: {
@@ -204,6 +237,13 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
         .eq("contact_id", contact.id);
       sentCount++;
     } catch (err: any) {
+      // Mark pre-registered message as failed too
+      await supabase
+        .from("messages")
+        .update({ status: "failed" })
+        .eq("client_message_id", `campaign|${campaignId}|${contact.id}`)
+        .eq("status", "sending");
+
       await supabase
         .from("campaign_contacts")
         .update({ status: "failed", error_message: err?.message || "Erro desconhecido" })
