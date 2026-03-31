@@ -752,17 +752,27 @@ const Inbox = () => {
     if (!selectedConversation || !transferTargetId) return;
     try {
       const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      let eventExtras: Record<string, unknown> = {};
       if (transferType === "agent") {
         updatePayload.assigned_to = transferTargetId;
         updatePayload.status = "in_progress";
+        const agent = companyAgents.find(a => a.user_id === transferTargetId);
+        eventExtras = { target_user_id: transferTargetId, target_name: agent?.full_name || "Atendente" };
       } else {
         updatePayload.assigned_team = transferTargetId;
+        const team = companyTeams.find(t => t.id === transferTargetId);
+        eventExtras = { target_team_id: transferTargetId, target_team_name: team?.name || "Equipe" };
       }
       const { error } = await supabase
         .from("conversations")
         .update(updatePayload)
         .eq("id", selectedConversation.id);
       if (error) throw error;
+      await logConversationEvent(
+        selectedConversation.id,
+        transferType === "agent" ? "transferred_agent" : "transferred_team",
+        eventExtras as any
+      );
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       setShowTransferDialog(false);
       setTransferTargetId("");
