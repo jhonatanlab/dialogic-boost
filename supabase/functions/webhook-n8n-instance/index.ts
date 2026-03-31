@@ -743,22 +743,17 @@ Deno.serve(async (req) => {
       }
       await supabase.from("conversations").update(updateData).eq("id", conversationId);
 
-      // ── Sync campaign_contacts status (atomic) ──
-      const parsedCampaignRef = parseCampaignInternalId(internal_id || null);
-      if (parsedCampaignRef) {
-        await supabase.rpc("update_campaign_contact_status", {
-          p_campaign_id: parsedCampaignRef.campaignId,
-          p_contact_id: parsedCampaignRef.contactId,
-          p_new_status: mappedStatus,
-        });
-        console.log("[upsert_message] synced campaign_contacts (atomic):", parsedCampaignRef.campaignId, "→", mappedStatus);
+      // ── Sync campaign_contacts status ──
+      const resolvedCampaignRef = await resolveCampaignRefForMessage(upsertedId, internal_id || null);
+      if (resolvedCampaignRef) {
+        await syncCampaignContactStatus(
+          resolvedCampaignRef.campaignId,
+          resolvedCampaignRef.contactId,
+          mappedStatus,
+          "upsert_message",
+        );
       } else if (campaign_id) {
-        await supabase.rpc("update_campaign_contact_status", {
-          p_campaign_id: campaign_id,
-          p_contact_id: contactId,
-          p_new_status: mappedStatus,
-        });
-        console.log("[upsert_message] synced campaign_contacts (atomic fallback):", campaign_id, "→", mappedStatus);
+        await syncCampaignContactStatus(campaign_id, contactId, mappedStatus, "upsert_message_fallback_campaign_id");
       }
 
       // ── Track replies to campaigns (inbound messages) ──
@@ -775,12 +770,12 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (recentCampaignContact) {
-          await supabase.rpc("update_campaign_contact_status", {
-            p_campaign_id: recentCampaignContact.campaign_id,
-            p_contact_id: contactId,
-            p_new_status: "replied",
-          });
-          console.log("[upsert_message] campaign reply tracked:", recentCampaignContact.campaign_id, "→ replied");
+          await syncCampaignContactStatus(
+            recentCampaignContact.campaign_id,
+            contactId,
+            "replied",
+            "upsert_message_reply_tracking",
+          );
         }
       }
 
