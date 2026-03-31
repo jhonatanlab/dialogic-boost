@@ -275,6 +275,29 @@ Deno.serve(async (req) => {
           .eq("id", current.id);
         if (updateErr) throw updateErr;
 
+        // Sync campaign_contacts if this is a campaign message
+        if (current.id) {
+          const { data: msgRow } = await supabase
+            .from("messages")
+            .select("client_message_id")
+            .eq("id", current.id)
+            .single();
+          const cid = msgRow?.client_message_id;
+          if (cid && cid.startsWith("campaign-")) {
+            const parts = cid.split("-");
+            if (parts.length >= 3) {
+              const campaignId = parts[1];
+              const contactId = parts[2];
+              await supabase
+                .from("campaign_contacts")
+                .update({ status: mappedStatus })
+                .eq("campaign_id", campaignId)
+                .eq("contact_id", contactId);
+              console.log("[update_message_status] synced campaign_contacts:", campaignId, contactId, "→", mappedStatus);
+            }
+          }
+        }
+
         console.log("[update_message_status] updated status:", current.status, "→", mappedStatus, "id:", current.id);
         return json({ success: true, action: "updated_status", id: current.id, status: mappedStatus });
       }
@@ -593,6 +616,22 @@ Deno.serve(async (req) => {
         updateData.unread_count = (conv?.unread_count || 0) + 1;
       }
       await supabase.from("conversations").update(updateData).eq("id", conversationId);
+
+      // ── Sync campaign_contacts status ──
+      const resolvedClientId = internal_id || null;
+      if (resolvedClientId && resolvedClientId.startsWith("campaign-")) {
+        const parts = resolvedClientId.split("-");
+        if (parts.length >= 3) {
+          const campaignId = parts[1];
+          const cContactId = parts[2];
+          await supabase
+            .from("campaign_contacts")
+            .update({ status: mappedStatus })
+            .eq("campaign_id", campaignId)
+            .eq("contact_id", cContactId);
+          console.log("[upsert_message] synced campaign_contacts:", campaignId, cContactId, "→", mappedStatus);
+        }
+      }
 
       return json({ success: true, action: "upserted_message", id: upsertedId });
     }

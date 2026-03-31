@@ -37,7 +37,7 @@ async function getUserContext() {
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-async function dispatchCampaignNow(campaignId: string, contactIds: string[], message: string, companyId: string | null, intervalSeconds: number = 2) {
+async function dispatchCampaignNow(campaignId: string, contactIds: string[], message: string, companyId: string | null, intervalSeconds: number = 2, attachmentUrl?: string, mediaType?: string) {
   const { data: contactsData, error: contactsErr } = await supabase
     .from("contacts")
     .select("id, phone, name, email")
@@ -93,18 +93,23 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
         .replace(/\{telefone\}/gi, contact.phone || '')
         .replace(/\{email\}/gi, (contact as any).email || '');
 
-      const { data: response, error: invokeError } = await supabase.functions.invoke("proxy-n8n", {
-        body: {
-          endpoint,
-          payload: {
+      const payload: Record<string, unknown> = {
             company_id: companyId,
             number: contact.phone,
             text: resolvedMessage,
-            type: "text",
+            type: (attachmentUrl && mediaType && mediaType !== 'text') ? mediaType : "text",
             internal_id: `campaign-${campaignId}-${contact.id}`,
             contact_name: contact.name,
             campaign_id: campaignId,
-          },
+          };
+          if (attachmentUrl) {
+            payload.media_url = attachmentUrl;
+          }
+
+      const { data: response, error: invokeError } = await supabase.functions.invoke("proxy-n8n", {
+        body: {
+          endpoint,
+          payload,
         },
       });
 
@@ -176,7 +181,7 @@ export const useCampaigns = () => {
   });
 
   const createCampaignMutation = useMutation({
-    mutationFn: async (campaign: { name: string; message: string; contactIds: string[]; scheduledAt?: string; intervalSeconds?: number }) => {
+    mutationFn: async (campaign: { name: string; message: string; contactIds: string[]; scheduledAt?: string; intervalSeconds?: number; attachmentUrl?: string; mediaType?: string }) => {
       const { userId, companyId } = await getUserContext();
 
       const status = campaign.scheduledAt ? 'scheduled' : 'sending';
@@ -190,7 +195,9 @@ export const useCampaigns = () => {
           message: campaign.message,
           status,
           scheduled_at: campaign.scheduledAt || null,
-        })
+          attachment_url: campaign.attachmentUrl || null,
+          media_type: campaign.mediaType || 'text',
+        } as any)
         .select()
         .single();
 
@@ -214,7 +221,7 @@ export const useCampaigns = () => {
 
       // Dispatch immediately if not scheduled
       if (!campaign.scheduledAt && campaign.contactIds.length > 0) {
-        const result = await dispatchCampaignNow(campaignData.id, campaign.contactIds, campaign.message, companyId, campaign.intervalSeconds ?? 2);
+        const result = await dispatchCampaignNow(campaignData.id, campaign.contactIds, campaign.message, companyId, campaign.intervalSeconds ?? 2, campaign.attachmentUrl, campaign.mediaType);
         return { ...campaignData, ...result };
       }
 

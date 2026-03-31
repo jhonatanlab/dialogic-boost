@@ -180,9 +180,11 @@ export type Database = {
       }
       campaigns: {
         Row: {
+          attachment_url: string | null
           company_id: string | null
           created_at: string
           id: string
+          media_type: string | null
           message: string
           name: string
           scheduled_at: string | null
@@ -192,9 +194,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attachment_url?: string | null
           company_id?: string | null
           created_at?: string
           id?: string
+          media_type?: string | null
           message: string
           name: string
           scheduled_at?: string | null
@@ -204,9 +208,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attachment_url?: string | null
           company_id?: string | null
           created_at?: string
           id?: string
+          media_type?: string | null
           message?: string
           name?: string
           scheduled_at?: string | null
