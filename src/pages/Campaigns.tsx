@@ -83,7 +83,7 @@ const Campaigns = () => {
               </TableHeader>
               <TableBody>
                 {campaigns.map((campaign) => (
-                  <TableRow key={campaign.id}>
+                  <TableRow key={campaign.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedCampaign(campaign)}>
                     <TableCell className="font-medium">{campaign.name}</TableCell>
                     <TableCell>
                       <Badge
