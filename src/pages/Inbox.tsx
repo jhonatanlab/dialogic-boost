@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
   X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic, Square,
-  ImageOff, UserCheck, CheckCircle2, ArrowRightLeft, Users, User, Inbox as InboxIcon,
+  ImageOff, UserCheck, CheckCircle2, ArrowRightLeft, Users, User, Inbox as InboxIcon, History, PlayCircle,
+  XCircle, ArrowRight, Clock,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
