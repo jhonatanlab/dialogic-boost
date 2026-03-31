@@ -1196,8 +1196,9 @@ const Inbox = () => {
             <Tabs defaultValue="details" className="flex flex-col flex-1 overflow-hidden">
               <div className="h-16 px-4 flex items-center justify-between border-b border-border shrink-0">
                 <TabsList className="h-8 bg-secondary/60">
-                  <TabsTrigger value="details" className="text-xs h-7 px-3">Detalhes</TabsTrigger>
-                  <TabsTrigger value="files" className="text-xs h-7 px-3">Arquivos</TabsTrigger>
+                  <TabsTrigger value="details" className="text-xs h-7 px-2">Detalhes</TabsTrigger>
+                  <TabsTrigger value="files" className="text-xs h-7 px-2">Arquivos</TabsTrigger>
+                  <TabsTrigger value="history" className="text-xs h-7 px-2">Histórico</TabsTrigger>
                 </TabsList>
                 <Button size="icon" variant="ghost" className="h-8 w-8"
                   onClick={() => {
