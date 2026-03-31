@@ -617,6 +617,22 @@ Deno.serve(async (req) => {
       }
       await supabase.from("conversations").update(updateData).eq("id", conversationId);
 
+      // ── Sync campaign_contacts status ──
+      const resolvedClientId = internal_id || null;
+      if (resolvedClientId && resolvedClientId.startsWith("campaign-")) {
+        const parts = resolvedClientId.split("-");
+        if (parts.length >= 3) {
+          const campaignId = parts[1];
+          const cContactId = parts[2];
+          await supabase
+            .from("campaign_contacts")
+            .update({ status: mappedStatus })
+            .eq("campaign_id", campaignId)
+            .eq("contact_id", cContactId);
+          console.log("[upsert_message] synced campaign_contacts:", campaignId, cContactId, "→", mappedStatus);
+        }
+      }
+
       return json({ success: true, action: "upserted_message", id: upsertedId });
     }
 
