@@ -403,7 +403,7 @@ Deno.serve(async (req) => {
         company_id, instance_id, message_id, phone_number,
         contact_name, direction, content, media_type,
         media_url, mimetype, status, sent_at, internal_id,
-        file_name,
+        file_name, campaign_id,
       } = data as Record<string, string>;
 
       if (!company_id || !message_id || !phone_number) {
@@ -428,6 +428,8 @@ Deno.serve(async (req) => {
       if (media_url) messageMetadata.media_url = media_url;
       if (mimetype) messageMetadata.mimetype = mimetype;
       if (file_name) messageMetadata.file_name = file_name;
+      if (campaign_id) messageMetadata.campaign_id = campaign_id;
+      if (contactId) messageMetadata.campaign_contact_id = contactId;
       messageMetadata.pending_content = false;
       const metaValue = Object.keys(messageMetadata).length > 0 ? messageMetadata : null;
 
@@ -649,6 +651,13 @@ Deno.serve(async (req) => {
           .eq("campaign_id", parsedCampaignRef.campaignId)
           .eq("contact_id", parsedCampaignRef.contactId);
         console.log("[upsert_message] synced campaign_contacts:", parsedCampaignRef.campaignId, parsedCampaignRef.contactId, "→", mappedStatus);
+      } else if (campaign_id) {
+        await supabase
+          .from("campaign_contacts")
+          .update({ status: mappedStatus })
+          .eq("campaign_id", campaign_id)
+          .eq("contact_id", contactId);
+        console.log("[upsert_message] synced campaign_contacts (fallback campaign_id):", campaign_id, contactId, "→", mappedStatus);
       }
 
       return json({ success: true, action: "upserted_message", id: upsertedId });
