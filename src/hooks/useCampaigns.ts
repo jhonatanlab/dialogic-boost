@@ -171,7 +171,7 @@ export const useCampaigns = () => {
   });
 
   const createCampaignMutation = useMutation({
-    mutationFn: async (campaign: { name: string; message: string; contactIds: string[]; scheduledAt?: string }) => {
+    mutationFn: async (campaign: { name: string; message: string; contactIds: string[]; scheduledAt?: string; intervalSeconds?: number }) => {
       const { userId, companyId } = await getUserContext();
 
       const status = campaign.scheduledAt ? 'scheduled' : 'sending';
