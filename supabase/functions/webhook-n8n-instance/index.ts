@@ -331,24 +331,12 @@ Deno.serve(async (req) => {
           }
 
           if (parsedCampaignRef) {
-            // Only update if new status has higher priority (avoid regression)
-            const { data: ccRow } = await supabase
-              .from("campaign_contacts")
-              .select("status")
-              .eq("campaign_id", parsedCampaignRef.campaignId)
-              .eq("contact_id", parsedCampaignRef.contactId)
-              .maybeSingle();
-
-            if (!ccRow || statusPriority(mappedStatus) > statusPriority(normalizeStatus(ccRow.status))) {
-              await supabase
-                .from("campaign_contacts")
-                .update({ status: mappedStatus })
-                .eq("campaign_id", parsedCampaignRef.campaignId)
-                .eq("contact_id", parsedCampaignRef.contactId);
-              console.log("[update_message_status] campaign sync success:", parsedCampaignRef.campaignId, "→", mappedStatus);
-            } else {
-              console.log("[update_message_status] campaign sync skipped (higher status exists):", ccRow.status, "≥", mappedStatus);
-            }
+            await supabase.rpc("update_campaign_contact_status", {
+              p_campaign_id: parsedCampaignRef.campaignId,
+              p_contact_id: parsedCampaignRef.contactId,
+              p_new_status: mappedStatus,
+            });
+            console.log("[update_message_status] campaign sync (atomic):", parsedCampaignRef.campaignId, "→", mappedStatus);
           }
         }
 
