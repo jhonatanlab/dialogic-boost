@@ -667,22 +667,45 @@ Deno.serve(async (req) => {
       }
       await supabase.from("conversations").update(updateData).eq("id", conversationId);
 
-      // ── Sync campaign_contacts status ──
+      // ── Sync campaign_contacts status (atomic) ──
       const parsedCampaignRef = parseCampaignInternalId(internal_id || null);
       if (parsedCampaignRef) {
-        await supabase
-          .from("campaign_contacts")
-          .update({ status: mappedStatus })
-          .eq("campaign_id", parsedCampaignRef.campaignId)
-          .eq("contact_id", parsedCampaignRef.contactId);
-        console.log("[upsert_message] synced campaign_contacts:", parsedCampaignRef.campaignId, parsedCampaignRef.contactId, "→", mappedStatus);
+        await supabase.rpc("update_campaign_contact_status", {
+          p_campaign_id: parsedCampaignRef.campaignId,
+          p_contact_id: parsedCampaignRef.contactId,
+          p_new_status: mappedStatus,
+        });
+        console.log("[upsert_message] synced campaign_contacts (atomic):", parsedCampaignRef.campaignId, "→", mappedStatus);
       } else if (campaign_id) {
-        await supabase
+        await supabase.rpc("update_campaign_contact_status", {
+          p_campaign_id: campaign_id,
+          p_contact_id: contactId,
+          p_new_status: mappedStatus,
+        });
+        console.log("[upsert_message] synced campaign_contacts (atomic fallback):", campaign_id, "→", mappedStatus);
+      }
+
+      // ── Track replies to campaigns (inbound messages) ──
+      if (messageDirection === "inbound") {
+        const { data: recentCampaignContact } = await supabase
           .from("campaign_contacts")
-          .update({ status: mappedStatus })
-          .eq("campaign_id", campaign_id)
-          .eq("contact_id", contactId);
-        console.log("[upsert_message] synced campaign_contacts (fallback campaign_id):", campaign_id, contactId, "→", mappedStatus);
+          .select("campaign_id, contact_id")
+          .eq("contact_id", contactId)
+          .eq("company_id", company_id)
+          .in("status", ["sent", "delivered", "read"])
+          .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (recentCampaignContact) {
+          await supabase.rpc("update_campaign_contact_status", {
+            p_campaign_id: recentCampaignContact.campaign_id,
+            p_contact_id: contactId,
+            p_new_status: "replied",
+          });
+          console.log("[upsert_message] campaign reply tracked:", recentCampaignContact.campaign_id, "→ replied");
+        }
       }
 
       return json({ success: true, action: "upserted_message", id: upsertedId });
