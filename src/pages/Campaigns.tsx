@@ -43,6 +43,7 @@ const statusLabels = {
 const Campaigns = () => {
   const navigate = useNavigate();
   const [formOpen, setFormOpen] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithStats | null>(null);
   const { campaigns, isLoading, createCampaign, deleteCampaign } = useCampaigns();
 
   const handleCreateCampaign = (data: { name: string; message: string; contactIds: string[] }) => {
