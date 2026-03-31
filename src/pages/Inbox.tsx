@@ -297,7 +297,6 @@ const Inbox = () => {
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
-  // optimisticMessages no longer needed — messages are persisted to DB before n8n call
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -308,6 +307,16 @@ const Inbox = () => {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+
+  // Filter & queue state
+  const [activeFilter, setActiveFilter] = useState<"mine" | "all" | "queue" | "closed">("mine");
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [transferType, setTransferType] = useState<"agent" | "team">("agent");
+  const [transferTargetId, setTransferTargetId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string>("agent");
+  const [companyAgents, setCompanyAgents] = useState<{ user_id: string; full_name: string }[]>([]);
+  const [companyTeams, setCompanyTeams] = useState<{ id: string; name: string }[]>([]);
 
   const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
@@ -325,6 +334,39 @@ const Inbox = () => {
   const [newInboxTagName, setNewInboxTagName] = useState("");
   const [newInboxTagColor, setNewInboxTagColor] = useState("#FC6625");
   const [contactTags, setContactTags] = useState<{ id: string; name: string; color: string }[]>([]);
+
+  // Fetch current user info, agents, and teams
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setCurrentUserId(user.id);
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, company_id")
+        .eq("user_id", user.id)
+        .single();
+      if (profile) {
+        setCurrentUserRole(profile.role || "agent");
+
+        // Fetch company agents
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .eq("company_id", profile.company_id);
+        setCompanyAgents((profiles || []).filter(p => p.user_id !== user.id));
+
+        // Fetch company teams
+        const { data: teams } = await supabase
+          .from("teams")
+          .select("id, name")
+          .eq("company_id", profile.company_id);
+        setCompanyTeams(teams || []);
+      }
+    };
+    fetchUserData();
+  }, []);
 
   // Fetch contact tags for selected conversation
   useEffect(() => {
