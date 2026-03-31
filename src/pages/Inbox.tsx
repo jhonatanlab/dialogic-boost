@@ -1408,6 +1408,48 @@ const Inbox = () => {
           </div>
         )}
       </div>
+
+      {/* Transfer Dialog */}
+      <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transferir conversa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex gap-2">
+              <Button variant={transferType === "agent" ? "default" : "outline"}
+                className="flex-1 h-9 text-xs" size="sm"
+                onClick={() => { setTransferType("agent"); setTransferTargetId(""); }}>
+                <User className="h-3.5 w-3.5 mr-1" /> Atendente
+              </Button>
+              <Button variant={transferType === "team" ? "default" : "outline"}
+                className="flex-1 h-9 text-xs" size="sm"
+                onClick={() => { setTransferType("team"); setTransferTargetId(""); }}>
+                <Users className="h-3.5 w-3.5 mr-1" /> Equipe
+              </Button>
+            </div>
+            <Select value={transferTargetId} onValueChange={setTransferTargetId}>
+              <SelectTrigger className="h-10 text-sm">
+                <SelectValue placeholder={transferType === "agent" ? "Selecione um atendente" : "Selecione uma equipe"} />
+              </SelectTrigger>
+              <SelectContent>
+                {transferType === "agent"
+                  ? companyAgents.map(a => (
+                      <SelectItem key={a.user_id} value={a.user_id}>{a.full_name || "Atendente"}</SelectItem>
+                    ))
+                  : companyTeams.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))
+                }
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTransferDialog(false)}>Cancelar</Button>
+            <Button onClick={handleTransfer} disabled={!transferTargetId}>Transferir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
