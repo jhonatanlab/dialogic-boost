@@ -1398,6 +1398,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_campaign_contact_status: {
+        Args: {
+          p_campaign_id: string
+          p_contact_id: string
+          p_new_status: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "agent"
