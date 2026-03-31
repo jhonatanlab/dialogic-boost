@@ -139,14 +139,17 @@ export default function NewCampaign() {
 
   const onSubmit = async (data: CampaignFormData) => {
     try {
+      const selectedTemplate = templates?.find(t => t.id === data.modelo_disparo);
       await createCampaignAsync({
         name: data.nome_campanha,
-        message: templates?.find(t => t.id === data.modelo_disparo)?.message || data.modelo_disparo,
+        message: selectedTemplate?.message || data.modelo_disparo,
         contactIds: publico.filtros,
         scheduledAt: data.inicio_disparo === "agendar" && data.data_agendamento
           ? data.data_agendamento.toISOString()
           : undefined,
         intervalSeconds: disparoConfig.intervalo_segundos,
+        attachmentUrl: selectedTemplate?.attachment_url || undefined,
+        mediaType: selectedTemplate?.type || 'text',
       });
 
       setTimeout(() => {
