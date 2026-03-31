@@ -691,6 +691,31 @@ const Inbox = () => {
     setShowQuickReplies(false);
   };
 
+  // Helper to log conversation events
+  const logConversationEvent = async (
+    conversationId: string,
+    eventType: string,
+    extras?: { target_user_id?: string; target_name?: string; target_team_id?: string; target_team_name?: string; details?: Record<string, unknown> }
+  ) => {
+    if (!currentUserId || !companyId) return;
+    // Get current user name
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", currentUserId)
+      .single();
+
+    await (supabase as any).from("conversation_events").insert({
+      conversation_id: conversationId,
+      company_id: companyId,
+      event_type: eventType,
+      actor_user_id: currentUserId,
+      actor_name: profile?.full_name || "Atendente",
+      ...(extras || {}),
+    });
+    queryClient.invalidateQueries({ queryKey: ["conversation-events", conversationId] });
+  };
+
   // Take conversation (assign to current user)
   const handleTakeConversation = async () => {
     if (!selectedConversation || !currentUserId) return;
@@ -700,6 +725,7 @@ const Inbox = () => {
         .update({ assigned_to: currentUserId, status: "in_progress", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
       if (error) throw error;
+      await logConversationEvent(selectedConversation.id, "started");
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa atribuída a você!");
     } catch { toast.error("Erro ao assumir conversa"); }
