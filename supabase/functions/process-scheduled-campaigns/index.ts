@@ -8,6 +8,34 @@ const corsHeaders = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const resolveCampaignMediaType = (mediaType?: string, attachmentUrl?: string | null) => {
+  const normalized = (mediaType || "").toLowerCase().trim();
+
+  const map: Record<string, string> = {
+    text: "text",
+    texto: "text",
+    image: "image",
+    imagem: "image",
+    photo: "image",
+    video: "video",
+    audio: "audio",
+    voice: "audio",
+    document: "document",
+    documento: "document",
+    file: "document",
+    arquivo: "document",
+  };
+
+  if (map[normalized]) return map[normalized];
+
+  if (attachmentUrl?.startsWith("data:image/")) return "image";
+  if (attachmentUrl?.startsWith("data:video/")) return "video";
+  if (attachmentUrl?.startsWith("data:audio/")) return "audio";
+  if (attachmentUrl?.startsWith("data:application/")) return "document";
+
+  return "text";
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -146,6 +174,8 @@ Deno.serve(async (req) => {
             .replace(/\{telefone\}/gi, contact.phone || "")
             .replace(/\{email\}/gi, contact.email || "");
 
+          const mediaType = resolveCampaignMediaType(campaign.media_type, campaign.attachment_url);
+
           const response = await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -153,9 +183,9 @@ Deno.serve(async (req) => {
               company_id: campaign.company_id,
               number: contact.phone,
               text: resolvedMessage,
-              type: campaign.media_type && campaign.media_type !== 'text' ? campaign.media_type : "text",
+              type: mediaType,
               ...(campaign.attachment_url ? { media_url: campaign.attachment_url } : {}),
-              internal_id: `campaign-${campaign.id}-${contact.id}`,
+              internal_id: `campaign|${campaign.id}|${contact.id}`,
               contact_name: contact.name,
               campaign_id: campaign.id,
             }),
