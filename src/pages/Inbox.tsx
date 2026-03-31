@@ -740,6 +740,7 @@ const Inbox = () => {
         .update({ status: "closed", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
       if (error) throw error;
+      await logConversationEvent(selectedConversation.id, "closed");
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       setSelectedConversationId(null);
       toast.success("Conversa concluída!");
