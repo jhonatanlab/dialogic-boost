@@ -40,7 +40,7 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 async function dispatchCampaignNow(campaignId: string, contactIds: string[], message: string, companyId: string | null, intervalSeconds: number = 2) {
   const { data: contactsData, error: contactsErr } = await supabase
     .from("contacts")
-    .select("id, phone, name")
+    .select("id, phone, name, email")
     .in("id", contactIds);
 
   if (contactsErr) throw contactsErr;
@@ -88,13 +88,18 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
     }
 
     try {
+      const resolvedMessage = message
+        .replace(/\{nome\}/gi, contact.name || '')
+        .replace(/\{telefone\}/gi, contact.phone || '')
+        .replace(/\{email\}/gi, (contact as any).email || '');
+
       const { data: response, error: invokeError } = await supabase.functions.invoke("proxy-n8n", {
         body: {
           endpoint,
           payload: {
             company_id: companyId,
             number: contact.phone,
-            text: message,
+            text: resolvedMessage,
             type: "text",
             internal_id: `campaign-${campaignId}-${contact.id}`,
             contact_name: contact.name,
