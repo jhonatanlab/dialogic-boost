@@ -887,9 +887,32 @@ const Inbox = () => {
                     {selectedConversation.contact.phone || "Sem telefone"}
                   </p>
                 </div>
-                <Badge variant={selectedConversation.status === "open" ? "default" : "secondary"} className="text-[11px]">
-                  {selectedConversation.status === "open" ? "Aberto" : selectedConversation.status === "closed" ? "Fechado" : selectedConversation.status}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  {/* Take conversation button — show if unassigned or assigned to someone else */}
+                  {selectedConversation.status !== "closed" && selectedConversation.assigned_to !== currentUserId && (
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={handleTakeConversation}>
+                      <UserCheck className="h-3.5 w-3.5" />
+                      Iniciar
+                    </Button>
+                  )}
+                  {/* Transfer button */}
+                  {selectedConversation.status !== "closed" && (
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1" onClick={() => setShowTransferDialog(true)}>
+                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                      Transferir
+                    </Button>
+                  )}
+                  {/* Close conversation button */}
+                  {selectedConversation.status !== "closed" && (
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={handleCloseConversation}>
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Concluir
+                    </Button>
+                  )}
+                  <Badge variant={selectedConversation.status === "open" ? "default" : selectedConversation.status === "in_progress" ? "secondary" : "outline"} className="text-[11px]">
+                    {selectedConversation.status === "open" ? "Na fila" : selectedConversation.status === "in_progress" ? "Em atendimento" : selectedConversation.status === "closed" ? "Concluído" : selectedConversation.status}
+                  </Badge>
+                </div>
               </div>
 
               {/* Messages */}
