@@ -47,6 +47,14 @@ const Settings = () => {
       actionLabel: "Gerenciar equipes",
       color: "text-primary",
     },
+    {
+      icon: Shuffle,
+      title: "Distribuição de Conversas",
+      description: "Configure a distribuição automática de atendimentos.",
+      action: () => navigate("/settings/distribution"),
+      actionLabel: "Configurar distribuição",
+      color: "text-teal-500",
+    },
   ];
 
   return (
