@@ -328,35 +328,54 @@ export default function NewCampaign() {
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
                           <FormLabel>Data e Hora</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full pl-3 text-left font-normal border-[#8F9491]",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value ? (
-                                    format(field.value, "PPP HH:mm")
-                                  ) : (
-                                    <span>Selecione data e hora</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-white z-50" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={field.onChange}
-                                initialFocus
-                                className="pointer-events-auto"
-                              />
-                            </PopoverContent>
-                          </Popover>
+                          <div className="flex gap-2">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      "flex-1 pl-3 text-left font-normal border-[#8F9491]",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "dd/MM/yyyy")
+                                    ) : (
+                                      <span>Selecione a data</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0 bg-white z-50" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={(date) => {
+                                    if (!date) return;
+                                    const current = field.value || new Date();
+                                    date.setHours(current.getHours(), current.getMinutes());
+                                    field.onChange(date);
+                                  }}
+                                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                  initialFocus
+                                  className="p-3 pointer-events-auto"
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <Input
+                              type="time"
+                              className="w-[120px] border-[#8F9491]"
+                              value={field.value ? format(field.value, "HH:mm") : ""}
+                              onChange={(e) => {
+                                const [hours, minutes] = e.target.value.split(":").map(Number);
+                                const date = field.value ? new Date(field.value) : new Date();
+                                date.setHours(hours, minutes);
+                                field.onChange(date);
+                              }}
+                            />
+                          </div>
                           <FormMessage />
                         </FormItem>
                       )}
