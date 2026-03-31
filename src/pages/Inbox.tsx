@@ -282,7 +282,38 @@ const ConversationItem = ({
   );
 };
 
-/* ═══════════════════════════════════════════ */
+/* ─── Event Bubble (system message in chat) ─── */
+const EventBubble = ({ event }: { event: any }) => {
+  const getEventInfo = () => {
+    switch (event.event_type) {
+      case "started":
+        return { icon: PlayCircle, text: `${event.actor_name} iniciou o atendimento`, color: "text-primary" };
+      case "reopened":
+        return { icon: PlayCircle, text: `${event.actor_name} reabriu a conversa`, color: "text-primary" };
+      case "closed":
+        return { icon: XCircle, text: `${event.actor_name} concluiu a conversa`, color: "text-destructive" };
+      case "transferred_agent":
+        return { icon: ArrowRight, text: `${event.actor_name} transferiu para ${event.target_name || "atendente"}`, color: "text-muted-foreground" };
+      case "transferred_team":
+        return { icon: Users, text: `${event.actor_name} transferiu para equipe ${event.target_team_name || ""}`, color: "text-muted-foreground" };
+      default:
+        return { icon: Clock, text: event.event_type, color: "text-muted-foreground" };
+    }
+  };
+  const { icon: Icon, text, color } = getEventInfo();
+  return (
+    <div className="flex items-center justify-center py-2 px-4">
+      <div className="flex items-center gap-1.5 bg-card/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm border border-border/50">
+        <Icon className={`h-3 w-3 ${color}`} />
+        <span className="text-[11px] text-muted-foreground">{text}</span>
+        <span className="text-[10px] text-muted-foreground/60 ml-1">
+          {format(new Date(event.created_at), "HH:mm")}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 /* ─── MAIN INBOX ─── */
 /* ═══════════════════════════════════════════ */
 const Inbox = () => {
