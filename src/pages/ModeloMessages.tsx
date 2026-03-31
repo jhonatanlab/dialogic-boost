@@ -222,6 +222,21 @@ const ModeloMessages = () => {
                           onChange={(e) => setQuickReplyText(e.target.value)}
                           rows={4}
                         />
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          <span className="text-xs text-muted-foreground mr-1 self-center">Variáveis:</span>
+                          {["{nome}", "{telefone}", "{email}"].map((v) => (
+                            <Button
+                              key={v}
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-xs px-2"
+                              onClick={() => setQuickReplyText((prev) => prev + v)}
+                            >
+                              {v}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                       <Button onClick={handleCreateQuickReply} className="w-full">
                         Salvar Mensagem Rápida
