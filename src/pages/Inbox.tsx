@@ -759,10 +759,10 @@ const Inbox = () => {
         .from("conversations")
         .update({ assigned_to: currentUserId, status: "in_progress", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
-      if (error) throw error;
-      await logConversationEvent(selectedConversation.id, "started");
+      if (error) { console.error("Take error:", error); throw error; }
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa atribuída a você!");
+      logConversationEvent(selectedConversation.id, "started");
     } catch { toast.error("Erro ao assumir conversa"); }
   };
 
