@@ -131,13 +131,12 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
   const { data: dailyMessages, isLoading: isLoadingDaily } = useQuery({
     queryKey: ["analytics", "daily-messages", dateRange.start, dateRange.end],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { companyId } = await getCompanyId();
 
       const { data, error } = await supabase
         .from("messages")
         .select("direction, created_at")
-        .eq("user_id", user.id)
+        .eq("company_id", companyId || "")
         .gte("created_at", dateRange.start.toISOString())
         .lte("created_at", dateRange.end.toISOString());
 
