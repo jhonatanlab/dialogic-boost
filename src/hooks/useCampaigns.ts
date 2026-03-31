@@ -93,18 +93,23 @@ async function dispatchCampaignNow(campaignId: string, contactIds: string[], mes
         .replace(/\{telefone\}/gi, contact.phone || '')
         .replace(/\{email\}/gi, (contact as any).email || '');
 
-      const { data: response, error: invokeError } = await supabase.functions.invoke("proxy-n8n", {
-        body: {
-          endpoint,
-          payload: {
+      const payload: Record<string, unknown> = {
             company_id: companyId,
             number: contact.phone,
             text: resolvedMessage,
-            type: "text",
+            type: (attachmentUrl && mediaType && mediaType !== 'text') ? mediaType : "text",
             internal_id: `campaign-${campaignId}-${contact.id}`,
             contact_name: contact.name,
             campaign_id: campaignId,
-          },
+          };
+          if (attachmentUrl) {
+            payload.media_url = attachmentUrl;
+          }
+
+      const { data: response, error: invokeError } = await supabase.functions.invoke("proxy-n8n", {
+        body: {
+          endpoint,
+          payload,
         },
       });
 
