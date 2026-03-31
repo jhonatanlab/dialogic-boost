@@ -507,8 +507,9 @@ export default function NewCampaign() {
                         type="submit"
                         className="px-4 py-2 text-sm font-medium text-white"
                         style={{ backgroundColor: "#FC6625" }}
+                        disabled={isCreating}
                       >
-                        🚀 Ativar Campanha
+                        {isCreating ? "⏳ Enviando..." : "🚀 Ativar Campanha"}
                       </Button>
                     </div>
                     
