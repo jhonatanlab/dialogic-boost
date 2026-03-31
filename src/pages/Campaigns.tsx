@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { useCampaigns } from "@/hooks/useCampaigns";
+import { useCampaigns, type CampaignWithStats } from "@/hooks/useCampaigns";
 import { Button } from "@/components/ui/button";
 import { Plus, MoreVertical, Send, Trash2, Calendar } from "lucide-react";
 import { CampaignForm } from "@/components/campaigns/CampaignForm";
+import { CampaignDetailsModal } from "@/components/campaigns/CampaignDetailsModal";
 import {
   Table,
   TableBody,
