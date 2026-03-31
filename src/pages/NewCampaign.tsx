@@ -54,7 +54,7 @@ export default function NewCampaign() {
   const navigate = useNavigate();
   const { data: contacts } = useContacts();
   const { data: tags } = useTags();
-  const { createCampaign } = useCampaigns();
+  const { createCampaignAsync, isCreating } = useCampaigns();
   const { templates, isLoading: isLoadingTemplates } = useMessageTemplates();
 
   const [showConfigModal, setShowConfigModal] = useState(false);

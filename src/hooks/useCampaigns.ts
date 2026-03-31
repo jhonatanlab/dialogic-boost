@@ -12,6 +12,7 @@ export interface Campaign {
   sent_at: string | null;
   created_at: string;
   updated_at: string;
+  company_id: string | null;
 }
 
 export interface CampaignWithStats extends Campaign {
@@ -19,6 +20,105 @@ export interface CampaignWithStats extends Campaign {
   sent_count: number;
   failed_count: number;
   pending_count: number;
+}
+
+async function getUserContext() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Usuário não autenticado");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("company_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  return { userId: user.id, companyId: profile?.company_id ?? null };
+}
+
+async function dispatchCampaignNow(campaignId: string, contactIds: string[], message: string) {
+  // Fetch contacts with phones
+  const { data: contactsData, error: contactsErr } = await supabase
+    .from("contacts")
+    .select("id, phone, name")
+    .in("id", contactIds);
+
+  if (contactsErr) throw contactsErr;
+
+  // Get n8n send message endpoint
+  const { data: settings } = await supabase
+    .from("admin_settings")
+    .select("setting_value")
+    .eq("setting_key", "n8n_send_message")
+    .maybeSingle();
+
+  const endpoint = settings?.setting_value;
+  if (!endpoint) {
+    // Update all contacts as failed
+    await supabase
+      .from("campaign_contacts")
+      .update({ status: "failed", error_message: "Endpoint de envio não configurado" })
+      .eq("campaign_id", campaignId);
+
+    await supabase
+      .from("campaigns")
+      .update({ status: "sent", sent_at: new Date().toISOString() })
+      .eq("id", campaignId);
+
+    throw new Error("Endpoint de envio (n8n_send_message) não configurado nas configurações administrativas.");
+  }
+
+  let sentCount = 0;
+  let failedCount = 0;
+
+  for (const contact of (contactsData || [])) {
+    if (!contact.phone) {
+      await supabase
+        .from("campaign_contacts")
+        .update({ status: "failed", error_message: "Contato sem telefone" })
+        .eq("campaign_id", campaignId)
+        .eq("contact_id", contact.id);
+      failedCount++;
+      continue;
+    }
+
+    try {
+      const { data: response, error: invokeError } = await supabase.functions.invoke("proxy-n8n", {
+        body: {
+          endpoint,
+          payload: {
+            phone: contact.phone,
+            message,
+            contact_name: contact.name,
+            campaign_id: campaignId,
+          },
+        },
+      });
+
+      if (invokeError) throw invokeError;
+
+      await supabase
+        .from("campaign_contacts")
+        .update({ status: "sent", sent_at: new Date().toISOString() })
+        .eq("campaign_id", campaignId)
+        .eq("contact_id", contact.id);
+      sentCount++;
+    } catch (err: any) {
+      await supabase
+        .from("campaign_contacts")
+        .update({ status: "failed", error_message: err?.message || "Erro desconhecido" })
+        .eq("campaign_id", campaignId)
+        .eq("contact_id", contact.id);
+      failedCount++;
+    }
+  }
+
+  // Mark campaign as sent
+  await supabase
+    .from("campaigns")
+    .update({ status: "sent", sent_at: new Date().toISOString() })
+    .eq("id", campaignId);
+
+  return { sentCount, failedCount };
 }
 
 export const useCampaigns = () => {
@@ -34,7 +134,6 @@ export const useCampaigns = () => {
 
       if (campaignsError) throw campaignsError;
 
-      // Get stats for each campaign
       const campaignsWithStats = await Promise.all(
         (campaignsData || []).map(async (campaign) => {
           const { data: contacts, error: contactsError } = await supabase
@@ -63,17 +162,17 @@ export const useCampaigns = () => {
     },
   });
 
-  const createCampaign = useMutation({
+  const createCampaignMutation = useMutation({
     mutationFn: async (campaign: { name: string; message: string; contactIds: string[]; scheduledAt?: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
+      const { userId, companyId } = await getUserContext();
 
       const status = campaign.scheduledAt ? 'scheduled' : 'sending';
 
       const { data: campaignData, error: campaignError } = await supabase
         .from("campaigns")
         .insert({
-          user_id: user.id,
+          user_id: userId,
+          company_id: companyId,
           name: campaign.name,
           message: campaign.message,
           status,
@@ -92,6 +191,7 @@ export const useCampaigns = () => {
             campaign.contactIds.map(contactId => ({
               campaign_id: campaignData.id,
               contact_id: contactId,
+              company_id: companyId,
               status: 'pending',
             }))
           );
@@ -99,14 +199,27 @@ export const useCampaigns = () => {
         if (contactsError) throw contactsError;
       }
 
+      // Dispatch immediately if not scheduled
+      if (!campaign.scheduledAt && campaign.contactIds.length > 0) {
+        const result = await dispatchCampaignNow(campaignData.id, campaign.contactIds, campaign.message);
+        return { ...campaignData, ...result };
+      }
+
       return campaignData;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["campaigns"] });
-      toast({
-        title: "Campanha criada",
-        description: "A campanha foi criada com sucesso.",
-      });
+      if (data?.sentCount !== undefined) {
+        toast({
+          title: "Campanha enviada",
+          description: `${data.sentCount} enviadas, ${data.failedCount} falharam.`,
+        });
+      } else {
+        toast({
+          title: "Campanha agendada",
+          description: "A campanha foi agendada com sucesso.",
+        });
+      }
     },
     onError: (error) => {
       toast({
@@ -147,7 +260,6 @@ export const useCampaigns = () => {
 
   const deleteCampaign = useMutation({
     mutationFn: async (id: string) => {
-      // Delete campaign contacts first
       const { error: contactsError } = await supabase
         .from("campaign_contacts")
         .delete()
@@ -155,7 +267,6 @@ export const useCampaigns = () => {
 
       if (contactsError) throw contactsError;
 
-      // Delete campaign
       const { error } = await supabase
         .from("campaigns")
         .delete()
@@ -182,7 +293,9 @@ export const useCampaigns = () => {
   return {
     campaigns,
     isLoading,
-    createCampaign: createCampaign.mutate,
+    createCampaign: createCampaignMutation.mutate,
+    createCampaignAsync: createCampaignMutation.mutateAsync,
+    isCreating: createCampaignMutation.isPending,
     updateCampaign: updateCampaign.mutate,
     deleteCampaign: deleteCampaign.mutate,
   };
