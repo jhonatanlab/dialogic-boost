@@ -68,7 +68,7 @@ export const useCampaigns = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      const status = campaign.scheduledAt ? 'scheduled' : 'draft';
+      const status = campaign.scheduledAt ? 'scheduled' : 'sending';
 
       const { data: campaignData, error: campaignError } = await supabase
         .from("campaigns")
