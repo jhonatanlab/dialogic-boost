@@ -31,6 +31,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { NewConversationDialog } from "@/components/inbox/NewConversationDialog";
 
 /* ─── Helpers ─── */
 
@@ -366,6 +367,7 @@ const Inbox = () => {
   const [newInboxTagName, setNewInboxTagName] = useState("");
   const [newInboxTagColor, setNewInboxTagColor] = useState("#FC6625");
   const [contactTags, setContactTags] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [showNewConversation, setShowNewConversation] = useState(false);
 
   // Fetch current user info, agents, and teams
   useEffect(() => {
@@ -907,10 +909,21 @@ const Inbox = () => {
         <div className="w-[340px] border-r border-border flex flex-col bg-card shrink-0">
           <div className="h-14 px-4 flex items-center justify-between border-b border-border bg-card">
             <h1 className="text-lg font-bold text-foreground">Conversas</h1>
-            <Badge variant="secondary" className="font-semibold text-xs">
-              {filteredConversations.length}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowNewConversation(true)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Badge variant="secondary" className="font-semibold text-xs">
+                {filteredConversations.length}
+              </Badge>
+            </div>
           </div>
+
+          <NewConversationDialog
+            open={showNewConversation}
+            onOpenChange={setShowNewConversation}
+            onConversationCreated={(id) => setSelectedConversationId(id)}
+          />
 
           {/* Filter tabs */}
           <div className="flex border-b border-border/50 bg-card">
