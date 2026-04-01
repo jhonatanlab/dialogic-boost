@@ -200,10 +200,10 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
         campaigns_draft: campaigns?.filter((c) => c.status === "draft").length || 0,
         campaigns_scheduled: campaigns?.filter((c) => c.status === "scheduled").length || 0,
         total_contacts_reached: contactsData.length,
-        total_messages_sent: contactsData.filter((c) => c.status === "sent").length,
+        total_messages_sent: contactsData.filter((c) => ["sent", "delivered", "read", "replied"].includes(c.status)).length,
         total_messages_failed: contactsData.filter((c) => c.status === "failed").length,
         success_rate: contactsData.length > 0 
-          ? Math.round((contactsData.filter((c) => c.status === "sent").length / contactsData.length) * 100) 
+          ? Math.round((contactsData.filter((c) => ["sent", "delivered", "read", "replied"].includes(c.status)).length / contactsData.length) * 100) 
           : 0,
       };
 
