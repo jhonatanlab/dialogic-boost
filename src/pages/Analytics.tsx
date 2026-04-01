@@ -176,7 +176,7 @@ const Analytics = () => {
           </div>
         </div>
 
-        <Card>
+        <Card className={printSections.includes("atendimento") ? "" : "print:hidden"} data-print-section="atendimento">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
