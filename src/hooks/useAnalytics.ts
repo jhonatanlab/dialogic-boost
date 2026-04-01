@@ -234,7 +234,9 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
             .eq("campaign_id", campaign.id);
 
           const total = contacts?.length || 0;
-          const sent = contacts?.filter((c) => c.status === "sent").length || 0;
+          const sent = contacts?.filter((c) => ["sent", "delivered", "read", "replied"].includes(c.status)).length || 0;
+          const delivered = contacts?.filter((c) => ["delivered", "read", "replied"].includes(c.status)).length || 0;
+          const read = contacts?.filter((c) => ["read", "replied"].includes(c.status)).length || 0;
           const failed = contacts?.filter((c) => c.status === "failed").length || 0;
           const pending = contacts?.filter((c) => c.status === "pending").length || 0;
 
@@ -244,6 +246,8 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
             status: campaign.status,
             total_contacts: total,
             sent_count: sent,
+            delivered_count: delivered,
+            read_count: read,
             failed_count: failed,
             pending_count: pending,
             success_rate: total > 0 ? Math.round((sent / total) * 100) : 0,
