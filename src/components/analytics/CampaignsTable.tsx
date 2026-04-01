@@ -41,6 +41,8 @@ export function CampaignsTable({ campaigns }: CampaignsTableProps) {
               <TableHead>Status</TableHead>
               <TableHead className="text-center">Contatos</TableHead>
               <TableHead className="text-center">Enviados</TableHead>
+              <TableHead className="text-center">Entregues</TableHead>
+              <TableHead className="text-center">Lidos</TableHead>
               <TableHead className="text-center">Falhas</TableHead>
               <TableHead className="text-center">Pendentes</TableHead>
               <TableHead>Taxa de Sucesso</TableHead>
@@ -50,7 +52,7 @@ export function CampaignsTable({ campaigns }: CampaignsTableProps) {
           <TableBody>
             {campaigns.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                   Nenhuma campanha encontrada no período selecionado
                 </TableCell>
               </TableRow>
@@ -64,8 +66,14 @@ export function CampaignsTable({ campaigns }: CampaignsTableProps) {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-center">{campaign.total_contacts}</TableCell>
-                  <TableCell className="text-center text-green-600 font-medium">
+                  <TableCell className="text-center text-blue-600 font-medium">
                     {campaign.sent_count}
+                  </TableCell>
+                  <TableCell className="text-center text-green-600 font-medium">
+                    {campaign.delivered_count}
+                  </TableCell>
+                  <TableCell className="text-center text-emerald-600 font-medium">
+                    {campaign.read_count}
                   </TableCell>
                   <TableCell className="text-center text-red-600 font-medium">
                     {campaign.failed_count}

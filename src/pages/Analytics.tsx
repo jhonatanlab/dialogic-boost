@@ -27,6 +27,7 @@ import {
   Clock3,
   Timer,
   UserCheck,
+  Printer,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -106,6 +107,10 @@ const Analytics = () => {
                 />
               </PopoverContent>
             </Popover>
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimir Relatório
+            </Button>
           </div>
         </div>
 

@@ -33,6 +33,8 @@ export interface CampaignPerformance {
   status: string;
   total_contacts: number;
   sent_count: number;
+  delivered_count: number;
+  read_count: number;
   failed_count: number;
   pending_count: number;
   success_rate: number;
@@ -198,10 +200,10 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
         campaigns_draft: campaigns?.filter((c) => c.status === "draft").length || 0,
         campaigns_scheduled: campaigns?.filter((c) => c.status === "scheduled").length || 0,
         total_contacts_reached: contactsData.length,
-        total_messages_sent: contactsData.filter((c) => c.status === "sent").length,
+        total_messages_sent: contactsData.filter((c) => ["sent", "delivered", "read", "replied"].includes(c.status)).length,
         total_messages_failed: contactsData.filter((c) => c.status === "failed").length,
         success_rate: contactsData.length > 0 
-          ? Math.round((contactsData.filter((c) => c.status === "sent").length / contactsData.length) * 100) 
+          ? Math.round((contactsData.filter((c) => ["sent", "delivered", "read", "replied"].includes(c.status)).length / contactsData.length) * 100) 
           : 0,
       };
 
@@ -232,7 +234,9 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
             .eq("campaign_id", campaign.id);
 
           const total = contacts?.length || 0;
-          const sent = contacts?.filter((c) => c.status === "sent").length || 0;
+          const sent = contacts?.filter((c) => ["sent", "delivered", "read", "replied"].includes(c.status)).length || 0;
+          const delivered = contacts?.filter((c) => ["delivered", "read", "replied"].includes(c.status)).length || 0;
+          const read = contacts?.filter((c) => ["read", "replied"].includes(c.status)).length || 0;
           const failed = contacts?.filter((c) => c.status === "failed").length || 0;
           const pending = contacts?.filter((c) => c.status === "pending").length || 0;
 
@@ -242,6 +246,8 @@ export const useAnalytics = (dateRange: { start: Date; end: Date }) => {
             status: campaign.status,
             total_contacts: total,
             sent_count: sent,
+            delivered_count: delivered,
+            read_count: read,
             failed_count: failed,
             pending_count: pending,
             success_rate: total > 0 ? Math.round((sent / total) * 100) : 0,
