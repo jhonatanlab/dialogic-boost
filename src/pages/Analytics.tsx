@@ -5,6 +5,7 @@ import { MessagesChart } from "@/components/analytics/MessagesChart";
 import { CampaignsTable } from "@/components/analytics/CampaignsTable";
 import { ConversationsChart } from "@/components/analytics/ConversationsChart";
 import { CampaignStatsCards } from "@/components/analytics/CampaignStatsCards";
+import { PrintReportDialog } from "@/components/analytics/PrintReportDialog";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -47,6 +48,8 @@ const Analytics = () => {
     start: startOfMonth(new Date()),
     end: endOfMonth(new Date()),
   });
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printSections, setPrintSections] = useState<string[]>(["atendimento", "mensagens", "campanhas"]);
 
   const {
     messageStats,
@@ -107,10 +110,20 @@ const Analytics = () => {
                 />
               </PopoverContent>
             </Popover>
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Button variant="outline" size="sm" onClick={() => setPrintDialogOpen(true)}>
               <Printer className="h-4 w-4 mr-2" />
               Imprimir Relatório
             </Button>
+            <PrintReportDialog
+              open={printDialogOpen}
+              onOpenChange={setPrintDialogOpen}
+              currentDateRange={dateRange}
+              onPrint={({ start, end, sections }) => {
+                setDateRange({ start, end });
+                setPrintSections(sections);
+                setTimeout(() => window.print(), 500);
+              }}
+            />
           </div>
         </div>
 
@@ -119,7 +132,7 @@ const Analytics = () => {
           {format(dateRange.end, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </p>
 
-        <div>
+        <div className={printSections.includes("atendimento") ? "" : "print:hidden"} data-print-section="atendimento">
           <h2 className="text-lg font-semibold mb-4">Atendimento (Conversas)</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {isLoading ? (
@@ -163,7 +176,7 @@ const Analytics = () => {
           </div>
         </div>
 
-        <Card>
+        <Card className={printSections.includes("atendimento") ? "" : "print:hidden"} data-print-section="atendimento">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
@@ -196,7 +209,7 @@ const Analytics = () => {
           </CardContent>
         </Card>
 
-        <div>
+        <div className={printSections.includes("mensagens") ? "" : "print:hidden"} data-print-section="mensagens">
           <h2 className="text-lg font-semibold mb-4">Mensagens</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {isLoading ? (
@@ -241,9 +254,11 @@ const Analytics = () => {
           </div>
         </div>
 
-        {isLoading ? <Skeleton className="h-[380px]" /> : dailyMessages && <MessagesChart data={dailyMessages} />}
+        <div className={printSections.includes("mensagens") ? "" : "print:hidden"} data-print-section="mensagens">
+          {isLoading ? <Skeleton className="h-[380px]" /> : dailyMessages && <MessagesChart data={dailyMessages} />}
+        </div>
 
-        <div>
+        <div className={printSections.includes("campanhas") ? "" : "print:hidden"} data-print-section="campanhas">
           <h2 className="text-lg font-semibold mb-4">Campanhas</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {isLoading ? (
@@ -287,7 +302,7 @@ const Analytics = () => {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={`grid gap-4 md:grid-cols-2 ${printSections.includes("campanhas") ? "" : "print:hidden"}`} data-print-section="campanhas">
           {isLoading ? (
             <>
               <Skeleton className="h-[320px]" />
@@ -301,11 +316,13 @@ const Analytics = () => {
           )}
         </div>
 
-        {isLoading ? (
-          <Skeleton className="h-[400px]" />
-        ) : (
-          campaignPerformance && <CampaignsTable campaigns={campaignPerformance} />
-        )}
+        <div className={printSections.includes("campanhas") ? "" : "print:hidden"} data-print-section="campanhas">
+          {isLoading ? (
+            <Skeleton className="h-[400px]" />
+          ) : (
+            campaignPerformance && <CampaignsTable campaigns={campaignPerformance} />
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );
