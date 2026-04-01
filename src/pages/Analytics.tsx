@@ -254,9 +254,11 @@ const Analytics = () => {
           </div>
         </div>
 
-        {isLoading ? <Skeleton className="h-[380px]" /> : dailyMessages && <MessagesChart data={dailyMessages} />}
+        <div className={printSections.includes("mensagens") ? "" : "print:hidden"} data-print-section="mensagens">
+          {isLoading ? <Skeleton className="h-[380px]" /> : dailyMessages && <MessagesChart data={dailyMessages} />}
+        </div>
 
-        <div>
+        <div className={printSections.includes("campanhas") ? "" : "print:hidden"} data-print-section="campanhas">
           <h2 className="text-lg font-semibold mb-4">Campanhas</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {isLoading ? (
