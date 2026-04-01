@@ -31,6 +31,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { NewConversationDialog } from "@/components/inbox/NewConversationDialog";
 
 /* ─── Helpers ─── */
 
