@@ -302,7 +302,7 @@ const Analytics = () => {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className={`grid gap-4 md:grid-cols-2 ${printSections.includes("campanhas") ? "" : "print:hidden"}`} data-print-section="campanhas">
           {isLoading ? (
             <>
               <Skeleton className="h-[320px]" />
@@ -316,11 +316,13 @@ const Analytics = () => {
           )}
         </div>
 
-        {isLoading ? (
-          <Skeleton className="h-[400px]" />
-        ) : (
-          campaignPerformance && <CampaignsTable campaigns={campaignPerformance} />
-        )}
+        <div className={printSections.includes("campanhas") ? "" : "print:hidden"} data-print-section="campanhas">
+          {isLoading ? (
+            <Skeleton className="h-[400px]" />
+          ) : (
+            campaignPerformance && <CampaignsTable campaigns={campaignPerformance} />
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );
