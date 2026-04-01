@@ -27,6 +27,7 @@ import {
   Clock3,
   Timer,
   UserCheck,
+  Printer,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
