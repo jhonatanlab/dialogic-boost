@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Mail, Phone, Instagram, MoreVertical, Edit, Trash2, Tags } from "lucide-react";
+import { ContactImportExport } from "@/components/contacts/ContactImportExport";
 import {
   Table,
   TableBody,
@@ -95,6 +96,7 @@ const Contacts = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <ContactImportExport contacts={contacts} />
             <Button variant="outline" onClick={() => setIsTagsOpen(true)}>
               <Tags className="h-4 w-4 mr-2" />
               Etiquetas
