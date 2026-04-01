@@ -110,10 +110,20 @@ const Analytics = () => {
                 />
               </PopoverContent>
             </Popover>
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
+            <Button variant="outline" size="sm" onClick={() => setPrintDialogOpen(true)}>
               <Printer className="h-4 w-4 mr-2" />
               Imprimir Relatório
             </Button>
+            <PrintReportDialog
+              open={printDialogOpen}
+              onOpenChange={setPrintDialogOpen}
+              currentDateRange={dateRange}
+              onPrint={({ start, end, sections }) => {
+                setDateRange({ start, end });
+                setPrintSections(sections);
+                setTimeout(() => window.print(), 500);
+              }}
+            />
           </div>
         </div>
 
