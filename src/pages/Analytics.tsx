@@ -132,7 +132,7 @@ const Analytics = () => {
           {format(dateRange.end, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </p>
 
-        <div>
+        <div className={printSections.includes("atendimento") ? "" : "print:hidden"} data-print-section="atendimento">
           <h2 className="text-lg font-semibold mb-4">Atendimento (Conversas)</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {isLoading ? (
