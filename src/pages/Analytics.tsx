@@ -5,6 +5,7 @@ import { MessagesChart } from "@/components/analytics/MessagesChart";
 import { CampaignsTable } from "@/components/analytics/CampaignsTable";
 import { ConversationsChart } from "@/components/analytics/ConversationsChart";
 import { CampaignStatsCards } from "@/components/analytics/CampaignStatsCards";
+import { PrintReportDialog } from "@/components/analytics/PrintReportDialog";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
