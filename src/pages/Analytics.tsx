@@ -48,6 +48,8 @@ const Analytics = () => {
     start: startOfMonth(new Date()),
     end: endOfMonth(new Date()),
   });
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printSections, setPrintSections] = useState<string[]>(["atendimento", "mensagens", "campanhas"]);
 
   const {
     messageStats,
