@@ -33,6 +33,8 @@ export interface CampaignPerformance {
   status: string;
   total_contacts: number;
   sent_count: number;
+  delivered_count: number;
+  read_count: number;
   failed_count: number;
   pending_count: number;
   success_rate: number;
