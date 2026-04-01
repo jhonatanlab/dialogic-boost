@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Mail, Phone, Instagram, MoreVertical, Edit, Trash2, Tags } from "lucide-react";
+import { ContactImportExport } from "@/components/contacts/ContactImportExport";
 import {
   Table,
   TableBody,
