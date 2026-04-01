@@ -96,6 +96,7 @@ const Contacts = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <ContactImportExport contacts={contacts} />
             <Button variant="outline" onClick={() => setIsTagsOpen(true)}>
               <Tags className="h-4 w-4 mr-2" />
               Etiquetas
