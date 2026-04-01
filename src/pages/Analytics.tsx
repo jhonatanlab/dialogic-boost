@@ -209,7 +209,7 @@ const Analytics = () => {
           </CardContent>
         </Card>
 
-        <div>
+        <div className={printSections.includes("mensagens") ? "" : "print:hidden"} data-print-section="mensagens">
           <h2 className="text-lg font-semibold mb-4">Mensagens</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
             {isLoading ? (
