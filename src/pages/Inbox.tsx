@@ -367,6 +367,7 @@ const Inbox = () => {
   const [newInboxTagName, setNewInboxTagName] = useState("");
   const [newInboxTagColor, setNewInboxTagColor] = useState("#FC6625");
   const [contactTags, setContactTags] = useState<{ id: string; name: string; color: string }[]>([]);
+  const [showNewConversation, setShowNewConversation] = useState(false);
 
   // Fetch current user info, agents, and teams
   useEffect(() => {
