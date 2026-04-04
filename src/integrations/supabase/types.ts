@@ -137,6 +137,54 @@ export type Database = {
         }
         Relationships: []
       }
+      automations: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          execution_count: number
+          flow_data: Json
+          id: string
+          keyword: string | null
+          last_execution: string | null
+          name: string
+          status: string
+          trigger_type: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          execution_count?: number
+          flow_data?: Json
+          id?: string
+          keyword?: string | null
+          last_execution?: string | null
+          name?: string
+          status?: string
+          trigger_type?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          execution_count?: number
+          flow_data?: Json
+          id?: string
+          keyword?: string | null
+          last_execution?: string | null
+          name?: string
+          status?: string
+          trigger_type?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       campaign_contacts: {
         Row: {
           campaign_id: string
