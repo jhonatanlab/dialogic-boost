@@ -42,6 +42,8 @@ const Automations = () => {
   const handleCreateNew = () => {
     setEditingFlowId(null);
     setAutomationName("Nova Automação");
+    setTriggerType("keyword");
+    setKeyword("");
     setActiveTab("builder");
   };
 
@@ -49,6 +51,8 @@ const Automations = () => {
     const auto = automations.find(a => a.id === id);
     setEditingFlowId(id);
     setAutomationName(auto?.name || "Nova Automação");
+    setTriggerType(auto?.trigger_type || "keyword");
+    setKeyword(auto?.keyword || "");
     setActiveTab("builder");
   };
 
