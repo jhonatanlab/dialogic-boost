@@ -114,23 +114,21 @@ const Automations = () => {
               Crie fluxos automatizados para chatbots e atendimento
             </p>
           </div>
-          <Button onClick={handleCreateNew} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Nova Automação
-          </Button>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="list" className="gap-2">
+                <Zap className="h-4 w-4" />
+                Automações
+              </TabsTrigger>
+              <TabsTrigger value="builder" className="gap-2" onClick={handleCreateNew}>
+                <Bot className="h-4 w-4" />
+                Editor de Fluxo
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="list" className="gap-2">
-              <Zap className="h-4 w-4" />
-              Automações
-            </TabsTrigger>
-            <TabsTrigger value="builder" className="gap-2">
-              <Bot className="h-4 w-4" />
-              Editor de Fluxo
-            </TabsTrigger>
-          </TabsList>
 
           <TabsContent value="list" className="mt-6">
             <div className="space-y-4">
