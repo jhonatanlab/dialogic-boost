@@ -312,6 +312,17 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {renderFields()}
+          
+          {node.type !== "trigger" && onDelete && (
+            <Button
+              variant="destructive"
+              className="w-full mt-4"
+              onClick={() => onDelete(node.id)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir Bloco
+            </Button>
+          )}
         </div>
       </ScrollArea>
     </div>
