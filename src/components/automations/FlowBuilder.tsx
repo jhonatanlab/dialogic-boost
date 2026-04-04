@@ -38,7 +38,7 @@ const nodeTypes = {
   delay: DelayNode,
 };
 
-const initialNodes: Node[] = [
+const defaultInitialNodes: Node[] = [
   {
     id: "trigger-1",
     type: "trigger",
@@ -47,24 +47,26 @@ const initialNodes: Node[] = [
   },
 ];
 
-const initialEdges: Edge[] = [];
-
 export interface FlowBuilderProps {
   flowId?: string;
   onSave?: (nodes: Node[], edges: Edge[]) => void;
+  initialFlowData?: { nodes: Node[]; edges: Edge[] };
 }
 
 export interface FlowBuilderHandle {
   save: () => void;
+  getFlowData: () => { nodes: Node[]; edges: Edge[] };
 }
 
 let id = 0;
 const getId = () => `node_${id++}`;
 
-const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flowId, onSave }, ref) => {
+const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flowId, onSave, initialFlowData }, ref) => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(
+    initialFlowData?.nodes?.length ? initialFlowData.nodes : defaultInitialNodes
+  );
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlowData?.edges || []);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const { screenToFlowPosition } = useReactFlow();
 
@@ -74,6 +76,7 @@ const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flow
       console.log("Flow JSON:", JSON.stringify(flowData, null, 2));
       onSave?.(nodes, edges);
     },
+    getFlowData: () => ({ nodes, edges }),
   }), [nodes, edges, onSave]);
 
   const onConnect = useCallback(
@@ -89,7 +92,6 @@ const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flow
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-
       const type = event.dataTransfer.getData("application/reactflow");
       if (!type) return;
 
@@ -180,10 +182,10 @@ const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flow
 
 FlowBuilderInner.displayName = "FlowBuilderInner";
 
-export function FlowBuilderWrapper({ flowId, onSave, builderRef }: FlowBuilderProps & { builderRef?: React.Ref<FlowBuilderHandle> }) {
+export function FlowBuilderWrapper({ flowId, onSave, builderRef, initialFlowData }: FlowBuilderProps & { builderRef?: React.Ref<FlowBuilderHandle> }) {
   return (
     <ReactFlowProvider>
-      <FlowBuilderInner ref={builderRef} flowId={flowId} onSave={onSave} />
+      <FlowBuilderInner ref={builderRef} flowId={flowId} onSave={onSave} initialFlowData={initialFlowData} />
     </ReactFlowProvider>
   );
 }
