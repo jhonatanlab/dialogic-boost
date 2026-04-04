@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { type Node } from "@xyflow/react";
-import { X } from "lucide-react";
+import { X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,9 +12,10 @@ interface NodeConfigPanelProps {
   node: Node | null;
   onClose: () => void;
   onUpdate: (nodeId: string, data: any) => void;
+  onDelete?: (nodeId: string) => void;
 }
 
-export function NodeConfigPanel({ node, onClose, onUpdate }: NodeConfigPanelProps) {
+export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfigPanelProps) {
   const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
@@ -311,6 +312,17 @@ export function NodeConfigPanel({ node, onClose, onUpdate }: NodeConfigPanelProp
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {renderFields()}
+          
+          {node.type !== "trigger" && onDelete && (
+            <Button
+              variant="destructive"
+              className="w-full mt-4"
+              onClick={() => onDelete(node.id)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir Bloco
+            </Button>
+          )}
         </div>
       </ScrollArea>
     </div>
