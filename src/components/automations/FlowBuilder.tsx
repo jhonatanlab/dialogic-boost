@@ -188,6 +188,7 @@ const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flow
           node={selectedNode}
           onClose={() => setSelectedNode(null)}
           onUpdate={handleNodeUpdate}
+          onDelete={handleDeleteNode}
         />
       )}
     </div>
