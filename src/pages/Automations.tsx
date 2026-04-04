@@ -49,12 +49,7 @@ const Automations = () => {
   const [activeTab, setActiveTab] = useState("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
-  const flowDataRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
-
-  const handleSaveFlow = (nodes: Node[], edges: Edge[]) => {
-    flowDataRef.current = { nodes, edges };
-    console.log("Flow JSON:", JSON.stringify({ nodes, edges }, null, 2));
-  };
+  const flowBuilderRef = useRef<FlowBuilderHandle>(null);
 
   const filteredAutomations = mockAutomations.filter((auto) =>
     auto.name.toLowerCase().includes(searchQuery.toLowerCase())
