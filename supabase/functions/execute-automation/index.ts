@@ -151,8 +151,12 @@ Deno.serve(async (req) => {
         // Send message
         const msgContent = replaceVars(String(nodeData.message || nodeData.content || nodeData.text || ""));
         if (msgContent.trim()) {
-          // Insert message into messages table
+          const tempMessageId = `app-${crypto.randomUUID()}`;
+
+          // Insert message into messages table (same as Inbox)
           await supabase.from("messages").insert({
+            client_message_id: tempMessageId,
+            message_id: null,
             conversation_id,
             contact_id,
             user_id: userId,
@@ -161,17 +165,16 @@ Deno.serve(async (req) => {
             direction: "outbound",
             content: msgContent,
             message_type: "text",
-            status: "sent",
+            status: "sending",
             metadata: { automation_id, node_id: currentId },
           });
 
-          // Try to send via n8n proxy
+          // Try to send via n8n (same payload format as Inbox)
           try {
             // Layered lookup: company_id → user_id → any
             let sendEndpoint: string | null = null;
             let resolvedVia = "";
 
-            // 1. By company_id
             const { data: s1 } = await supabase
               .from("admin_settings")
               .select("setting_value")
@@ -183,7 +186,6 @@ Deno.serve(async (req) => {
               resolvedVia = "company_id";
             }
 
-            // 2. By user_id (owner)
             if (!sendEndpoint) {
               const { data: s2 } = await supabase
                 .from("admin_settings")
@@ -197,7 +199,6 @@ Deno.serve(async (req) => {
               }
             }
 
-            // 3. Fallback: any record with this key
             if (!sendEndpoint) {
               const { data: s3 } = await supabase
                 .from("admin_settings")
@@ -214,37 +215,38 @@ Deno.serve(async (req) => {
 
             if (!sendEndpoint) {
               console.error("[execute-automation] n8n_send_message endpoint NOT FOUND for company", company_id, "user", userId);
+              await supabase.from("messages").update({ status: "failed" }).eq("client_message_id", tempMessageId);
             } else {
               console.log(`[execute-automation] Resolved endpoint via ${resolvedVia}: ${sendEndpoint}`);
 
-              const { data: instance } = await supabase
-                .from("whatsapp_instances")
-                .select("instance_id, instance_token")
-                .eq("company_id", company_id)
-                .maybeSingle();
+              const phone = contact?.phone?.replace(/\D/g, "") || "";
+              console.log(`[execute-automation] Sending to phone=${phone}`);
 
-              if (!instance) {
-                console.error("[execute-automation] No WhatsApp instance found for company", company_id);
-              } else {
-                const phone = contact?.phone?.replace(/\D/g, "") || "";
-                console.log(`[execute-automation] Sending to phone=${phone} instance=${instance.instance_id}`);
+              // Build payload identical to Inbox (useMessages.ts)
+              const payload: Record<string, string> = {
+                company_id,
+                number: phone,
+                text: msgContent,
+                type: "text",
+                internal_id: tempMessageId,
+              };
 
-                const resp = await fetch(sendEndpoint, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    instanceName: instance.instance_id,
-                    number: phone,
-                    text: msgContent,
-                  }),
-                });
+              const resp = await fetch(sendEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              });
 
-                const respText = await resp.text();
-                console.log(`[execute-automation] Send response: status=${resp.status} body=${respText.substring(0, 200)}`);
+              const respText = await resp.text();
+              console.log(`[execute-automation] Send response: status=${resp.status} body=${respText.substring(0, 200)}`);
+
+              if (!resp.ok) {
+                await supabase.from("messages").update({ status: "failed" }).eq("client_message_id", tempMessageId);
               }
             }
           } catch (sendErr) {
             console.error("[execute-automation] Error sending message:", sendErr);
+            await supabase.from("messages").update({ status: "failed" }).eq("client_message_id", tempMessageId);
           }
         }
 
