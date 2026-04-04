@@ -1,15 +1,15 @@
 import { memo } from "react";
-import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 import { MessageSquare } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-type MessageNodeData = Node<{
+interface MessageNodeData {
   label: string;
   message?: string;
   mediaUrl?: string;
-}>;
+}
 
-const MessageNode = memo(({ data, selected }: NodeProps<MessageNodeData>) => {
+const MessageNode = memo(({ data, selected }: { data: MessageNodeData; selected?: boolean }) => {
   return (
     <Card className={`p-3 min-w-[200px] border-2 transition-colors ${selected ? 'border-primary shadow-lg' : 'border-border'}`}>
       <Handle type="target" position={Position.Top} className="!bg-primary !w-3 !h-3" />

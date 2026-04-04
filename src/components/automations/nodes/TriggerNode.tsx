@@ -1,15 +1,15 @@
 import { memo } from "react";
-import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 import { Zap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-type TriggerNodeData = Node<{
+interface TriggerNodeData {
   label: string;
   triggerType?: string;
   keyword?: string;
-}>;
+}
 
-const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>) => {
+const TriggerNode = memo(({ data, selected }: { data: TriggerNodeData; selected?: boolean }) => {
   return (
     <Card className={`p-3 min-w-[200px] border-2 transition-colors bg-gradient-to-br from-primary/5 to-primary/10 ${selected ? 'border-primary shadow-lg' : 'border-primary/30'}`}>
       <div className="flex items-center gap-2 mb-2">

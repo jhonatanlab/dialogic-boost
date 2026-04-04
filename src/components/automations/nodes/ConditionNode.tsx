@@ -1,14 +1,14 @@
 import { memo } from "react";
-import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 import { GitBranch } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-type ConditionNodeData = Node<{
+interface ConditionNodeData {
   label: string;
   condition?: string;
-}>;
+}
 
-const ConditionNode = memo(({ data, selected }: NodeProps<ConditionNodeData>) => {
+const ConditionNode = memo(({ data, selected }: { data: ConditionNodeData; selected?: boolean }) => {
   return (
     <Card className={`p-3 min-w-[200px] border-2 transition-colors ${selected ? 'border-primary shadow-lg' : 'border-border'}`}>
       <Handle type="target" position={Position.Top} className="!bg-primary !w-3 !h-3" />
