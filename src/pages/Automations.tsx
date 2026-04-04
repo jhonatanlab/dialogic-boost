@@ -237,15 +237,16 @@ const Automations = () => {
           <TabsContent value="builder" className="mt-6">
             <Card className="mb-4">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Input
-                      placeholder="Nome da automação..."
-                      className="max-w-xs font-semibold"
-                      value={automationName}
-                      onChange={(e) => setAutomationName(e.target.value)}
-                    />
-                  </div>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <Input
+                        placeholder="Nome da automação..."
+                        className="max-w-xs font-semibold"
+                        value={automationName}
+                        onChange={(e) => setAutomationName(e.target.value)}
+                      />
+                    </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" onClick={() => setActiveTab("list")}>
                       Cancelar
