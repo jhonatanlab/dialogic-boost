@@ -71,10 +71,10 @@ const Automations = () => {
       const triggerNode = flowData.nodes.find((n: any) => n.type === "trigger");
       if (triggerNode?.data) {
         if (triggerNode.data.triggerType) {
-          resolvedTriggerType = triggerNode.data.triggerType;
+          resolvedTriggerType = triggerNode.data.triggerType as string;
         }
         if (triggerNode.data.keyword) {
-          resolvedKeyword = triggerNode.data.keyword;
+          resolvedKeyword = triggerNode.data.keyword as string;
         }
       }
     }
