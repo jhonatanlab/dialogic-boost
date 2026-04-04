@@ -170,9 +170,13 @@ Deno.serve(async (req) => {
             const { data: settings } = await supabase
               .from("admin_settings")
               .select("setting_value")
-              .eq("setting_key", "sendMessageEndpoint")
+              .eq("setting_key", "n8n_send_message")
               .eq("company_id", company_id)
               .maybeSingle();
+
+            if (!settings?.setting_value) {
+              console.error("[execute-automation] n8n_send_message endpoint not found for company", company_id);
+            }
 
             if (settings?.setting_value) {
               const { data: instance } = await supabase
