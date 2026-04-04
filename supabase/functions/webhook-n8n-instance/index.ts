@@ -777,6 +777,66 @@ Deno.serve(async (req) => {
             "upsert_message_reply_tracking",
           );
         }
+
+        // ── Trigger automations for inbound messages ──
+        try {
+          const { data: activeAutomations } = await supabase
+            .from("automations")
+            .select("id, trigger_type, keyword")
+            .eq("company_id", company_id)
+            .eq("status", "active");
+
+          if (activeAutomations && activeAutomations.length > 0) {
+            const incomingText = (messageContent || "").toLowerCase().trim();
+
+            // Check if this is the first message (conversation was just created)
+            const { count: msgCount } = await supabase
+              .from("messages")
+              .select("id", { count: "exact", head: true })
+              .eq("conversation_id", conversationId)
+              .eq("direction", "inbound");
+
+            const isFirstMessage = (msgCount || 0) <= 1;
+
+            for (const auto of activeAutomations) {
+              let shouldTrigger = false;
+
+              if (auto.trigger_type === "keyword" && auto.keyword) {
+                const keywords = auto.keyword.toLowerCase().split(",").map((k: string) => k.trim());
+                shouldTrigger = keywords.some((kw: string) => incomingText.includes(kw));
+              } else if (auto.trigger_type === "first_message") {
+                shouldTrigger = isFirstMessage;
+              } else if (auto.trigger_type === "all_messages") {
+                shouldTrigger = true;
+              }
+
+              if (shouldTrigger) {
+                console.log("[upsert_message] Triggering automation:", auto.id, "type:", auto.trigger_type);
+
+                // Call execute-automation edge function
+                const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+                const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+                
+                fetch(`${supabaseUrl}/functions/v1/execute-automation`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${serviceKey}`,
+                  },
+                  body: JSON.stringify({
+                    automation_id: auto.id,
+                    contact_id: contactId,
+                    conversation_id: conversationId,
+                    company_id,
+                    message_text: messageContent,
+                  }),
+                }).catch(err => console.error("[upsert_message] automation call error:", err));
+              }
+            }
+          }
+        } catch (autoErr) {
+          console.error("[upsert_message] automation trigger error:", autoErr);
+        }
       }
 
       return json({ success: true, action: "upserted_message", id: upsertedId });

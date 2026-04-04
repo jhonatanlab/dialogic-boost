@@ -12,7 +12,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { useAutomations } from "@/hooks/useAutomations";
 import { toast } from "sonner";
 
@@ -21,6 +29,8 @@ const Automations = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
   const [automationName, setAutomationName] = useState("Nova Automação");
+  const [triggerType, setTriggerType] = useState<string>("keyword");
+  const [keyword, setKeyword] = useState("");
   const flowBuilderRef = useRef<FlowBuilderHandle>(null);
 
   const { automations, isLoading, createAutomation, updateAutomation, deleteAutomation, toggleStatus } = useAutomations();
@@ -32,6 +42,8 @@ const Automations = () => {
   const handleCreateNew = () => {
     setEditingFlowId(null);
     setAutomationName("Nova Automação");
+    setTriggerType("keyword");
+    setKeyword("");
     setActiveTab("builder");
   };
 
@@ -39,6 +51,8 @@ const Automations = () => {
     const auto = automations.find(a => a.id === id);
     setEditingFlowId(id);
     setAutomationName(auto?.name || "Nova Automação");
+    setTriggerType(auto?.trigger_type || "keyword");
+    setKeyword(auto?.keyword || "");
     setActiveTab("builder");
   };
 
@@ -55,11 +69,15 @@ const Automations = () => {
         name: automationName,
         flow_data: flowData,
         status: "active",
+        trigger_type: triggerType,
+        keyword: triggerType === "keyword" ? keyword : null,
       });
     } else {
       createAutomation.mutate({
         name: automationName,
         flow_data: flowData,
+        trigger_type: triggerType,
+        keyword: triggerType === "keyword" ? keyword : null,
       });
     }
     setActiveTab("list");
@@ -219,15 +237,16 @@ const Automations = () => {
           <TabsContent value="builder" className="mt-6">
             <Card className="mb-4">
               <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Input
-                      placeholder="Nome da automação..."
-                      className="max-w-xs font-semibold"
-                      value={automationName}
-                      onChange={(e) => setAutomationName(e.target.value)}
-                    />
-                  </div>
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <Input
+                        placeholder="Nome da automação..."
+                        className="max-w-xs font-semibold"
+                        value={automationName}
+                        onChange={(e) => setAutomationName(e.target.value)}
+                      />
+                    </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" onClick={() => setActiveTab("list")}>
                       Cancelar
@@ -244,6 +263,33 @@ const Automations = () => {
                       )}
                       Salvar e Ativar
                     </Button>
+                    </div>
+                  </div>
+                  <div className="flex items-end gap-4 border-t pt-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Tipo de gatilho</Label>
+                      <Select value={triggerType} onValueChange={setTriggerType}>
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="keyword">Palavra-chave</SelectItem>
+                          <SelectItem value="first_message">Primeira mensagem</SelectItem>
+                          <SelectItem value="all_messages">Todas as mensagens</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {triggerType === "keyword" && (
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Palavra-chave</Label>
+                        <Input
+                          placeholder="Ex: oi, menu, ajuda..."
+                          value={keyword}
+                          onChange={(e) => setKeyword(e.target.value)}
+                          className="w-[250px]"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardHeader>
