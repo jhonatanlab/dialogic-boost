@@ -63,21 +63,42 @@ const Automations = () => {
       return;
     }
 
+    // Extract trigger settings from the visual trigger node (source of truth)
+    let resolvedTriggerType = triggerType;
+    let resolvedKeyword = triggerType === "keyword" ? keyword : null;
+
+    if (flowData.nodes && Array.isArray(flowData.nodes)) {
+      const triggerNode = flowData.nodes.find((n: any) => n.type === "trigger");
+      if (triggerNode?.data) {
+        if (triggerNode.data.triggerType) {
+          resolvedTriggerType = triggerNode.data.triggerType;
+        }
+        if (triggerNode.data.keyword) {
+          resolvedKeyword = triggerNode.data.keyword;
+        }
+      }
+    }
+
+    // Ensure keyword is null when not using keyword trigger
+    if (resolvedTriggerType !== "keyword") {
+      resolvedKeyword = null;
+    }
+
     if (editingFlowId) {
       updateAutomation.mutate({
         id: editingFlowId,
         name: automationName,
         flow_data: flowData,
         status: "active",
-        trigger_type: triggerType,
-        keyword: triggerType === "keyword" ? keyword : null,
+        trigger_type: resolvedTriggerType,
+        keyword: resolvedKeyword,
       });
     } else {
       createAutomation.mutate({
         name: automationName,
         flow_data: flowData,
-        trigger_type: triggerType,
-        keyword: triggerType === "keyword" ? keyword : null,
+        trigger_type: resolvedTriggerType,
+        keyword: resolvedKeyword,
       });
     }
     setActiveTab("list");

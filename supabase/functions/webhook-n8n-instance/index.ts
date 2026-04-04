@@ -782,12 +782,13 @@ Deno.serve(async (req) => {
         try {
           const { data: activeAutomations } = await supabase
             .from("automations")
-            .select("id, trigger_type, keyword")
+            .select("id, trigger_type, keyword, flow_data")
             .eq("company_id", company_id)
             .eq("status", "active");
 
           if (activeAutomations && activeAutomations.length > 0) {
             const incomingText = (messageContent || "").toLowerCase().trim();
+            console.log("[automation-check] inbound text:", JSON.stringify(incomingText), "automations found:", activeAutomations.length);
 
             // Check if this is the first message (conversation was just created)
             const { count: msgCount } = await supabase
@@ -799,38 +800,68 @@ Deno.serve(async (req) => {
             const isFirstMessage = (msgCount || 0) <= 1;
 
             for (const auto of activeAutomations) {
+              // Resolve trigger from table columns; fallback to flow_data trigger node
+              let effectiveTriggerType = auto.trigger_type;
+              let effectiveKeyword = auto.keyword;
+
+              // If table columns are missing/inconsistent, derive from flow_data
+              if (!effectiveTriggerType || (effectiveTriggerType === "keyword" && !effectiveKeyword)) {
+                const flowData = auto.flow_data as any;
+                if (flowData?.nodes && Array.isArray(flowData.nodes)) {
+                  const triggerNode = flowData.nodes.find((n: any) => n.type === "trigger");
+                  if (triggerNode?.data) {
+                    if (triggerNode.data.triggerType) {
+                      effectiveTriggerType = triggerNode.data.triggerType;
+                    }
+                    if (triggerNode.data.keyword) {
+                      effectiveKeyword = triggerNode.data.keyword;
+                    }
+                    console.log("[automation-check] derived trigger from flow_data node:", effectiveTriggerType, "keyword:", effectiveKeyword);
+                  }
+                }
+              }
+
               let shouldTrigger = false;
 
-              if (auto.trigger_type === "keyword" && auto.keyword) {
-                const keywords = auto.keyword.toLowerCase().split(",").map((k: string) => k.trim());
-                shouldTrigger = keywords.some((kw: string) => incomingText.includes(kw));
-              } else if (auto.trigger_type === "first_message") {
+              if (effectiveTriggerType === "keyword" && effectiveKeyword) {
+                const keywords = effectiveKeyword.toLowerCase().split(",").map((k: string) => k.trim());
+                shouldTrigger = keywords.some((kw: string) => kw && incomingText.includes(kw));
+                console.log("[automation-check] id:", auto.id, "keyword match:", shouldTrigger, "keywords:", keywords.join(","));
+              } else if (effectiveTriggerType === "first_message") {
                 shouldTrigger = isFirstMessage;
-              } else if (auto.trigger_type === "all_messages") {
+                console.log("[automation-check] id:", auto.id, "first_message check:", shouldTrigger);
+              } else if (effectiveTriggerType === "all_messages") {
                 shouldTrigger = true;
+              } else {
+                console.log("[automation-check] id:", auto.id, "unrecognized trigger_type:", effectiveTriggerType);
               }
 
               if (shouldTrigger) {
-                console.log("[upsert_message] Triggering automation:", auto.id, "type:", auto.trigger_type);
+                console.log("[automation-trigger] Firing automation:", auto.id, "type:", effectiveTriggerType);
 
-                // Call execute-automation edge function
                 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
                 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
                 
-                fetch(`${supabaseUrl}/functions/v1/execute-automation`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${serviceKey}`,
-                  },
-                  body: JSON.stringify({
-                    automation_id: auto.id,
-                    contact_id: contactId,
-                    conversation_id: conversationId,
-                    company_id,
-                    message_text: messageContent,
-                  }),
-                }).catch(err => console.error("[upsert_message] automation call error:", err));
+                try {
+                  const execResp = await fetch(`${supabaseUrl}/functions/v1/execute-automation`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${serviceKey}`,
+                    },
+                    body: JSON.stringify({
+                      automation_id: auto.id,
+                      contact_id: contactId,
+                      conversation_id: conversationId,
+                      company_id,
+                      message_text: messageContent,
+                    }),
+                  });
+                  const execBody = await execResp.text();
+                  console.log("[automation-trigger] response:", execResp.status, execBody.substring(0, 300));
+                } catch (fetchErr) {
+                  console.error("[automation-trigger] fetch error:", fetchErr);
+                }
               }
             }
           }
