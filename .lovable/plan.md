@@ -1,71 +1,66 @@
 
+Objetivo: corrigir definitivamente o disparo por palavra-chave nas automações.
 
-## Problema
+Diagnóstico confirmado
+- A automação salva no banco está inconsistente:
+  - `trigger_type = first_message`
+  - `keyword = null`
+  - mas dentro do `flow_data` o nó de gatilho tem `triggerType = keyword` e `keyword = "Quero a lista!"`
+- O webhook que decide se dispara a automação lê apenas as colunas da tabela (`trigger_type` e `keyword`), não o nó visual.
+- Resultado: a mensagem recebida nunca dá match, então:
+  - não aparece log de “Triggering automation”
+  - a função `execute-automation` nem chega a ser chamada.
 
-A automação está salva no banco (`automations` table), mas **não existe nenhuma lógica no backend** que verifique mensagens recebidas contra as automações cadastradas. O webhook `webhook-n8n-instance` recebe mensagens inbound, salva no banco, mas nunca consulta a tabela `automations` para verificar keyword ou trigger_type.
+Plano de correção
 
-Além disso, a automação cadastrada tem `keyword: null` e `trigger_type: first_message` — ou seja, nem a palavra-chave foi salva.
+1. Unificar a fonte de verdade do gatilho
+- Ajustar `src/pages/Automations.tsx` para, no salvar:
+  - localizar o nó `trigger` dentro de `flow_data.nodes`
+  - extrair dele `triggerType` e `keyword`
+  - gravar esses valores nas colunas `trigger_type` e `keyword`
+- Se o header também continuar exibindo gatilho/palavra-chave, ele deve ser sincronizado com o nó trigger ao abrir/editar a automação.
 
-## Plano de implementação
+2. Tornar o backend resiliente a dados antigos ou inconsistentes
+- Ajustar `supabase/functions/webhook-n8n-instance/index.ts` para buscar também `flow_data`.
+- Antes de verificar match:
+  - usar `trigger_type/keyword` da tabela se estiverem corretos
+  - se estiverem vazios ou divergentes, derivar o gatilho do nó `trigger` salvo no `flow_data`
+- Assim o disparo funciona mesmo para automações antigas já salvas com dados errados.
 
-### 1. Corrigir salvamento de keyword/trigger_type na UI
+3. Corrigir automações já existentes
+- Criar uma migração para backfill da tabela `automations`, copiando:
+  - `triggerType` do nó `trigger` → `trigger_type`
+  - `keyword` do nó `trigger` → `keyword`
+- Isso corrige imediatamente as automações já criadas, sem exigir recriar tudo.
 
-**Arquivo**: `src/pages/Automations.tsx`
+4. Melhorar logs do disparo
+- No webhook, registrar:
+  - texto recebido
+  - gatilho efetivo resolvido
+  - motivo do match ou não-match
+- Ao chamar `execute-automation`, parar de fazer apenas fire-and-forget:
+  - capturar status da resposta
+  - logar erro de execução se a função responder 4xx/5xx
+- Isso evita novo “silêncio” quando algo falhar.
 
-- Adicionar campos no formulário do builder para configurar `trigger_type` (dropdown: `keyword`, `first_message`, `all_messages`) e `keyword` (input texto, visível quando trigger_type = keyword).
-- Passar esses valores para `createAutomation.mutate()` e `updateAutomation.mutate()`.
+5. Validar o fluxo completo
+- Testar o cenário real:
+  - automação ativa com gatilho por palavra-chave
+  - mensagem inbound contendo a palavra
+  - criação dos logs
+  - incremento de `execution_count`
+  - atualização de `last_execution`
+  - envio da resposta automática no chat
 
-### 2. Adicionar motor de execução de automações no webhook
+Arquivos impactados
+- `src/pages/Automations.tsx`
+- `supabase/functions/webhook-n8n-instance/index.ts`
+- migração SQL para `automations`
 
-**Arquivo**: `supabase/functions/webhook-n8n-instance/index.ts`
-
-Após o upsert de mensagem inbound (dentro do bloco `if (messageDirection === "inbound")`), adicionar lógica:
-
-```text
-1. Consultar automações ativas da empresa:
-   SELECT * FROM automations 
-   WHERE company_id = X AND status = 'active'
-
-2. Para cada automação, verificar match:
-   - trigger_type = 'keyword' → conteúdo da mensagem contém a keyword
-   - trigger_type = 'first_message' → é a primeira mensagem do contato (conversation recém-criada)
-   - trigger_type = 'all_messages' → sempre dispara
-
-3. Se match, executar o fluxo:
-   - Percorrer nodes/edges do flow_data
-   - Para nó tipo "message": enviar mensagem via edge function send-message
-   - Para nó tipo "delay": agendar próximo passo (simplificado: inline delay)
-   - Para nó tipo "condition": avaliar e seguir branch correto
-   - Incrementar execution_count e last_execution na automação
-```
-
-### 3. Criar edge function dedicada `execute-automation`
-
-**Arquivo**: `supabase/functions/execute-automation/index.ts`
-
-Função separada para executar o fluxo, chamada pelo webhook. Recebe `automation_id`, `contact_id`, `conversation_id`, `company_id`. Percorre o grafo de nodes/edges e executa cada ação sequencialmente.
-
-Ações suportadas inicialmente:
-- **message**: envia mensagem de texto ao contato (insere na tabela messages + chama proxy-n8n ou send-message)
-- **delay**: aguarda N segundos (limitado a delays curtos; delays longos precisariam de job queue)
-- **question**: envia mensagem e aguarda resposta (v1: apenas envia, sem aguardar)
-
-### 4. Vincular trigger no webhook
-
-**Arquivo**: `supabase/functions/webhook-n8n-instance/index.ts`
-
-No final do bloco `upsert_message` para mensagens inbound, chamar a nova função `execute-automation` via fetch interno do Supabase.
-
-### Arquivos impactados
-
-| Arquivo | Mudança |
-|---|---|
-| `src/pages/Automations.tsx` | Campos keyword/trigger_type no builder |
-| `supabase/functions/execute-automation/index.ts` | Nova edge function — motor de execução |
-| `supabase/functions/webhook-n8n-instance/index.ts` | Trigger de automação em mensagens inbound |
-
-### Limitações da v1
-- Delays longos (> 30s) não funcionarão inline — precisariam de job scheduling futuro
-- Nós de "pergunta" apenas enviam a mensagem, sem aguardar resposta
-- Condições avaliam apenas regras simples (contém texto, tag do contato)
-
+Detalhes técnicos
+- Causa raiz: hoje existem 2 lugares para configurar gatilho:
+  1. campos do topo da tela
+  2. dados do nó visual `trigger`
+- Esses dois pontos ficaram dessincronizados.
+- A correção ideal é garantir consistência no save e tolerância no backend.
+- Com isso, mesmo que uma automação antiga esteja “quebrada” no banco, o webhook ainda consegue dispará-la corretamente.
