@@ -131,6 +131,20 @@ const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flow
     setSelectedNode(null);
   }, []);
 
+  const onNodesDelete = useCallback((deleted: Node[]) => {
+    const deletedIds = new Set(deleted.map((n) => n.id));
+    setEdges((eds) => eds.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target)));
+    if (selectedNode && deletedIds.has(selectedNode.id)) {
+      setSelectedNode(null);
+    }
+  }, [setEdges, selectedNode]);
+
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+    if (selectedNode?.id === nodeId) setSelectedNode(null);
+  }, [setNodes, setEdges, selectedNode]);
+
   const handleNodeUpdate = useCallback((nodeId: string, data: any) => {
     setNodes((nds) =>
       nds.map((node) => {
