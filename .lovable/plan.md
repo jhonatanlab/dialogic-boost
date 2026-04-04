@@ -1,53 +1,71 @@
 
-Objetivo: fazer o modal de campanha refletir exatamente os mesmos eventos que já aparecem no chat (Entregue/Lido/Respondeu), sem perder atualização.
 
-Diagnóstico confirmado
-- O problema principal está no banco, não no modal: a constraint atual de `campaign_contacts.status` aceita só `pending/sent/failed/delivered`.
-- O webhook está tentando gravar `read` e `replied`, mas falha (já aparece nos logs: `campaign_contacts_status_check`), então o chat atualiza (tabela `messages`) e o modal não (tabela `campaign_contacts`).
+## Problema
 
-Plano de implementação
+A automação está salva no banco (`automations` table), mas **não existe nenhuma lógica no backend** que verifique mensagens recebidas contra as automações cadastradas. O webhook `webhook-n8n-instance` recebe mensagens inbound, salva no banco, mas nunca consulta a tabela `automations` para verificar keyword ou trigger_type.
 
-1) Corrigir a constraint de status da tabela `campaign_contacts` (migração)
-- Criar migração para:
-  - remover `campaign_contacts_status_check` atual;
-  - recriar permitindo: `pending`, `sent`, `delivered`, `read`, `replied`, `failed`.
-- Isso destrava imediatamente gravações de “Lido” e “Respondeu” que hoje estão sendo bloqueadas.
+Além disso, a automação cadastrada tem `keyword: null` e `trigger_type: first_message` — ou seja, nem a palavra-chave foi salva.
 
-2) Backfill dos registros já afetados (na mesma migração)
-- Reconciliar `campaign_contacts` com base nas mensagens já salvas:
-  - outbound de campanha (`client_message_id` no padrão `campaign|{campaignId}|{contactId}`) para subir até `read` quando aplicável;
-  - inbound dentro da janela de 24h para subir para `replied` quando aplicável.
-- Aplicar por prioridade (nunca regredir status).
+## Plano de implementação
 
-3) Ajuste de robustez no webhook `webhook-n8n-instance`
-- Manter uso da RPC `update_campaign_contact_status` como caminho principal.
-- Melhorar logs de sync para diferenciar claramente:
-  - sucesso,
-  - ignorado por prioridade,
-  - campanha não resolvida.
-- Garantir que o tracking de resposta continue somente para campanhas elegíveis (sem falsos positivos).
+### 1. Corrigir salvamento de keyword/trigger_type na UI
 
-4) Garantia visual no modal
-- Manter `campaign_contacts` como fonte do modal (já está correto em conceito).
-- Adicionar refetch de segurança enquanto o modal estiver aberto (ex.: intervalo curto) para cobrir eventual perda de evento realtime, mantendo os cards consistentes com o backend.
+**Arquivo**: `src/pages/Automations.tsx`
 
-Arquivos impactados
-- `supabase/migrations/<nova_migracao>.sql`
-  - ajuste da constraint + backfill de status
-- `supabase/functions/webhook-n8n-instance/index.ts`
-  - robustez de reconciliação/logs
-- `src/components/campaigns/CampaignDetailsModal.tsx`
-  - refetch de segurança com modal aberto
+- Adicionar campos no formulário do builder para configurar `trigger_type` (dropdown: `keyword`, `first_message`, `all_messages`) e `keyword` (input texto, visível quando trigger_type = keyword).
+- Passar esses valores para `createAutomation.mutate()` e `updateAutomation.mutate()`.
 
-Validação (fim a fim)
-1. Disparar campanha para 1 contato.
-2. Confirmar sequência no banco: `sent -> delivered -> read -> replied`.
-3. Confirmar no modal, sem fechar/reabrir:
-   - Entregues sobe quando entregar,
-   - Lidos sobe quando ler,
-   - Respostas sobe ao responder.
-4. Confirmar nos logs que não existe mais erro de `campaign_contacts_status_check`.
+### 2. Adicionar motor de execução de automações no webhook
 
-Detalhe técnico importante
-- A função atômica `update_campaign_contact_status` já está correta para prioridade; o bloqueio real é a constraint antiga da tabela.
-- Sem corrigir essa constraint, qualquer tentativa de gravar `read/replied` continuará falhando, mesmo com webhook e modal corretos.
+**Arquivo**: `supabase/functions/webhook-n8n-instance/index.ts`
+
+Após o upsert de mensagem inbound (dentro do bloco `if (messageDirection === "inbound")`), adicionar lógica:
+
+```text
+1. Consultar automações ativas da empresa:
+   SELECT * FROM automations 
+   WHERE company_id = X AND status = 'active'
+
+2. Para cada automação, verificar match:
+   - trigger_type = 'keyword' → conteúdo da mensagem contém a keyword
+   - trigger_type = 'first_message' → é a primeira mensagem do contato (conversation recém-criada)
+   - trigger_type = 'all_messages' → sempre dispara
+
+3. Se match, executar o fluxo:
+   - Percorrer nodes/edges do flow_data
+   - Para nó tipo "message": enviar mensagem via edge function send-message
+   - Para nó tipo "delay": agendar próximo passo (simplificado: inline delay)
+   - Para nó tipo "condition": avaliar e seguir branch correto
+   - Incrementar execution_count e last_execution na automação
+```
+
+### 3. Criar edge function dedicada `execute-automation`
+
+**Arquivo**: `supabase/functions/execute-automation/index.ts`
+
+Função separada para executar o fluxo, chamada pelo webhook. Recebe `automation_id`, `contact_id`, `conversation_id`, `company_id`. Percorre o grafo de nodes/edges e executa cada ação sequencialmente.
+
+Ações suportadas inicialmente:
+- **message**: envia mensagem de texto ao contato (insere na tabela messages + chama proxy-n8n ou send-message)
+- **delay**: aguarda N segundos (limitado a delays curtos; delays longos precisariam de job queue)
+- **question**: envia mensagem e aguarda resposta (v1: apenas envia, sem aguardar)
+
+### 4. Vincular trigger no webhook
+
+**Arquivo**: `supabase/functions/webhook-n8n-instance/index.ts`
+
+No final do bloco `upsert_message` para mensagens inbound, chamar a nova função `execute-automation` via fetch interno do Supabase.
+
+### Arquivos impactados
+
+| Arquivo | Mudança |
+|---|---|
+| `src/pages/Automations.tsx` | Campos keyword/trigger_type no builder |
+| `supabase/functions/execute-automation/index.ts` | Nova edge function — motor de execução |
+| `supabase/functions/webhook-n8n-instance/index.ts` | Trigger de automação em mensagens inbound |
+
+### Limitações da v1
+- Delays longos (> 30s) não funcionarão inline — precisariam de job scheduling futuro
+- Nós de "pergunta" apenas enviam a mensagem, sem aguardar resposta
+- Condições avaliam apenas regras simples (contém texto, tag do contato)
+
