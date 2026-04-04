@@ -15,7 +15,7 @@ interface NodeConfigPanelProps {
   onDelete?: (nodeId: string) => void;
 }
 
-export function NodeConfigPanel({ node, onClose, onUpdate }: NodeConfigPanelProps) {
+export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfigPanelProps) {
   const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
