@@ -222,7 +222,7 @@ const Automations = () => {
                     <Button variant="outline" onClick={() => setActiveTab("list")}>
                       Cancelar
                     </Button>
-                    <Button className="gap-2" onClick={handleSaveFlow.bind(null, flowDataRef.current?.nodes || [], flowDataRef.current?.edges || [])}>
+                    <Button className="gap-2" onClick={() => flowBuilderRef.current?.save()}>
                       <Play className="h-4 w-4" />
                       Salvar e Ativar
                     </Button>
