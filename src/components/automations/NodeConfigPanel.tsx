@@ -12,6 +12,7 @@ interface NodeConfigPanelProps {
   node: Node | null;
   onClose: () => void;
   onUpdate: (nodeId: string, data: any) => void;
+  onDelete?: (nodeId: string) => void;
 }
 
 export function NodeConfigPanel({ node, onClose, onUpdate }: NodeConfigPanelProps) {
