@@ -237,7 +237,7 @@ const Automations = () => {
               </CardHeader>
             </Card>
             
-            <FlowBuilderWrapper flowId={editingFlowId || undefined} />
+            <FlowBuilderWrapper flowId={editingFlowId || undefined} onSave={handleSaveFlow} />
           </TabsContent>
         </Tabs>
       </div>
