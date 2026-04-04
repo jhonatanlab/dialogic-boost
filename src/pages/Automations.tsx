@@ -286,32 +286,6 @@ const Automations = () => {
                     </Button>
                     </div>
                   </div>
-                  <div className="flex items-end gap-4 border-t pt-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-sm">Tipo de gatilho</Label>
-                      <Select value={triggerType} onValueChange={setTriggerType}>
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="keyword">Palavra-chave</SelectItem>
-                          <SelectItem value="first_message">Primeira mensagem</SelectItem>
-                          <SelectItem value="all_messages">Todas as mensagens</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {triggerType === "keyword" && (
-                      <div className="space-y-1.5">
-                        <Label className="text-sm">Palavra-chave</Label>
-                        <Input
-                          placeholder="Ex: oi, menu, ajuda..."
-                          value={keyword}
-                          onChange={(e) => setKeyword(e.target.value)}
-                          className="w-[250px]"
-                        />
-                      </div>
-                    )}
-                  </div>
                 </div>
               </CardHeader>
             </Card>
