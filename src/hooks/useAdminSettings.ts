@@ -47,10 +47,18 @@ export function useAdminSettings() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Não autenticado");
 
+      // Get company_id from profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", userData.user.id)
+        .maybeSingle();
+
       const upserts = Object.entries(values).map(([key, value]) => ({
         user_id: userData.user!.id,
         setting_key: key,
         setting_value: value,
+        company_id: profile?.company_id ?? null,
       }));
 
       for (const upsert of upserts) {

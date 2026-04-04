@@ -167,27 +167,69 @@ Deno.serve(async (req) => {
 
           // Try to send via n8n proxy
           try {
-            const { data: settings } = await supabase
+            // Layered lookup: company_id → user_id → any
+            let sendEndpoint: string | null = null;
+            let resolvedVia = "";
+
+            // 1. By company_id
+            const { data: s1 } = await supabase
               .from("admin_settings")
               .select("setting_value")
               .eq("setting_key", "n8n_send_message")
               .eq("company_id", company_id)
               .maybeSingle();
-
-            if (!settings?.setting_value) {
-              console.error("[execute-automation] n8n_send_message endpoint not found for company", company_id);
+            if (s1?.setting_value) {
+              sendEndpoint = s1.setting_value;
+              resolvedVia = "company_id";
             }
 
-            if (settings?.setting_value) {
+            // 2. By user_id (owner)
+            if (!sendEndpoint) {
+              const { data: s2 } = await supabase
+                .from("admin_settings")
+                .select("setting_value")
+                .eq("setting_key", "n8n_send_message")
+                .eq("user_id", userId)
+                .maybeSingle();
+              if (s2?.setting_value) {
+                sendEndpoint = s2.setting_value;
+                resolvedVia = "user_id";
+              }
+            }
+
+            // 3. Fallback: any record with this key
+            if (!sendEndpoint) {
+              const { data: s3 } = await supabase
+                .from("admin_settings")
+                .select("setting_value")
+                .eq("setting_key", "n8n_send_message")
+                .not("setting_value", "is", null)
+                .limit(1)
+                .maybeSingle();
+              if (s3?.setting_value) {
+                sendEndpoint = s3.setting_value;
+                resolvedVia = "fallback";
+              }
+            }
+
+            if (!sendEndpoint) {
+              console.error("[execute-automation] n8n_send_message endpoint NOT FOUND for company", company_id, "user", userId);
+            } else {
+              console.log(`[execute-automation] Resolved endpoint via ${resolvedVia}: ${sendEndpoint}`);
+
               const { data: instance } = await supabase
                 .from("whatsapp_instances")
                 .select("instance_id, instance_token")
                 .eq("company_id", company_id)
                 .maybeSingle();
 
-              if (instance) {
+              if (!instance) {
+                console.error("[execute-automation] No WhatsApp instance found for company", company_id);
+              } else {
                 const phone = contact?.phone?.replace(/\D/g, "") || "";
-                await fetch(settings.setting_value, {
+                console.log(`[execute-automation] Sending to phone=${phone} instance=${instance.instance_id}`);
+
+                const resp = await fetch(sendEndpoint, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -196,7 +238,9 @@ Deno.serve(async (req) => {
                     text: msgContent,
                   }),
                 });
-                console.log(`[execute-automation] Message sent to ${phone}`);
+
+                const respText = await resp.text();
+                console.log(`[execute-automation] Send response: status=${resp.status} body=${respText.substring(0, 200)}`);
               }
             }
           } catch (sendErr) {
