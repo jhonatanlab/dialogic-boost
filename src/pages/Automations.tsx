@@ -69,11 +69,15 @@ const Automations = () => {
         name: automationName,
         flow_data: flowData,
         status: "active",
+        trigger_type: triggerType,
+        keyword: triggerType === "keyword" ? keyword : null,
       });
     } else {
       createAutomation.mutate({
         name: automationName,
         flow_data: flowData,
+        trigger_type: triggerType,
+        keyword: triggerType === "keyword" ? keyword : null,
       });
     }
     setActiveTab("list");
