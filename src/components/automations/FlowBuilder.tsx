@@ -167,9 +167,9 @@ const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flow
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          onNodeClick={onNodeClick}
-          onPaneClick={onPaneClick}
+          onNodesDelete={onNodesDelete}
           nodeTypes={nodeTypes}
+          deleteKeyCode={["Backspace", "Delete"]}
           fitView
           className="bg-muted/30"
         >
