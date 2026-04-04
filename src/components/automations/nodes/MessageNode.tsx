@@ -3,11 +3,11 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { MessageSquare } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface MessageNodeData {
+type MessageNodeData = Node<{
   label: string;
   message?: string;
   mediaUrl?: string;
-}
+}>;
 
 const MessageNode = memo(({ data, selected }: NodeProps<MessageNodeData>) => {
   return (

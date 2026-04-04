@@ -3,11 +3,11 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { Bot } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface AIAgentNodeData {
+type AIAgentNodeData = Node<{
   label: string;
   agentName?: string;
   prompt?: string;
-}
+}>;
 
 const AIAgentNode = memo(({ data, selected }: NodeProps<AIAgentNodeData>) => {
   return (

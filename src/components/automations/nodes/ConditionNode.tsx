@@ -3,10 +3,10 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { GitBranch } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface ConditionNodeData {
+type ConditionNodeData = Node<{
   label: string;
   condition?: string;
-}
+}>;
 
 const ConditionNode = memo(({ data, selected }: NodeProps<ConditionNodeData>) => {
   return (

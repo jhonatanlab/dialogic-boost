@@ -3,11 +3,11 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { Zap } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface TriggerNodeData {
+type TriggerNodeData = Node<{
   label: string;
   triggerType?: string;
   keyword?: string;
-}
+}>;
 
 const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>) => {
   return (

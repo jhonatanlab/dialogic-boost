@@ -3,11 +3,11 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { Clock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface DelayNodeData {
+type DelayNodeData = Node<{
   label: string;
   delay?: number;
   unit?: "seconds" | "minutes" | "hours" | "days";
-}
+}>;
 
 const DelayNode = memo(({ data, selected }: NodeProps<DelayNodeData>) => {
   const getUnitLabel = (unit?: string) => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Node } from "reactflow";
+import { type Node } from "@xyflow/react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

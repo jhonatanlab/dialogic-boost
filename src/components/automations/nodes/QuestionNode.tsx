@@ -3,11 +3,11 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { HelpCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface QuestionNodeData {
+type QuestionNodeData = Node<{
   label: string;
   question?: string;
   options?: string[];
-}
+}>;
 
 const QuestionNode = memo(({ data, selected }: NodeProps<QuestionNodeData>) => {
   return (

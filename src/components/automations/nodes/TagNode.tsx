@@ -3,11 +3,11 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { Tag } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface TagNodeData {
+type TagNodeData = Node<{
   label: string;
   action?: "add" | "remove";
   tagName?: string;
-}
+}>;
 
 const TagNode = memo(({ data, selected }: NodeProps<TagNodeData>) => {
   return (

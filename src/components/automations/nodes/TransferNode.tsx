@@ -3,11 +3,11 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { UserPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-interface TransferNodeData {
+type TransferNodeData = Node<{
   label: string;
   teamId?: string;
   teamName?: string;
-}
+}>;
 
 const TransferNode = memo(({ data, selected }: NodeProps<TransferNodeData>) => {
   return (
