@@ -255,40 +255,33 @@ const Automations = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="builder" className="mt-6">
-            <Card className="mb-4">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <Input
-                        placeholder="Nome da automação..."
-                        className="max-w-xs font-semibold"
-                        value={automationName}
-                        onChange={(e) => setAutomationName(e.target.value)}
-                      />
-                    </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => setActiveTab("list")}>
-                      Cancelar
-                    </Button>
-                    <Button
-                      className="gap-2"
-                      onClick={handleSave}
-                      disabled={createAutomation.isPending || updateAutomation.isPending}
-                    >
-                      {(createAutomation.isPending || updateAutomation.isPending) ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                      Salvar e Ativar
-                    </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
+          <TabsContent value="builder" className="mt-2">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <Input
+                placeholder="Nome da automação..."
+                className="max-w-xs font-semibold h-9"
+                value={automationName}
+                onChange={(e) => setAutomationName(e.target.value)}
+              />
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setActiveTab("list")}>
+                  Cancelar
+                </Button>
+                <Button
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleSave}
+                  disabled={createAutomation.isPending || updateAutomation.isPending}
+                >
+                  {(createAutomation.isPending || updateAutomation.isPending) ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  Salvar e Ativar
+                </Button>
+              </div>
+            </div>
             
             <FlowBuilderWrapper
               flowId={editingFlowId || undefined}

@@ -157,7 +157,7 @@ const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flow
   }, [setNodes]);
 
   return (
-    <div className="flex h-[calc(100vh-12rem)] border rounded-lg overflow-hidden bg-background">
+    <div className="flex h-[calc(100vh-10rem)] border rounded-lg overflow-hidden bg-background">
       <FlowSidebar />
       
       <div className="flex-1" ref={reactFlowWrapper} onDrop={onDrop} onDragOver={onDragOver}>
