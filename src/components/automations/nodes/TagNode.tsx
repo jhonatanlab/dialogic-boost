@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Handle, Position, NodeProps } from "reactflow";
+import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { Tag } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
