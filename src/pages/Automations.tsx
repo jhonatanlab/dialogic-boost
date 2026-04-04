@@ -29,6 +29,8 @@ const Automations = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
   const [automationName, setAutomationName] = useState("Nova Automação");
+  const [triggerType, setTriggerType] = useState<string>("keyword");
+  const [keyword, setKeyword] = useState("");
   const flowBuilderRef = useRef<FlowBuilderHandle>(null);
 
   const { automations, isLoading, createAutomation, updateAutomation, deleteAutomation, toggleStatus } = useAutomations();
