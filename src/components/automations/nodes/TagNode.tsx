@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Handle, Position, NodeProps } from "reactflow";
+import { Handle, Position } from "@xyflow/react";
 import { Tag } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
@@ -9,7 +9,7 @@ interface TagNodeData {
   tagName?: string;
 }
 
-const TagNode = memo(({ data, selected }: NodeProps<TagNodeData>) => {
+const TagNode = memo(({ data, selected }: { data: TagNodeData; selected?: boolean }) => {
   return (
     <Card className={`p-3 min-w-[200px] border-2 transition-colors ${selected ? 'border-primary shadow-lg' : 'border-border'}`}>
       <Handle type="target" position={Position.Top} className="!bg-primary !w-3 !h-3" />

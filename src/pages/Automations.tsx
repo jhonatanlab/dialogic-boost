@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { FlowBuilderWrapper } from "@/components/automations/FlowBuilder";
+import { FlowBuilderWrapper, type FlowBuilderHandle } from "@/components/automations/FlowBuilder";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,6 +49,7 @@ const Automations = () => {
   const [activeTab, setActiveTab] = useState("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
+  const flowBuilderRef = useRef<FlowBuilderHandle>(null);
 
   const filteredAutomations = mockAutomations.filter((auto) =>
     auto.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -221,7 +222,7 @@ const Automations = () => {
                     <Button variant="outline" onClick={() => setActiveTab("list")}>
                       Cancelar
                     </Button>
-                    <Button className="gap-2">
+                    <Button className="gap-2" onClick={() => flowBuilderRef.current?.save()}>
                       <Play className="h-4 w-4" />
                       Salvar e Ativar
                     </Button>
@@ -230,7 +231,7 @@ const Automations = () => {
               </CardHeader>
             </Card>
             
-            <FlowBuilderWrapper flowId={editingFlowId || undefined} />
+            <FlowBuilderWrapper flowId={editingFlowId || undefined} builderRef={flowBuilderRef} />
           </TabsContent>
         </Tabs>
       </div>

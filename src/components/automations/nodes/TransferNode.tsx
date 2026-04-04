@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Handle, Position, NodeProps } from "reactflow";
+import { Handle, Position } from "@xyflow/react";
 import { UserPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
@@ -9,7 +9,7 @@ interface TransferNodeData {
   teamName?: string;
 }
 
-const TransferNode = memo(({ data, selected }: NodeProps<TransferNodeData>) => {
+const TransferNode = memo(({ data, selected }: { data: TransferNodeData; selected?: boolean }) => {
   return (
     <Card className={`p-3 min-w-[200px] border-2 transition-colors ${selected ? 'border-primary shadow-lg' : 'border-border'}`}>
       <Handle type="target" position={Position.Top} className="!bg-primary !w-3 !h-3" />
