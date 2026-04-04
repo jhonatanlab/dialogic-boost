@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useState, useRef, useImperativeHandle, forwardRef } from "react";
 import {
   ReactFlow,
   type Node,
@@ -49,20 +49,32 @@ const initialNodes: Node[] = [
 
 const initialEdges: Edge[] = [];
 
-interface FlowBuilderProps {
+export interface FlowBuilderProps {
   flowId?: string;
   onSave?: (nodes: Node[], edges: Edge[]) => void;
+}
+
+export interface FlowBuilderHandle {
+  save: () => void;
 }
 
 let id = 0;
 const getId = () => `node_${id++}`;
 
-function FlowBuilderInner({ flowId, onSave }: FlowBuilderProps) {
+const FlowBuilderInner = forwardRef<FlowBuilderHandle, FlowBuilderProps>(({ flowId, onSave }, ref) => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const { screenToFlowPosition } = useReactFlow();
+
+  useImperativeHandle(ref, () => ({
+    save: () => {
+      const flowData = { nodes, edges };
+      console.log("Flow JSON:", JSON.stringify(flowData, null, 2));
+      onSave?.(nodes, edges);
+    },
+  }), [nodes, edges, onSave]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: 'hsl(var(--primary))' } }, eds)),
@@ -79,10 +91,7 @@ function FlowBuilderInner({ flowId, onSave }: FlowBuilderProps) {
       event.preventDefault();
 
       const type = event.dataTransfer.getData("application/reactflow");
-
-      if (typeof type === "undefined" || !type) {
-        return;
-      }
+      if (!type) return;
 
       const position = screenToFlowPosition({
         x: event.clientX,
@@ -131,12 +140,6 @@ function FlowBuilderInner({ flowId, onSave }: FlowBuilderProps) {
     );
   }, [setNodes]);
 
-  const handleSave = useCallback(() => {
-    const flowData = { nodes, edges };
-    console.log("Flow JSON:", JSON.stringify(flowData, null, 2));
-    onSave?.(nodes, edges);
-  }, [nodes, edges, onSave]);
-
   return (
     <div className="flex h-[calc(100vh-12rem)] border rounded-lg overflow-hidden bg-background">
       <FlowSidebar />
@@ -173,18 +176,14 @@ function FlowBuilderInner({ flowId, onSave }: FlowBuilderProps) {
       )}
     </div>
   );
-}
+});
 
-export function FlowBuilder(props: FlowBuilderProps) {
-  return <FlowBuilderInner {...props} />;
-}
+FlowBuilderInner.displayName = "FlowBuilderInner";
 
-export function FlowBuilderWrapper(props: FlowBuilderProps) {
+export function FlowBuilderWrapper({ flowId, onSave, builderRef }: FlowBuilderProps & { builderRef?: React.Ref<FlowBuilderHandle> }) {
   return (
     <ReactFlowProvider>
-      <FlowBuilderInner {...props} />
+      <FlowBuilderInner ref={builderRef} flowId={flowId} onSave={onSave} />
     </ReactFlowProvider>
   );
 }
-
-export { type FlowBuilderProps };
