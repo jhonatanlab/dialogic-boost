@@ -79,7 +79,7 @@ const Settings = () => {
             >
               <div className="flex items-start gap-4">
                 <div className={`p-3 rounded-2xl bg-accent ${card.color}`}>
-                  <card.icon className="h-6 w-6" />
+                  <card.icon className="h-6 w-6 text-primary-foreground" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors">
