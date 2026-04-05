@@ -346,7 +346,7 @@ Deno.serve(async (req) => {
 
       const { data: instance, error } = await supabase
         .from("whatsapp_instances")
-        .select("*")
+        .select("id, company_id, company_name, instance_id, status, created_at, updated_at")
         .eq("company_id", company_id)
         .maybeSingle();
       if (error) throw error;
