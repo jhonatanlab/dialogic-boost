@@ -50,7 +50,7 @@ export function AppSidebar() {
       collapsible="icon"
       style={{ borderRight: "1px solid rgba(0, 212, 212, 0.2)" }}
     >
-      <SidebarContent className="bg-white">
+      <SidebarContent style={{ background: "#0C1A3B" }}>
         {/* Logo */}
         <div className="p-4">
           <div className="flex items-center gap-2">
@@ -63,7 +63,7 @@ export function AppSidebar() {
             {!isCollapsed && (
               <span className="font-bold text-lg">
                 <span style={{ color: "#00D4D4" }}>ELO</span>
-                <span style={{ color: "#1A2B5C" }}>CHAT</span>
+                <span style={{ color: "#FFFFFF" }}>CHAT</span>
               </span>
             )}
           </div>
@@ -94,13 +94,13 @@ export function AppSidebar() {
                           background: active
                             ? "rgba(0, 212, 212, 0.12)"
                             : "transparent",
-                          color: active ? "#1A2B5C" : "#8A9AB0",
+                          color: active ? "#FFFFFF" : "rgba(255,255,255,0.6)",
                           fontWeight: active ? 600 : 400,
                         }}
                       >
                         <item.icon
                           className="h-4 w-4"
-                          style={{ color: active ? "#00D4D4" : "#8A9AB0" }}
+                          style={{ color: active ? "#00D4D4" : "rgba(255,255,255,0.5)" }}
                         />
                         {!isCollapsed && <span>{item.title}</span>}
                       </NavLink>

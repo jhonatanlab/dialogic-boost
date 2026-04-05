@@ -149,14 +149,14 @@
 /* Sidebar menu item hover & active overrides */
 [data-sidebar="menu-button"]:hover {
   background: rgba(0, 212, 212, 0.07) !important;
-  color: #1A2B5C !important;
+  color: #FFFFFF !important;
 }
 [data-sidebar="menu-button"]:hover svg {
   color: #00D4D4 !important;
 }
 [data-sidebar="menu-button"][data-active="true"] {
   background: rgba(0, 212, 212, 0.12) !important;
-  color: #1A2B5C !important;
+  color: #FFFFFF !important;
   font-weight: 600 !important;
 }
 [data-sidebar="menu-button"][data-active="true"] svg {
