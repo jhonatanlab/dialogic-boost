@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { Bell, User } from "lucide-react";
@@ -17,9 +18,10 @@ import { toast } from "sonner";
 
 interface DashboardLayoutProps {
   children: ReactNode;
+  noPadding?: boolean;
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -68,7 +70,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </header>
           
-          <main className="flex-1 p-6 overflow-auto">
+          <main className={cn("flex-1 overflow-auto", !noPadding && "p-6")}>
             {children}
           </main>
         </div>

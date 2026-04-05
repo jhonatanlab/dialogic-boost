@@ -903,7 +903,7 @@ const Inbox = () => {
   })();
 
   return (
-    <DashboardLayout>
+    <DashboardLayout noPadding>
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
         {/* ─── Col 1: Conversations ─── */}
         <div className="w-[340px] border-r border-border flex flex-col bg-card shrink-0">
