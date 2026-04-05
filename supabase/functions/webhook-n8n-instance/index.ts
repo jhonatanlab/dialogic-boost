@@ -69,6 +69,17 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Validate shared secret for webhook authentication
+    const expectedSecret = Deno.env.get("N8N_WEBHOOK_SECRET");
+    if (expectedSecret) {
+      const incomingSecret = req.headers.get("x-webhook-secret");
+      if (incomingSecret !== expectedSecret) {
+        console.error("Webhook auth failed: invalid or missing x-webhook-secret header");
+        return json({ error: "Unauthorized" }, 401);
+      }
+    } else {
+      console.warn("N8N_WEBHOOK_SECRET not configured — webhook running without authentication");
+    }
     const rawBody = await req.text();
     if (!rawBody || rawBody.trim() === "") {
       return json({ error: "Empty request body" }, 400);
