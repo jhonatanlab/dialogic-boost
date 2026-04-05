@@ -2,125 +2,121 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 28%;
+    --background: 180 50% 96%;
+    --foreground: 224 55% 23%;
     
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 28%;
+    --card-foreground: 224 55% 23%;
     
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 28%;
+    --popover-foreground: 224 55% 23%;
     
-    --primary: 16 98% 57%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 180 100% 42%;
+    --primary-foreground: 222 65% 14%;
     
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 0%;
+    --secondary: 180 20% 93%;
+    --secondary-foreground: 224 55% 23%;
     
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 56%;
+    --muted: 180 20% 93%;
+    --muted-foreground: 218 17% 61%;
     
-    --accent: 16 98% 57%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 180 100% 42%;
+    --accent-foreground: 222 65% 14%;
     
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 16 98% 57%;
+    --border: 180 25% 85%;
+    --input: 180 25% 85%;
+    --ring: 180 100% 42%;
     
     --radius: 0.75rem;
     
-    --chat-outbound: 16 98% 57%;
+    --chat-outbound: 224 55% 23%;
     --chat-outbound-foreground: 0 0% 100%;
-    --chat-inbound: 0 0% 96%;
-    --chat-inbound-foreground: 0 0% 20%;
-    --chat-bg: 30 20% 95%;
-    --chat-tick-read: 210 100% 50%;
+    --chat-inbound: 0 0% 100%;
+    --chat-inbound-foreground: 224 55% 23%;
+    --chat-bg: 180 54% 97%;
+    --chat-tick-read: 180 100% 42%;
     
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 28%;
-    --sidebar-primary: 16 98% 57%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 96%;
-    --sidebar-accent-foreground: 0 0% 28%;
-    --sidebar-border: 0 0% 90%;
-    --sidebar-ring: 16 98% 57%;
+    --sidebar-background: 222 65% 14%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 180 100% 42%;
+    --sidebar-primary-foreground: 222 65% 14%;
+    --sidebar-accent: 180 100% 42%;
+    --sidebar-accent-foreground: 180 100% 42%;
+    --sidebar-border: 180 100% 42%;
+    --sidebar-ring: 180 100% 42%;
     
-    --chart-1: 16 98% 57%;
-    --chart-2: 16 82% 67%;
-    --chart-3: 16 70% 77%;
-    --chart-4: 0 0% 80%;
-    --chart-5: 0 0% 60%;
+    --chart-1: 180 100% 42%;
+    --chart-2: 180 100% 36%;
+    --chart-3: 180 100% 30%;
+    --chart-4: 224 55% 23%;
+    --chart-5: 222 65% 14%;
     
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     
-    --gradient-primary: linear-gradient(135deg, hsl(16 98% 57%) 0%, hsl(16 82% 67%) 100%);
-    --gradient-accent: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 98%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(222 65% 14%) 0%, hsl(224 55% 23%) 100%);
+    --gradient-accent: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(180 50% 96%) 100%);
     
     --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .dark {
-    --background: 0 0% 7%;
+    --background: 222 65% 14%;
     --foreground: 0 0% 98%;
     
-    --card: 0 0% 10%;
+    --card: 224 55% 23%;
     --card-foreground: 0 0% 98%;
     
-    --popover: 0 0% 10%;
+    --popover: 224 55% 23%;
     --popover-foreground: 0 0% 98%;
     
-    --primary: 16 98% 57%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 180 100% 42%;
+    --primary-foreground: 222 65% 14%;
     
-    --secondary: 0 0% 15%;
+    --secondary: 228 51% 29%;
     --secondary-foreground: 0 0% 98%;
     
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 228 51% 29%;
+    --muted-foreground: 218 17% 61%;
     
-    --accent: 16 98% 57%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 180 100% 42%;
+    --accent-foreground: 222 65% 14%;
     
     --destructive: 0 63% 45%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 0 0% 20%;
-    --input: 0 0% 20%;
-    --ring: 16 98% 57%;
+    --border: 209 52% 25%;
+    --input: 209 52% 25%;
+    --ring: 180 100% 42%;
     
-    --sidebar-background: 0 0% 10%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 16 98% 57%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 16 98% 57%;
+    --sidebar-background: 222 65% 14%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 180 100% 42%;
+    --sidebar-primary-foreground: 222 65% 14%;
+    --sidebar-accent: 180 100% 42%;
+    --sidebar-accent-foreground: 180 100% 42%;
+    --sidebar-border: 209 52% 25%;
+    --sidebar-ring: 180 100% 42%;
     
-    --chat-outbound: 16 80% 45%;
+    --chat-outbound: 224 55% 23%;
     --chat-outbound-foreground: 0 0% 100%;
-    --chat-inbound: 0 0% 18%;
+    --chat-inbound: 228 51% 29%;
     --chat-inbound-foreground: 0 0% 90%;
-    --chat-bg: 0 0% 10%;
-    --chat-tick-read: 210 100% 60%;
+    --chat-bg: 222 65% 14%;
+    --chat-tick-read: 180 100% 42%;
     
-    --chart-1: 16 98% 57%;
-    --chart-2: 16 82% 67%;
-    --chart-3: 16 70% 77%;
-    --chart-4: 0 0% 40%;
-    --chart-5: 0 0% 60%;
+    --chart-1: 180 100% 42%;
+    --chart-2: 180 100% 36%;
+    --chart-3: 180 100% 30%;
+    --chart-4: 218 17% 61%;
+    --chart-5: 224 55% 23%;
   }
 }
 
@@ -131,6 +127,22 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Custom scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(180 50% 96%);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 212, 212, 0.3);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 212, 212, 0.5);
   }
 }
 
