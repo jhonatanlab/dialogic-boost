@@ -6,10 +6,8 @@ import {
   Send,
   BarChart3,
   QrCode,
-  Brain,
   LayoutDashboard,
-  Settings,
-  Scan } from
+  Settings } from
 "lucide-react";
 import {
   Sidebar,
@@ -31,8 +29,6 @@ const menuItems = [
 { title: "Campanhas", url: "/campaigns", icon: Send },
 { title: "Relatórios", url: "/analytics", icon: BarChart3 },
 { title: "Check-in", url: "/checkin", icon: QrCode },
-{ title: "Processar Check-in", url: "/process-checkin", icon: Scan },
-{ title: "IA", url: "/ai", icon: Brain },
 { title: "Configurações", url: "/settings", icon: Settings }];
 
 
@@ -62,7 +58,7 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-xs tracking-widest uppercase opacity-50">Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) =>
