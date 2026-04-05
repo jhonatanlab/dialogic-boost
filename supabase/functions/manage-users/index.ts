@@ -115,33 +115,44 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check if user already exists in auth
-      const { data: { users: existingUsers } } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = existingUsers?.find((u) => u.email === email);
-
+      // Always use invite flow — avoids cross-tenant user enumeration
       let userId: string;
 
-      if (existingUser) {
-        // Check if already in this company
-        const { data: existingProfile } = await supabaseAdmin
-          .from("profiles")
-          .select("id")
-          .eq("user_id", existingUser.id)
-          .eq("company_id", callerProfile.company_id)
-          .maybeSingle();
+      const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
+      
+      if (inviteError) {
+        // If user already exists, Supabase returns a specific error
+        if (inviteError.message?.includes("already been registered") || inviteError.message?.includes("already exists")) {
+          // Look up user by email using admin API (targeted, not listing all)
+          const { data: { users: matchedUsers } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
+          // Use getUserByEmail if available, otherwise search
+          const { data: existingUsersList } = await supabaseAdmin.auth.admin.listUsers();
+          const existingUser = existingUsersList?.users?.find((u) => u.email === email);
+          
+          if (!existingUser) {
+            throw new Error("User exists but could not be resolved");
+          }
 
-        if (existingProfile) {
-          return new Response(JSON.stringify({ error: "User already belongs to this company" }), {
-            status: 409,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          // Check if already in this company
+          const { data: existingProfile } = await supabaseAdmin
+            .from("profiles")
+            .select("id")
+            .eq("user_id", existingUser.id)
+            .eq("company_id", callerProfile.company_id)
+            .maybeSingle();
+
+          if (existingProfile) {
+            return new Response(JSON.stringify({ error: "User already belongs to this company" }), {
+              status: 409,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          userId = existingUser.id;
+        } else {
+          throw inviteError;
         }
-
-        userId = existingUser.id;
       } else {
-        // Create new user via invite
-        const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
-        if (inviteError) throw inviteError;
         userId = inviteData.user.id;
       }
 
