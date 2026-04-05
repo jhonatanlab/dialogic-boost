@@ -261,7 +261,7 @@ const Contacts = () => {
       <TagsManager open={isTagsOpen} onOpenChange={setIsTagsOpen} />
 
       <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <SheetContent className="w-full sm:max-w-lg p-0">
+        <SheetContent className="w-full sm:max-w-lg p-0" hideClose>
           {activeContact && (
             <ContactDetails
               contact={activeContact}
