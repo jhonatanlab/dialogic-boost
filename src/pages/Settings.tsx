@@ -13,7 +13,7 @@ const Settings = () => {
       description: "Edite nome, logo e informações gerais.",
       action: () => navigate("/settings/company"),
       actionLabel: "Editar perfil",
-      color: "text-blue-500",
+      color: "text-blue-900",
     },
     {
       icon: MessageCircle,
