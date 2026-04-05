@@ -41,13 +41,13 @@
     --chat-bg: 180 54% 97%;
     --chat-tick-read: 180 100% 42%;
     
-    --sidebar-background: 222 65% 14%;
-    --sidebar-foreground: 0 0% 100%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 18% 50%;
     --sidebar-primary: 180 100% 42%;
     --sidebar-primary-foreground: 222 65% 14%;
-    --sidebar-accent: 222 65% 14%;
-    --sidebar-accent-foreground: 180 100% 42%;
-    --sidebar-border: 222 65% 20%;
+    --sidebar-accent: 180 100% 42%;
+    --sidebar-accent-foreground: 222 55% 23%;
+    --sidebar-border: 180 100% 42%;
     --sidebar-ring: 180 100% 42%;
     
     --chart-1: 180 100% 42%;
@@ -96,13 +96,13 @@
     --input: 209 52% 25%;
     --ring: 180 100% 42%;
     
-    --sidebar-background: 222 65% 14%;
-    --sidebar-foreground: 0 0% 100%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 18% 50%;
     --sidebar-primary: 180 100% 42%;
     --sidebar-primary-foreground: 222 65% 14%;
-    --sidebar-accent: 222 65% 14%;
-    --sidebar-accent-foreground: 180 100% 42%;
-    --sidebar-border: 209 52% 25%;
+    --sidebar-accent: 180 100% 42%;
+    --sidebar-accent-foreground: 222 55% 23%;
+    --sidebar-border: 180 100% 42%;
     --sidebar-ring: 180 100% 42%;
     
     --chat-outbound: 224 55% 23%;
