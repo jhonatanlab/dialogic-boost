@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 export const CheckinLinksManager = () => {
   const { checkinLinks, isLoading, createCheckinLink, deleteCheckinLink } = useCheckinLinks();
   const [newLinkName, setNewLinkName] = useState("");
+  const [newWhatsappNumber, setNewWhatsappNumber] = useState("");
   const [showQRCode, setShowQRCode] = useState(false);
   const [selectedLink, setSelectedLink] = useState("");
 
@@ -20,10 +21,15 @@ export const CheckinLinksManager = () => {
       toast.error("Digite um nome para o check-in");
       return;
     }
+    if (!newWhatsappNumber.trim()) {
+      toast.error("Digite o número de WhatsApp de destino");
+      return;
+    }
 
-    createCheckinLink.mutate(newLinkName, {
+    createCheckinLink.mutate({ name: newLinkName, whatsappNumber: newWhatsappNumber }, {
       onSuccess: () => {
         setNewLinkName("");
+        setNewWhatsappNumber("");
       },
     });
   };
@@ -55,7 +61,14 @@ export const CheckinLinksManager = () => {
               placeholder="Nome do check-in (ex: Garçom Gabriel, Mesa 3)"
               value={newLinkName}
               onChange={(e) => setNewLinkName(e.target.value)}
+              className="flex-1"
+            />
+            <Input
+              placeholder="WhatsApp (ex: 5511999999999)"
+              value={newWhatsappNumber}
+              onChange={(e) => setNewWhatsappNumber(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+              className="w-56"
             />
             <Button onClick={handleCreate} disabled={createCheckinLink.isPending}>
               <Plus className="h-4 w-4 mr-2" />
