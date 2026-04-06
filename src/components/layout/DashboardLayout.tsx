@@ -59,7 +59,7 @@ export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Perfil</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>Perfil</DropdownMenuItem>
                   <DropdownMenuItem>Configurações</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
