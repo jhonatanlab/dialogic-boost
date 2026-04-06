@@ -26,6 +26,9 @@ const WhatsappIntegrations = () => {
   const [generatingQr, setGeneratingQr] = useState(false);
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [automationInbound, setAutomationInbound] = useState("");
+  const [automationOutbound, setAutomationOutbound] = useState("");
   const { companyId } = useCompany();
 
   const { data: companyInstance } = useQuery({
