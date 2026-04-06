@@ -1,0 +1,1 @@
+ALTER TABLE public.checkin_links ADD COLUMN whatsapp_number text;

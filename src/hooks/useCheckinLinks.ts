@@ -7,6 +7,7 @@ export interface CheckinLink {
   user_id: string;
   name: string;
   url_token: string;
+  whatsapp_number: string | null;
   created_at: string;
 }
 
@@ -27,7 +28,7 @@ export const useCheckinLinks = () => {
   });
 
   const createCheckinLink = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, whatsappNumber }: { name: string; whatsappNumber: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
@@ -39,7 +40,8 @@ export const useCheckinLinks = () => {
           user_id: user.id,
           name,
           url_token: urlToken,
-        })
+          whatsapp_number: whatsappNumber.replace(/\D/g, ""),
+        } as any)
         .select()
         .single();
 

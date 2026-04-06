@@ -317,6 +317,7 @@ export type Database = {
           name: string
           url_token: string
           user_id: string
+          whatsapp_number: string | null
         }
         Insert: {
           company_id?: string | null
@@ -325,6 +326,7 @@ export type Database = {
           name: string
           url_token: string
           user_id: string
+          whatsapp_number?: string | null
         }
         Update: {
           company_id?: string | null
@@ -333,6 +335,7 @@ export type Database = {
           name?: string
           url_token?: string
           user_id?: string
+          whatsapp_number?: string | null
         }
         Relationships: [
           {
