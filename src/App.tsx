@@ -49,7 +49,7 @@ const App = () => (
             <Route path="/checkin" element={<CheckIn />} />
             <Route path="/checkin/:urlToken" element={<PublicCheckIn />} />
             
-          <Route path="/ai" element={<AI />} />
+          
           <Route path="/modelo-messages" element={<ModeloMessages />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/whatsapp-integrations" element={<WhatsappIntegrations />} />
