@@ -120,6 +120,7 @@ const AdminWhatsapp = () => {
       n8n_automation_enabled: "",
       n8n_automation_inbound: "",
       n8n_automation_outbound: "",
+      checkin_base_url: "",
     });
   };
 
