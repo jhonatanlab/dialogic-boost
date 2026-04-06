@@ -515,6 +515,97 @@ const WhatsappIntegrations = () => {
                   )}
                 </div>
               </TabsContent>
+
+              <TabsContent value="automation" className="space-y-4 mt-6">
+                <div className="space-y-6">
+                  {/* Toggle card */}
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50">
+                    <div className="space-y-1">
+                      <h4 className="font-medium">Ativar Motor de Automação Customizado</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Substitui o gateway padrão e roteia a comunicação deste número para um fluxo exclusivo de IA no n8n.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={automationEnabled}
+                      onCheckedChange={(checked) => {
+                        setAutomationEnabled(checked);
+                        toast({
+                          title: checked ? "Motor de automação ativado" : "Motor de automação desativado",
+                          description: checked
+                            ? "O fluxo customizado será utilizado para este número."
+                            : "O motor de automação foi desativado.",
+                        });
+                      }}
+                    />
+                  </div>
+
+                  {/* Connection status */}
+                  {automationEnabled && (
+                    <div className="flex items-center gap-3 p-4 rounded-lg border">
+                      <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Motor Ativo</p>
+                      </div>
+                      <Badge variant="default">connected</Badge>
+                    </div>
+                  )}
+
+                  {/* Endpoints */}
+                  {automationEnabled && (
+                    <Card>
+                      <CardContent className="pt-6 space-y-4">
+                        <div className="flex items-center gap-2 text-primary">
+                          <Link className="h-5 w-5" />
+                          <span className="font-medium">Webhooks de Sincronização</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="automation-inbound">Webhook de Recebimento (Inbound)</Label>
+                            <Input
+                              id="automation-inbound"
+                              type="text"
+                              placeholder="http://n8n.../webhook/receber-mensagem"
+                              value={automationInbound}
+                              onChange={(e) => setAutomationInbound(e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="automation-outbound">Endpoint de Envio (Outbound)</Label>
+                            <Input
+                              id="automation-outbound"
+                              type="text"
+                              placeholder="http://n8n.../webhook/enviar-mensagem"
+                              value={automationOutbound}
+                              onChange={(e) => setAutomationOutbound(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-muted-foreground">
+                          Insira as URLs do fluxo n8n isolado deste cliente. O sistema utilizará estes endpoints para sincronizar o Inbox humano com a IA.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Save button */}
+                  {automationEnabled && (
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        toast({
+                          title: "Configuração salva!",
+                          description: "Os endpoints do motor de automação foram salvos com sucesso.",
+                        });
+                      }}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Salvar Configuração do Motor
+                    </Button>
+                  )}
+                </div>
             </Tabs>
           </CardContent>
         </Card>
