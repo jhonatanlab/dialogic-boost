@@ -9,7 +9,7 @@ import {
   Brain,
   LayoutDashboard,
   Settings,
-  Scan,
+  
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,7 +31,7 @@ const menuItems = [
   { title: "Campanhas", url: "/campaigns", icon: Send },
   { title: "Relatórios", url: "/analytics", icon: BarChart3 },
   { title: "Check-in", url: "/checkin", icon: QrCode },
-  { title: "Processar Check-in", url: "/process-checkin", icon: Scan },
+  
   { title: "IA", url: "/ai", icon: Brain },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
