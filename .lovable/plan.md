@@ -1,41 +1,28 @@
 
 
-## Plano: Corrigir fluxo de Check-in público via WhatsApp
+## Plano: Corrigir URL do QR Code de Check-in
 
-### Problemas identificados
-
-1. **RLS bloqueia acesso público**: A tabela `checkin_links` exige `auth.uid() = user_id` para SELECT, e `checkin_records` exige usuário autenticado para INSERT. Usuários escaneando QR code não estão autenticados — a query falha silenciosamente e redireciona para `/`.
-
-2. **URL do WhatsApp sem número de telefone**: `https://wa.me/?text=...` não especifica o número da empresa, então o WhatsApp não sabe para quem enviar a mensagem.
-
-3. **Página renderiza dentro do app autenticado**: Como o usuário do QR code não está logado, ele cai no fluxo de redirecionamento.
+### Problema
+O QR code gerado usa `window.location.origin`, que no ambiente de desenvolvimento é a URL do Lovable preview (`id-preview--xxx.lovable.app`). Quando alguém externo escaneia o QR code, é levado para essa URL do Lovable em vez de um domínio de produção.
 
 ### Solução
+Adicionar um campo configurável de **domínio base** para os links de check-in, permitindo que a empresa defina a URL pública correta (ex: `https://meuapp.com`). Se não configurado, usa `window.location.origin` como fallback.
 
-**1. Criar Edge Function pública `public-checkin`**
-- Recebe o `urlToken` como parâmetro
-- Usa `SUPABASE_SERVICE_ROLE_KEY` para buscar o `checkin_link` (bypass de RLS)
-- Busca o número de WhatsApp da empresa (da tabela `whatsapp_integrations` ou `companies.phone`)
-- Gera o token de check-in e insere o registro em `checkin_records` (via service role)
-- Retorna: nome do link, token gerado, e número de WhatsApp da empresa
+### Alterações
 
-**2. Atualizar `PublicCheckIn.tsx`**
-- Em vez de chamar Supabase diretamente (que falha por RLS), chamar a Edge Function `public-checkin`
-- Usar o número de telefone retornado para montar `https://wa.me/{numero}?text=...`
-- Manter a UI de confirmação + redirecionamento automático
+**1. `src/components/checkin/CheckinLinksManager.tsx`**
+- Adicionar um campo de texto no topo para "URL base do check-in" (ex: `https://meuapp.lovable.app`)
+- Salvar essa configuração via `admin_settings` com a chave `checkin_base_url`
+- Usar essa URL base ao gerar o link do QR code e ao copiar o link, com fallback para `window.location.origin`
 
-**3. Guardar número de WhatsApp no checkin_link (opcional mas recomendado)**
-- Adicionar coluna `whatsapp_number` na tabela `checkin_links` via migration
-- Preencher ao criar o link (campo no formulário de criação)
-- A Edge Function usa esse número diretamente
+**2. `src/hooks/useAdminSettings.ts`**
+- Garantir que a chave `checkin_base_url` funcione com o hook existente de admin settings
 
-### Arquivos impactados
-- `supabase/functions/public-checkin/index.ts` — nova Edge Function
-- `src/pages/PublicCheckIn.tsx` — chamar Edge Function em vez de Supabase direto
-- Migration SQL — adicionar coluna `whatsapp_number` em `checkin_links`
-- `src/components/checkin/CheckinLinksManager.tsx` — campo para número WhatsApp
-- `src/hooks/useCheckinLinks.ts` — incluir `whatsapp_number` no create
+### Alternativa mais simples (recomendada)
+Se o app for publicado no Lovable (ex: `https://xxx.lovable.app`), basta **publicar o projeto** e o QR code automaticamente usará a URL correta. A URL de preview (`id-preview--`) é apenas para desenvolvimento.
 
-### Resultado
-Ao escanear o QR code, o usuário é redirecionado para o WhatsApp da empresa com uma mensagem pré-preenchida contendo o código do check-in — sem precisar estar logado no EloChat.
+### Resumo
+- A funcionalidade do check-in está correta (edge function funciona, redirecionamento WhatsApp funciona)
+- O problema é apenas que o QR code aponta para a URL de preview do Lovable
+- Solução: publicar o app ou adicionar campo configurável de URL base
 
