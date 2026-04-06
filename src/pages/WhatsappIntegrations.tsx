@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { MessageSquare, Copy, Check, Zap, QrCode, Loader2 } from "lucide-react";
+import { MessageSquare, Copy, Check, Zap, QrCode, Loader2, Link, Save } from "lucide-react";
 import { useWhatsappIntegrations, MetaCredentials, ZapiCredentials } from "@/hooks/useWhatsappIntegrations";
 import { useAdminSettings } from "@/hooks/useAdminSettings";
 import { useCompany } from "@/hooks/useCompany";
