@@ -204,7 +204,7 @@ const WhatsappIntegrations = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="meta" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="meta" className="flex items-center gap-2">
                   API Oficial Meta
                   {metaIntegration?.status === 'connected' ? (
