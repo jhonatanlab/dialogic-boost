@@ -117,6 +117,9 @@ const AdminWhatsapp = () => {
       n8n_generate_qr: qrEndpoint,
       n8n_delete_instance: deleteEndpoint,
       n8n_send_message: sendEndpoint,
+      n8n_automation_enabled: "",
+      n8n_automation_inbound: "",
+      n8n_automation_outbound: "",
     });
   };
 
