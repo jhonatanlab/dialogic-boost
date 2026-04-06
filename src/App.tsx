@@ -26,6 +26,7 @@ import Users from "./pages/Users";
 import Teams from "./pages/Teams";
 import CompanyProfile from "./pages/CompanyProfile";
 import ChatDistribution from "./pages/ChatDistribution";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
