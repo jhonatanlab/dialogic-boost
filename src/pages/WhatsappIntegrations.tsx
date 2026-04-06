@@ -606,6 +606,7 @@ const WhatsappIntegrations = () => {
                     </Button>
                   )}
                 </div>
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
