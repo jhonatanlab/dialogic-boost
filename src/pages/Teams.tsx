@@ -325,7 +325,7 @@ const Teams = () => {
     return opt?.label || ch;
   };
 
-  const AccessLevelSelector = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  const renderAccessLevelSelector = (value: string, onChange: (v: string) => void) => (
     <div className="space-y-2">
       <Label className="flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
@@ -374,7 +374,7 @@ const Teams = () => {
     </div>
   );
 
-  const TeamFormFields = ({ isCreate }: { isCreate: boolean }) => (
+  const renderTeamFormFields = (isCreate: boolean) => (
     <div className="space-y-5 py-2">
       <div className="space-y-2">
         <Label>Nome *</Label>
@@ -418,7 +418,7 @@ const Teams = () => {
       )}
 
       {/* Access level */}
-      <AccessLevelSelector value={accessLevel} onChange={setAccessLevel} />
+      {renderAccessLevelSelector(accessLevel, setAccessLevel)}
 
       {/* Channel */}
       <div className="space-y-2">
@@ -469,7 +469,7 @@ const Teams = () => {
               <DialogHeader>
                 <DialogTitle>Criar equipe</DialogTitle>
               </DialogHeader>
-              <TeamFormFields isCreate />
+              {renderTeamFormFields(true)}
               <DialogFooter>
                 <DialogClose asChild>
                   <Button variant="outline">Cancelar</Button>
@@ -488,7 +488,7 @@ const Teams = () => {
             <DialogHeader>
               <DialogTitle>Editar equipe</DialogTitle>
             </DialogHeader>
-            <TeamFormFields isCreate={false} />
+            {renderTeamFormFields(false)}
             <DialogFooter>
               <Button variant="outline" onClick={() => { setEditTeam(null); resetForm(); }}>Cancelar</Button>
               <Button onClick={() => updateMutation.mutate()} disabled={!teamName.trim() || updateMutation.isPending}>
