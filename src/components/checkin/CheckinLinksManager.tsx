@@ -1,20 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Copy, Trash2, Plus, QrCode } from "lucide-react";
+import { Copy, Trash2, Plus, QrCode, Globe, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useCheckinLinks } from "@/hooks/useCheckinLinks";
+import { useAdminSettings } from "@/hooks/useAdminSettings";
 import QRCode from "react-qr-code";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const CheckinLinksManager = () => {
   const { checkinLinks, isLoading, createCheckinLink, deleteCheckinLink } = useCheckinLinks();
+  const { getSettingValue, saveSettings } = useAdminSettings();
   const [newLinkName, setNewLinkName] = useState("");
   const [newWhatsappNumber, setNewWhatsappNumber] = useState("");
   const [showQRCode, setShowQRCode] = useState(false);
   const [selectedLink, setSelectedLink] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+
+  useEffect(() => {
+    const saved = getSettingValue("checkin_base_url");
+    if (saved) setBaseUrl(saved);
+  }, [getSettingValue]);
+
+  const getCheckinUrl = (urlToken: string) => {
+    const base = baseUrl.trim() || window.location.origin;
+    return `${base.replace(/\/$/, "")}/checkin/${urlToken}`;
+  };
+
+  const handleSaveBaseUrl = () => {
+    saveSettings.mutate({ checkin_base_url: baseUrl } as any, {
+      onSuccess: () => toast.success("URL base salva!"),
+    });
+  };
 
   const handleCreate = () => {
     if (!newLinkName.trim()) {
@@ -35,19 +54,43 @@ export const CheckinLinksManager = () => {
   };
 
   const copyToClipboard = (urlToken: string) => {
-    const url = `${window.location.origin}/checkin/${urlToken}`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(getCheckinUrl(urlToken));
     toast.success("Link copiado!");
   };
 
   const showQR = (urlToken: string) => {
-    const url = `${window.location.origin}/checkin/${urlToken}`;
-    setSelectedLink(url);
+    setSelectedLink(getCheckinUrl(urlToken));
     setShowQRCode(true);
   };
 
   return (
     <>
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            URL Base do Check-in
+          </CardTitle>
+          <CardDescription>
+            Defina o domínio público do seu app (ex: https://meuapp.lovable.app). Se vazio, usa a URL atual.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input
+              placeholder="https://meuapp.lovable.app"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleSaveBaseUrl} disabled={saveSettings.isPending}>
+              <Save className="h-4 w-4 mr-2" />
+              Salvar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Gerenciar Check-ins</CardTitle>
