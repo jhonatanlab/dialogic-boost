@@ -815,6 +815,47 @@ Deno.serve(async (req) => {
           );
         }
 
+        // ── Forward to custom automation inbound endpoint if configured ──
+        try {
+          const { data: autoEnabledSetting } = await supabase
+            .from("admin_settings")
+            .select("setting_value")
+            .eq("setting_key", "n8n_automation_enabled")
+            .eq("company_id", company_id)
+            .maybeSingle();
+
+          if (autoEnabledSetting?.setting_value === "true") {
+            const { data: autoInboundSetting } = await supabase
+              .from("admin_settings")
+              .select("setting_value")
+              .eq("setting_key", "n8n_automation_inbound")
+              .eq("company_id", company_id)
+              .maybeSingle();
+
+            if (autoInboundSetting?.setting_value) {
+              console.log("[upsert_message] Forwarding inbound to custom automation endpoint:", autoInboundSetting.setting_value);
+              const fwdPayload = {
+                company_id,
+                contact_id: contactId,
+                conversation_id: conversationId,
+                message_id,
+                phone: normalizedPhone,
+                text: messageContent,
+                contact_name: contact_name || normalizedPhone,
+                message_type: messageType,
+                media_url: media_url || null,
+              };
+              fetch(autoInboundSetting.setting_value, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(fwdPayload),
+              }).catch((err) => console.error("[automation-inbound-fwd] error:", err));
+            }
+          }
+        } catch (autoInboundErr) {
+          console.error("[upsert_message] automation inbound forward error:", autoInboundErr);
+        }
+
         // ── Trigger automations for inbound messages ──
         try {
           const { data: activeAutomations } = await supabase
