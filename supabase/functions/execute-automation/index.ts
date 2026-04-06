@@ -171,19 +171,43 @@ Deno.serve(async (req) => {
 
           // Try to send via n8n (same payload format as Inbox)
           try {
-            // Layered lookup: company_id → user_id → any
+            // Check custom automation engine first
             let sendEndpoint: string | null = null;
             let resolvedVia = "";
 
-            const { data: s1 } = await supabase
+            const { data: autoEnabled } = await supabase
               .from("admin_settings")
               .select("setting_value")
-              .eq("setting_key", "n8n_send_message")
+              .eq("setting_key", "n8n_automation_enabled")
               .eq("company_id", company_id)
               .maybeSingle();
-            if (s1?.setting_value) {
-              sendEndpoint = s1.setting_value;
-              resolvedVia = "company_id";
+
+            if (autoEnabled?.setting_value === "true") {
+              const { data: autoOutbound } = await supabase
+                .from("admin_settings")
+                .select("setting_value")
+                .eq("setting_key", "n8n_automation_outbound")
+                .eq("company_id", company_id)
+                .maybeSingle();
+              if (autoOutbound?.setting_value) {
+                sendEndpoint = autoOutbound.setting_value;
+                resolvedVia = "automation_outbound";
+                console.log("[execute-automation] Using custom automation outbound endpoint");
+              }
+            }
+
+            // Fallback: layered lookup for n8n_send_message
+            if (!sendEndpoint) {
+              const { data: s1 } = await supabase
+                .from("admin_settings")
+                .select("setting_value")
+                .eq("setting_key", "n8n_send_message")
+                .eq("company_id", company_id)
+                .maybeSingle();
+              if (s1?.setting_value) {
+                sendEndpoint = s1.setting_value;
+                resolvedVia = "company_id";
+              }
             }
 
             if (!sendEndpoint) {

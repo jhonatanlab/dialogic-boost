@@ -18,6 +18,9 @@ const SETTING_KEYS = [
   "n8n_generate_qr",
   "n8n_delete_instance",
   "n8n_send_message",
+  "n8n_automation_enabled",
+  "n8n_automation_inbound",
+  "n8n_automation_outbound",
 ] as const;
 
 type SettingKey = (typeof SETTING_KEYS)[number];

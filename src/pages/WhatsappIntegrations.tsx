@@ -91,6 +91,26 @@ const WhatsappIntegrations = () => {
     }
   }, [companyInstance, nativeInitialized]);
 
+  // Load automation settings from DB
+  useEffect(() => {
+    if (!companyId) return;
+    const loadAutomationSettings = async () => {
+      const { data } = await supabase
+        .from("admin_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", ["n8n_automation_enabled", "n8n_automation_inbound", "n8n_automation_outbound"]);
+      if (data) {
+        for (const row of data) {
+          if (row.setting_key === "n8n_automation_enabled") setAutomationEnabled(row.setting_value === "true");
+          if (row.setting_key === "n8n_automation_inbound") setAutomationInbound(row.setting_value || "");
+          if (row.setting_key === "n8n_automation_outbound") setAutomationOutbound(row.setting_value || "");
+        }
+      }
+    };
+    loadAutomationSettings();
+  }, [companyId]);
+
 
   const handleMetaSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -594,11 +614,40 @@ const WhatsappIntegrations = () => {
                   {automationEnabled && (
                     <Button
                       className="w-full"
-                      onClick={() => {
-                        toast({
-                          title: "Configuração salva!",
-                          description: "Os endpoints do motor de automação foram salvos com sucesso.",
-                        });
+                      onClick={async () => {
+                        try {
+                          const { data: userData } = await supabase.auth.getUser();
+                          if (!userData.user) throw new Error("Não autenticado");
+
+                          const settings = [
+                            { setting_key: "n8n_automation_enabled", setting_value: String(automationEnabled) },
+                            { setting_key: "n8n_automation_inbound", setting_value: automationInbound },
+                            { setting_key: "n8n_automation_outbound", setting_value: automationOutbound },
+                          ];
+
+                          for (const s of settings) {
+                            const { error } = await supabase
+                              .from("admin_settings")
+                              .upsert({
+                                user_id: userData.user.id,
+                                company_id: companyId,
+                                setting_key: s.setting_key,
+                                setting_value: s.setting_value,
+                              }, { onConflict: "user_id,setting_key" });
+                            if (error) throw error;
+                          }
+
+                          toast({
+                            title: "Configuração salva!",
+                            description: "Os endpoints do motor de automação foram salvos com sucesso.",
+                          });
+                        } catch (err: any) {
+                          toast({
+                            title: "Erro ao salvar",
+                            description: err.message,
+                            variant: "destructive",
+                          });
+                        }
                       }}
                     >
                       <Save className="h-4 w-4 mr-2" />
