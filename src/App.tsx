@@ -16,7 +16,7 @@ import Analytics from "./pages/Analytics";
 import CheckIn from "./pages/CheckIn";
 import PublicCheckIn from "./pages/PublicCheckIn";
 
-import AI from "./pages/AI";
+
 import NotFound from "./pages/NotFound";
 import ModeloMessages from "./pages/ModeloMessages";
 import Settings from "./pages/Settings";
