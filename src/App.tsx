@@ -59,6 +59,7 @@ const App = () => (
           <Route path="/settings/company" element={<CompanyProfile />} />
           <Route path="/settings/distribution" element={<ChatDistribution />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
+          <Route path="/profile" element={<Profile />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
