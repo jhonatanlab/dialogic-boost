@@ -469,7 +469,7 @@ const Teams = () => {
               <DialogHeader>
                 <DialogTitle>Criar equipe</DialogTitle>
               </DialogHeader>
-              <TeamFormFields isCreate />
+              {renderTeamFormFields(true)}
               <DialogFooter>
                 <DialogClose asChild>
                   <Button variant="outline">Cancelar</Button>
@@ -488,7 +488,7 @@ const Teams = () => {
             <DialogHeader>
               <DialogTitle>Editar equipe</DialogTitle>
             </DialogHeader>
-            <TeamFormFields isCreate={false} />
+            {renderTeamFormFields(false)}
             <DialogFooter>
               <Button variant="outline" onClick={() => { setEditTeam(null); resetForm(); }}>Cancelar</Button>
               <Button onClick={() => updateMutation.mutate()} disabled={!teamName.trim() || updateMutation.isPending}>
