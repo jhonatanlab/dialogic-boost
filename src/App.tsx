@@ -16,7 +16,7 @@ import Analytics from "./pages/Analytics";
 import CheckIn from "./pages/CheckIn";
 import PublicCheckIn from "./pages/PublicCheckIn";
 
-import AI from "./pages/AI";
+
 import NotFound from "./pages/NotFound";
 import ModeloMessages from "./pages/ModeloMessages";
 import Settings from "./pages/Settings";
@@ -49,7 +49,7 @@ const App = () => (
             <Route path="/checkin" element={<CheckIn />} />
             <Route path="/checkin/:urlToken" element={<PublicCheckIn />} />
             
-          <Route path="/ai" element={<AI />} />
+          
           <Route path="/modelo-messages" element={<ModeloMessages />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/whatsapp-integrations" element={<WhatsappIntegrations />} />
