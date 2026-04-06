@@ -15,6 +15,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useCompany } from "@/hooks/useCompany";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -23,6 +24,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
   const navigate = useNavigate();
+  const { profile } = useCompany();
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -33,6 +35,8 @@ export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
       navigate("/auth");
     }
   };
+
+  const userName = profile?.full_name || "Usuário";
 
   return (
     <SidebarProvider>
@@ -46,6 +50,10 @@ export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
             </div>
             
             <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                Bem-vindo(a), <strong className="text-foreground">{userName}</strong>
+              </span>
+
               <Button variant="ghost" size="icon">
                 <Bell className="h-5 w-5" />
               </Button>
@@ -60,7 +68,6 @@ export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
                   <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/profile")}>Perfil</DropdownMenuItem>
-                  <DropdownMenuItem>Configurações</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     Sair
