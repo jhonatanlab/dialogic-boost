@@ -1,28 +1,24 @@
 
 
-## Plano: Corrigir URL do QR Code de Check-in
+## Plano: Exibir Company ID e Webhook Secret na aba API Automação
 
-### Problema
-O QR code gerado usa `window.location.origin`, que no ambiente de desenvolvimento é a URL do Lovable preview (`id-preview--xxx.lovable.app`). Quando alguém externo escaneia o QR code, é levado para essa URL do Lovable em vez de um domínio de produção.
+### O que será feito
 
-### Solução
-Adicionar um campo configurável de **domínio base** para os links de check-in, permitindo que a empresa defina a URL pública correta (ex: `https://meuapp.com`). Se não configurado, usa `window.location.origin` como fallback.
+Na aba "API Automação" em Configurações → Integrações WhatsApp, adicionar uma seção informativa **sempre visível** (independente do toggle estar ativo) com:
 
-### Alterações
+1. **Company ID** — campo somente leitura exibindo o `companyId` da empresa logada, com botão de copiar
+2. **Webhook Secret** — campo somente leitura exibindo o valor de `n8n_webhook_secret` (obtido via `useAdminSettings`), com botão de copiar. Se não estiver configurado, exibe badge "Não configurado"
 
-**1. `src/components/checkin/CheckinLinksManager.tsx`**
-- Adicionar um campo de texto no topo para "URL base do check-in" (ex: `https://meuapp.lovable.app`)
-- Salvar essa configuração via `admin_settings` com a chave `checkin_base_url`
-- Usar essa URL base ao gerar o link do QR code e ao copiar o link, com fallback para `window.location.origin`
+### Alteração
 
-**2. `src/hooks/useAdminSettings.ts`**
-- Garantir que a chave `checkin_base_url` funcione com o hook existente de admin settings
+**`src/pages/WhatsappIntegrations.tsx`**
+- Dentro do `TabsContent value="automation"`, antes do toggle, adicionar um `Card` com título "Credenciais de Integração"
+- Dois campos read-only em grid: Company ID e Webhook Secret
+- Cada campo com `Input readOnly` + botão `Copy`/`Check` (mesmo padrão já usado nos webhooks de Meta/Z-API)
+- O `companyId` já está disponível via `useCompany()`
+- O `webhookSecret` será lido via `getSettingValue("n8n_webhook_secret")` que já está importado
 
-### Alternativa mais simples (recomendada)
-Se o app for publicado no Lovable (ex: `https://xxx.lovable.app`), basta **publicar o projeto** e o QR code automaticamente usará a URL correta. A URL de preview (`id-preview--`) é apenas para desenvolvimento.
-
-### Resumo
-- A funcionalidade do check-in está correta (edge function funciona, redirecionamento WhatsApp funciona)
-- O problema é apenas que o QR code aponta para a URL de preview do Lovable
-- Solução: publicar o app ou adicionar campo configurável de URL base
+### Detalhes técnicos
+- Reutilizar o estado `copiedWebhook` existente ou criar estados separados (`copiedCompanyId`, `copiedSecret`) para feedback visual independente
+- Manter design consistente com os demais campos readonly do componente
 
