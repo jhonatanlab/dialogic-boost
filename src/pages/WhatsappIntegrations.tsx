@@ -29,6 +29,8 @@ const WhatsappIntegrations = () => {
   const [automationEnabled, setAutomationEnabled] = useState(false);
   const [automationInbound, setAutomationInbound] = useState("");
   const [automationOutbound, setAutomationOutbound] = useState("");
+  const [copiedCompanyId, setCopiedCompanyId] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
   const { companyId } = useCompany();
 
   const { data: companyInstance } = useQuery({
@@ -538,6 +540,60 @@ const WhatsappIntegrations = () => {
 
               <TabsContent value="automation" className="space-y-4 mt-6">
                 <div className="space-y-6">
+                  {/* Credenciais de Integração */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Credenciais de Integração</CardTitle>
+                      <CardDescription>Use estes dados para configurar seu webhook externo.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Company ID</Label>
+                          <div className="flex gap-2">
+                            <Input value={companyId ?? ""} readOnly className="font-mono text-xs" />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => {
+                                if (companyId) {
+                                  navigator.clipboard.writeText(companyId);
+                                  setCopiedCompanyId(true);
+                                  setTimeout(() => setCopiedCompanyId(false), 2000);
+                                }
+                              }}
+                            >
+                              {copiedCompanyId ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Webhook Secret</Label>
+                          {getSettingValue("n8n_webhook_secret") ? (
+                            <div className="flex gap-2">
+                              <Input value={getSettingValue("n8n_webhook_secret")} readOnly className="font-mono text-xs" />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(getSettingValue("n8n_webhook_secret"));
+                                  setCopiedSecret(true);
+                                  setTimeout(() => setCopiedSecret(false), 2000);
+                                }}
+                              >
+                                {copiedSecret ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center h-10">
+                              <Badge variant="secondary">Não configurado</Badge>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   {/* Toggle card */}
                   <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50">
                     <div className="space-y-1">
