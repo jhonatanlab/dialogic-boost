@@ -1161,6 +1161,13 @@ const Inbox = () => {
                         toast.success("Conversa atribuída a você!");
                         // Log event in background (non-blocking)
                         logConversationEvent(selectedConversation.id, selectedConversation.status === "closed" ? "reopened" : "started");
+                        // Notify automation to pause AI
+                        postToOutbound({
+                          action: "pause_ai",
+                          phone_number: selectedConversation.contact.phone || "",
+                          company_id: companyId,
+                          type: "control",
+                        });
                       } catch (err) {
                         console.error("Take conversation error:", err);
                         toast.error("Erro ao assumir conversa");
