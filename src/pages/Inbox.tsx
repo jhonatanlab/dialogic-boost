@@ -732,6 +732,9 @@ const Inbox = () => {
     setMessageInput("");
     removeAttachment();
 
+    // Generate internal_id for reconciliation
+    const msgInternalId = `app-${crypto.randomUUID()}`;
+
     // Message is saved to DB inside sendMessage (useMessages hook)
     sendMessage.mutate({
       conversationId: selectedConversation.id,
@@ -741,6 +744,18 @@ const Inbox = () => {
       companyId,
       mediaType, mediaUrl, mimetype,
       fileName: attachedFile ? attachedFile.name : undefined,
+      internalId: msgInternalId,
+    });
+
+    // Also POST to outbound automation endpoint (if configured)
+    postToOutbound({
+      company_id: companyId,
+      number: selectedConversation.contact.phone || "",
+      text: textContent,
+      type: mediaType || "text",
+      internal_id: msgInternalId,
+      ...(mediaUrl ? { media_url: mediaUrl } : {}),
+      ...(mimetype ? { mimetype } : {}),
     });
   };
 
