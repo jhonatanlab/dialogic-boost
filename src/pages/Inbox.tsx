@@ -795,6 +795,13 @@ const Inbox = () => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa atribuída a você!");
       logConversationEvent(selectedConversation.id, "started");
+      // Notify automation to pause AI
+      postToOutbound({
+        action: "pause_ai",
+        phone_number: selectedConversation.contact.phone || "",
+        company_id: companyId,
+        type: "control",
+      });
     } catch { toast.error("Erro ao assumir conversa"); }
   };
 
@@ -810,6 +817,13 @@ const Inbox = () => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa concluída!");
       logConversationEvent(selectedConversation.id, "closed");
+      // Notify automation to reactivate AI
+      postToOutbound({
+        action: "reactivate_ai",
+        phone_number: selectedConversation.contact.phone || "",
+        company_id: companyId,
+        type: "control",
+      });
       setSelectedConversationId(null);
     } catch { toast.error("Erro ao concluir conversa"); }
   };
