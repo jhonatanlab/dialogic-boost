@@ -38,18 +38,19 @@ export const useMessages = (conversationId: string | null) => {
   const sendMessage = useMutation({
     mutationFn: async ({
       conversationId, contactId, content, phone, companyId,
-      mediaType, mediaUrl, mimetype, fileName, ptt,
+      mediaType, mediaUrl, mimetype, fileName, ptt, internalId,
     }: {
       conversationId: string; contactId: string; content: string;
       phone: string; companyId: string;
       mediaType?: string; mediaUrl?: string; mimetype?: string; fileName?: string; ptt?: boolean;
+      internalId?: string;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
       const effectiveMediaType = mediaType || "text";
       const messageContent = content || "";
-      const tempMessageId = `app-${crypto.randomUUID()}`;
+      const tempMessageId = internalId || `app-${crypto.randomUUID()}`;
 
       // 1. Insert message into DB with temporary ID and 'sending' status
       const metadata: Record<string, unknown> = {};

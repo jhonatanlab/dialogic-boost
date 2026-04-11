@@ -356,6 +356,31 @@ const Inbox = () => {
   const { messages, isLoading: messagesLoading, sendMessage, markAsRead } = useMessages(selectedConversationId);
   const { quickReplies } = useQuickReplies();
 
+  // Helper: POST to outbound endpoint (silent on failure or if not configured)
+  const postToOutbound = useCallback(async (payload: Record<string, unknown>) => {
+    try {
+      if (!companyId) return;
+      const { data: settings } = await supabase
+        .from("admin_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", ["n8n_automation_enabled", "n8n_automation_outbound"]);
+
+      const enabled = settings?.find(s => s.setting_key === "n8n_automation_enabled")?.setting_value;
+      const outbound = settings?.find(s => s.setting_key === "n8n_automation_outbound")?.setting_value;
+
+      if (enabled !== "true" || !outbound) return;
+
+      fetch(outbound, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(err => console.error("[postToOutbound] fetch error:", err));
+    } catch (err) {
+      console.error("[postToOutbound] silent error:", err);
+    }
+  }, [companyId]);
+
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId);
   const { data: notes } = useContactNotes(selectedConversation?.contact_id || "");
   const createNote = useCreateContactNote();
@@ -707,6 +732,9 @@ const Inbox = () => {
     setMessageInput("");
     removeAttachment();
 
+    // Generate internal_id for reconciliation
+    const msgInternalId = `app-${crypto.randomUUID()}`;
+
     // Message is saved to DB inside sendMessage (useMessages hook)
     sendMessage.mutate({
       conversationId: selectedConversation.id,
@@ -716,6 +744,18 @@ const Inbox = () => {
       companyId,
       mediaType, mediaUrl, mimetype,
       fileName: attachedFile ? attachedFile.name : undefined,
+      internalId: msgInternalId,
+    });
+
+    // Also POST to outbound automation endpoint (if configured)
+    postToOutbound({
+      company_id: companyId,
+      number: selectedConversation.contact.phone || "",
+      text: textContent,
+      type: mediaType || "text",
+      internal_id: msgInternalId,
+      ...(mediaUrl ? { media_url: mediaUrl } : {}),
+      ...(mimetype ? { mimetype } : {}),
     });
   };
 
@@ -770,6 +810,13 @@ const Inbox = () => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa atribuída a você!");
       logConversationEvent(selectedConversation.id, "started");
+      // Notify automation to pause AI
+      postToOutbound({
+        action: "pause_ai",
+        phone_number: selectedConversation.contact.phone || "",
+        company_id: companyId,
+        type: "control",
+      });
     } catch { toast.error("Erro ao assumir conversa"); }
   };
 
@@ -785,6 +832,13 @@ const Inbox = () => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa concluída!");
       logConversationEvent(selectedConversation.id, "closed");
+      // Notify automation to reactivate AI
+      postToOutbound({
+        action: "reactivate_ai",
+        phone_number: selectedConversation.contact.phone || "",
+        company_id: companyId,
+        type: "control",
+      });
       setSelectedConversationId(null);
     } catch { toast.error("Erro ao concluir conversa"); }
   };
@@ -1107,6 +1161,13 @@ const Inbox = () => {
                         toast.success("Conversa atribuída a você!");
                         // Log event in background (non-blocking)
                         logConversationEvent(selectedConversation.id, selectedConversation.status === "closed" ? "reopened" : "started");
+                        // Notify automation to pause AI
+                        postToOutbound({
+                          action: "pause_ai",
+                          phone_number: selectedConversation.contact.phone || "",
+                          company_id: companyId,
+                          type: "control",
+                        });
                       } catch (err) {
                         console.error("Take conversation error:", err);
                         toast.error("Erro ao assumir conversa");
