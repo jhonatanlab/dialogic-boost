@@ -356,6 +356,31 @@ const Inbox = () => {
   const { messages, isLoading: messagesLoading, sendMessage, markAsRead } = useMessages(selectedConversationId);
   const { quickReplies } = useQuickReplies();
 
+  // Helper: POST to outbound endpoint (silent on failure or if not configured)
+  const postToOutbound = useCallback(async (payload: Record<string, unknown>) => {
+    try {
+      if (!companyId) return;
+      const { data: settings } = await supabase
+        .from("admin_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", ["n8n_automation_enabled", "n8n_automation_outbound"]);
+
+      const enabled = settings?.find(s => s.setting_key === "n8n_automation_enabled")?.setting_value;
+      const outbound = settings?.find(s => s.setting_key === "n8n_automation_outbound")?.setting_value;
+
+      if (enabled !== "true" || !outbound) return;
+
+      fetch(outbound, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(err => console.error("[postToOutbound] fetch error:", err));
+    } catch (err) {
+      console.error("[postToOutbound] silent error:", err);
+    }
+  }, [companyId]);
+
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId);
   const { data: notes } = useContactNotes(selectedConversation?.contact_id || "");
   const createNote = useCreateContactNote();
