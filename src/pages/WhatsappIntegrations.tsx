@@ -12,7 +12,7 @@ import { useAdminSettings } from "@/hooks/useAdminSettings";
 import { useCompany } from "@/hooks/useCompany";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -32,6 +32,7 @@ const WhatsappIntegrations = () => {
   const [copiedCompanyId, setCopiedCompanyId] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
   const { companyId } = useCompany();
+  const queryClient = useQueryClient();
 
   const { data: companyInstance } = useQuery({
     queryKey: ["my-whatsapp-instance", companyId],
