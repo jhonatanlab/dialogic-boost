@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useCompany } from "@/hooks/useCompany";
 
 export type WhatsappProvider = "meta" | "zapi";
 
@@ -32,6 +33,7 @@ export interface WhatsappIntegration {
 export const useWhatsappIntegrations = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { companyId } = useCompany();
 
   const { data: integrations, isLoading } = useQuery({
     queryKey: ["whatsapp-integrations"],
@@ -130,11 +132,37 @@ export const useWhatsappIntegrations = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Deactivate competing integrations
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user && companyId) {
+          // Deactivate API Automação
+          await supabase
+            .from("admin_settings")
+            .upsert({
+              user_id: userData.user.id,
+              company_id: companyId,
+              setting_key: "n8n_automation_enabled",
+              setting_value: "false",
+            }, { onConflict: "user_id,setting_key" });
+
+          // Deactivate API Nativa instances
+          await supabase
+            .from("whatsapp_instances")
+            .delete()
+            .eq("company_id", companyId);
+        }
+      } catch (e) {
+        console.error("Error deactivating competing integrations:", e);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["whatsapp-integrations"] });
+      queryClient.invalidateQueries({ queryKey: ["my-whatsapp-instance"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
       toast({
         title: "Integração conectada com sucesso!",
-        description: "Suas credenciais foram validadas e salvas.",
+        description: "Suas credenciais foram validadas e salvas. As demais integrações foram desativadas automaticamente.",
       });
     },
     onError: (error: Error) => {
