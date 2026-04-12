@@ -12,7 +12,7 @@ import { useAdminSettings } from "@/hooks/useAdminSettings";
 import { useCompany } from "@/hooks/useCompany";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -32,6 +32,7 @@ const WhatsappIntegrations = () => {
   const [copiedCompanyId, setCopiedCompanyId] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
   const { companyId } = useCompany();
+  const queryClient = useQueryClient();
 
   const { data: companyInstance } = useQuery({
     queryKey: ["my-whatsapp-instance", companyId],
@@ -444,14 +445,45 @@ const WhatsappIntegrations = () => {
                     </div>
                     <Switch
                       checked={nativeEnabled}
-                      onCheckedChange={(checked) => {
+                      onCheckedChange={async (checked) => {
                         setNativeEnabled(checked);
-                        toast({
-                          title: checked ? "API Nativa ativada" : "API Nativa desativada",
-                          description: checked
-                            ? "As mensagens serão enviadas pela API Nativa."
-                            : "A API Nativa foi desativada.",
-                        });
+                        if (checked) {
+                          try {
+                            const { data: userData } = await supabase.auth.getUser();
+                            if (userData.user && companyId) {
+                              // Deactivate Meta/Z-API integrations
+                              await supabase
+                                .from("whatsapp_integrations")
+                                .update({ status: "disconnected", updated_at: new Date().toISOString() })
+                                .eq("user_id", userData.user.id);
+
+                              // Deactivate API Automação
+                              await supabase
+                                .from("admin_settings")
+                                .upsert({
+                                  user_id: userData.user.id,
+                                  company_id: companyId,
+                                  setting_key: "n8n_automation_enabled",
+                                  setting_value: "false",
+                                }, { onConflict: "user_id,setting_key" });
+
+                              setAutomationEnabled(false);
+                              queryClient.invalidateQueries({ queryKey: ["whatsapp-integrations"] });
+                              queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+                            }
+                          } catch (e) {
+                            console.error("Error deactivating competing integrations:", e);
+                          }
+                          toast({
+                            title: "API Nativa ativada",
+                            description: "As demais integrações foram desativadas automaticamente.",
+                          });
+                        } else {
+                          toast({
+                            title: "API Nativa desativada",
+                            description: "A API Nativa foi desativada.",
+                          });
+                        }
                       }}
                     />
                   </div>
@@ -604,14 +636,42 @@ const WhatsappIntegrations = () => {
                     </div>
                     <Switch
                       checked={automationEnabled}
-                      onCheckedChange={(checked) => {
+                      onCheckedChange={async (checked) => {
                         setAutomationEnabled(checked);
-                        toast({
-                          title: checked ? "Motor de automação ativado" : "Motor de automação desativado",
-                          description: checked
-                            ? "O fluxo customizado será utilizado para este número."
-                            : "O motor de automação foi desativado.",
-                        });
+                        if (checked) {
+                          try {
+                            const { data: userData } = await supabase.auth.getUser();
+                            if (userData.user && companyId) {
+                              // Deactivate Meta/Z-API integrations
+                              await supabase
+                                .from("whatsapp_integrations")
+                                .update({ status: "disconnected", updated_at: new Date().toISOString() })
+                                .eq("user_id", userData.user.id);
+
+                              // Deactivate API Nativa
+                              await supabase
+                                .from("whatsapp_instances")
+                                .delete()
+                                .eq("company_id", companyId);
+
+                              setNativeEnabled(false);
+                              setNativeInitialized(false);
+                              queryClient.invalidateQueries({ queryKey: ["whatsapp-integrations"] });
+                              queryClient.invalidateQueries({ queryKey: ["my-whatsapp-instance"] });
+                            }
+                          } catch (e) {
+                            console.error("Error deactivating competing integrations:", e);
+                          }
+                          toast({
+                            title: "Motor de automação ativado",
+                            description: "As demais integrações foram desativadas automaticamente.",
+                          });
+                        } else {
+                          toast({
+                            title: "Motor de automação desativado",
+                            description: "O motor de automação foi desativado.",
+                          });
+                        }
                       }}
                     />
                   </div>
