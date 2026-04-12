@@ -137,6 +137,27 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_control: {
+        Row: {
+          company_id: string
+          status: string | null
+          telefone: string
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          status?: string | null
+          telefone: string
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          status?: string | null
+          telefone?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       automations: {
         Row: {
           company_id: string
