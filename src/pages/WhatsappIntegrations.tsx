@@ -445,14 +445,45 @@ const WhatsappIntegrations = () => {
                     </div>
                     <Switch
                       checked={nativeEnabled}
-                      onCheckedChange={(checked) => {
+                      onCheckedChange={async (checked) => {
                         setNativeEnabled(checked);
-                        toast({
-                          title: checked ? "API Nativa ativada" : "API Nativa desativada",
-                          description: checked
-                            ? "As mensagens serão enviadas pela API Nativa."
-                            : "A API Nativa foi desativada.",
-                        });
+                        if (checked) {
+                          try {
+                            const { data: userData } = await supabase.auth.getUser();
+                            if (userData.user && companyId) {
+                              // Deactivate Meta/Z-API integrations
+                              await supabase
+                                .from("whatsapp_integrations")
+                                .update({ status: "disconnected", updated_at: new Date().toISOString() })
+                                .eq("user_id", userData.user.id);
+
+                              // Deactivate API Automação
+                              await supabase
+                                .from("admin_settings")
+                                .upsert({
+                                  user_id: userData.user.id,
+                                  company_id: companyId,
+                                  setting_key: "n8n_automation_enabled",
+                                  setting_value: "false",
+                                }, { onConflict: "user_id,setting_key" });
+
+                              setAutomationEnabled(false);
+                              queryClient.invalidateQueries({ queryKey: ["whatsapp-integrations"] });
+                              queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+                            }
+                          } catch (e) {
+                            console.error("Error deactivating competing integrations:", e);
+                          }
+                          toast({
+                            title: "API Nativa ativada",
+                            description: "As demais integrações foram desativadas automaticamente.",
+                          });
+                        } else {
+                          toast({
+                            title: "API Nativa desativada",
+                            description: "A API Nativa foi desativada.",
+                          });
+                        }
                       }}
                     />
                   </div>
