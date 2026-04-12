@@ -636,14 +636,42 @@ const WhatsappIntegrations = () => {
                     </div>
                     <Switch
                       checked={automationEnabled}
-                      onCheckedChange={(checked) => {
+                      onCheckedChange={async (checked) => {
                         setAutomationEnabled(checked);
-                        toast({
-                          title: checked ? "Motor de automação ativado" : "Motor de automação desativado",
-                          description: checked
-                            ? "O fluxo customizado será utilizado para este número."
-                            : "O motor de automação foi desativado.",
-                        });
+                        if (checked) {
+                          try {
+                            const { data: userData } = await supabase.auth.getUser();
+                            if (userData.user && companyId) {
+                              // Deactivate Meta/Z-API integrations
+                              await supabase
+                                .from("whatsapp_integrations")
+                                .update({ status: "disconnected", updated_at: new Date().toISOString() })
+                                .eq("user_id", userData.user.id);
+
+                              // Deactivate API Nativa
+                              await supabase
+                                .from("whatsapp_instances")
+                                .delete()
+                                .eq("company_id", companyId);
+
+                              setNativeEnabled(false);
+                              setNativeInitialized(false);
+                              queryClient.invalidateQueries({ queryKey: ["whatsapp-integrations"] });
+                              queryClient.invalidateQueries({ queryKey: ["my-whatsapp-instance"] });
+                            }
+                          } catch (e) {
+                            console.error("Error deactivating competing integrations:", e);
+                          }
+                          toast({
+                            title: "Motor de automação ativado",
+                            description: "As demais integrações foram desativadas automaticamente.",
+                          });
+                        } else {
+                          toast({
+                            title: "Motor de automação desativado",
+                            description: "O motor de automação foi desativado.",
+                          });
+                        }
                       }}
                     />
                   </div>
