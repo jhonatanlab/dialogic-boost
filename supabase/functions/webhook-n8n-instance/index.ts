@@ -711,6 +711,7 @@ Deno.serve(async (req) => {
               content: messageContent || undefined,
               message_type: messageType,
               metadata: mergedMeta,
+              sent_at: sent_at || undefined,
             })
             .eq("id", existing.id);
           if (updateErr) throw updateErr;
