@@ -28,7 +28,7 @@ export const useMessages = (conversationId: string | null) => {
         .from("messages")
         .select("*")
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
+        .order("sent_at", { ascending: true });
       if (error) throw error;
       return (data || []) as Message[];
     },
