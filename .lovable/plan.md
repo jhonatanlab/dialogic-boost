@@ -1,36 +1,62 @@
 
+## Plano: corrigir a ordenação das conversas no Inbox
 
-## Plano: Corrigir ordenação de mensagens com sent_at NULL e imagens com URL expirada
+### O que verifiquei
+- A lista de conversas no frontend usa `useConversations.ts` com `.order("last_message_at", { ascending: false })`.
+- No banco, a ordenação atual está correta para as 2 conversas existentes:
+  - Hellen: `last_message_at = 2026-04-13 14:19:32.996+00`
+  - Jhonatan França: `last_message_at = 2026-04-13 04:56:39.507+00`
+- O timestamp real da última mensagem também bate com `last_message_at`, então o problema não parece ser dado corrompido agora.
+- A aba atual do Inbox pode filtrar a lista (`mine`, `all`, `queue`, `closed`), então a percepção de “fora de ordem” pode vir da aba/filtro e não do `ORDER BY`.
+- Há um ponto frágil no código: `last_message_at` é atualizado em mais de um lugar com `new Date().toISOString()`, enquanto o restante do sistema já usa `sent_at` como horário real da mensagem. Isso pode voltar a causar inconsistência quando mensagens chegam atrasadas, são reconciliadas ou atualizadas por webhook.
 
-### Problema 1: Mensagens fora de ordem
-7 mensagens possuem `sent_at = NULL`, fazendo com que apareçam no final do chat (PostgreSQL ordena NULLs por último em ASC).
+### Causa mais provável
+A ordenação “voltar a quebrar” não está vindo do select do Inbox, e sim da forma como `last_message_at` é alimentado:
+- `src/hooks/useMessages.ts` atualiza a conversa com o horário local do envio
+- `supabase/functions/webhook-n8n-instance/index.ts` também atualiza a conversa
+- se houver reconciliação, atraso do provedor, mídia, status posterior ou mensagens processadas fora de sequência, `last_message_at` pode ficar desalinhado do timestamp real da última mensagem
 
-**Correção:**
-1. **Migration**: Backfill novamente `UPDATE messages SET sent_at = created_at WHERE sent_at IS NULL`
-2. **Frontend `useMessages.ts`**: Usar `COALESCE(sent_at, created_at)` como fallback permanente, alterando a query para `.order("sent_at", { ascending: true, nullsFirst: false })` — ou melhor, garantir que nunca haverá NULLs com um `DEFAULT now()` na coluna
+### Implementação proposta
+1. Remover a dependência de atualizações “manuais” imprecisas de `last_message_at`
+   - revisar `useMessages.ts`
+   - revisar `webhook-n8n-instance/index.ts`
 
-3. **Migration adicional**: `ALTER TABLE messages ALTER COLUMN sent_at SET DEFAULT now()` — para que inserções futuras sem `sent_at` explícito recebam um valor automático
+2. Centralizar a verdade da ordenação
+   - fazer `last_message_at` sempre refletir o maior `coalesce(sent_at, created_at)` das mensagens da conversa
+   - preferencialmente via lógica no backend/database, não espalhada no frontend
 
-### Problema 2: Imagens com URL expirada do WhatsApp
-As URLs `mmg.whatsapp.net/*.enc` são temporárias e expiram em poucas horas. O N8N deveria estar baixando e re-subindo para o bucket `media-messages` (como fez corretamente com a terceira imagem).
+3. Tornar a atualização idempotente
+   - evitar sobrescrever `last_message_at` com um timestamp mais novo porém “falso” quando a mensagem real é mais antiga
+   - garantir que updates de status não empurrem conversa para o topo sem haver nova mensagem real
 
-**Correção:** Isso é um problema no fluxo do N8N, não no código da plataforma. O N8N precisa sempre:
-- Baixar a mídia do WhatsApp
-- Subir para o bucket `media-messages`
-- Enviar a URL pública do Storage no payload do webhook
+4. Ajustar a listagem do Inbox para robustez
+   - manter ordenação principal por `last_message_at desc`
+   - adicionar fallback determinístico secundário se necessário (ex.: `created_at desc` da conversa) para evitar empate visual
 
-**Ação no código:** Nenhuma alteração necessária — é configuração do N8N.
+5. Validar o comportamento nas abas
+   - confirmar se `mine`, `queue`, `all` e `closed` preservam a ordem já trazida da query
+   - testar com novas mensagens inbound, outbound, mídia e reconciliação
 
-### Arquivos modificados
-- Nova migration SQL (backfill + DEFAULT)
-- `src/hooks/useMessages.ts` — não precisa mudar se o backfill + DEFAULT resolver
+### Arquivos que eu alteraria
+- `src/hooks/useMessages.ts`
+- `supabase/functions/webhook-n8n-instance/index.ts`
+- possivelmente uma nova migration para endurecer a regra de `last_message_at` no banco
 
-### Migration SQL
-```sql
--- Backfill remaining NULLs
-UPDATE public.messages SET sent_at = created_at WHERE sent_at IS NULL;
+### Detalhes técnicos
+```text
+Hoje:
+mensagem chega/enviada
+  -> código atualiza conversations.last_message_at com now()
+  -> isso pode não ser o horário real da mensagem
 
--- Set default so future inserts always have sent_at
-ALTER TABLE public.messages ALTER COLUMN sent_at SET DEFAULT now();
+Proposto:
+mensagem criada/reconciliada
+  -> usar max(coalesce(messages.sent_at, messages.created_at))
+  -> conversations.last_message_at sempre reflete a última mensagem real
 ```
 
+### Resultado esperado
+- conversas não “saltam” de posição incorretamente
+- mensagens antigas processadas depois não bagunçam a lista
+- mídias e reconciliações não alteram a ordem de forma errada
+- Inbox fica consistente com o histórico real do chat
