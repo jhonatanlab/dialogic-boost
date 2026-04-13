@@ -94,28 +94,59 @@ client_message_id: tempMessageId,
       if (fileName) payload.file_name = fileName;
       if (ptt) payload.ptt = "true";
 
-      const { data: settingsData } = await supabase
+      // Fetch all relevant settings for this company
+      const { data: allSettings } = await supabase
         .from("admin_settings")
-        .select("setting_value")
-        .eq("setting_key", "n8n_send_message")
-        .maybeSingle();
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", ["n8n_automation_enabled", "n8n_automation_outbound", "n8n_send_message"]);
 
-      const sendEndpoint = settingsData?.setting_value || "https://primary-production-b2b0f.up.railway.app/webhook/send-message";
-
-      const response = await supabase.functions.invoke("proxy-n8n", {
-        body: { endpoint: sendEndpoint, payload },
+      const settingsMap: Record<string, string> = {};
+      (allSettings || []).forEach((s: any) => {
+        if (s.setting_value) settingsMap[s.setting_key] = s.setting_value;
       });
 
-      if (response.error) {
-        // Mark message as failed in DB (find by client_message_id)
+      const automationEnabled = settingsMap["n8n_automation_enabled"] === "true";
+      const automationOutbound = settingsMap["n8n_automation_outbound"];
+      const nativeSendEndpoint = settingsMap["n8n_send_message"];
+
+      let result: any;
+
+      if (automationEnabled && automationOutbound) {
+        // API Automação: POST direto para o endpoint outbound
+        const res = await fetch(automationOutbound, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          await (supabase as any)
+            .from("messages")
+            .update({ status: "failed" })
+            .eq("client_message_id", tempMessageId);
+          throw new Error(`Erro no envio via API Automação: ${res.status}`);
+        }
+        result = await res.json().catch(() => ({ success: true }));
+      } else if (nativeSendEndpoint) {
+        // API Nativa: POST via proxy-n8n
+        const response = await supabase.functions.invoke("proxy-n8n", {
+          body: { endpoint: nativeSendEndpoint, payload },
+        });
+        if (response.error) {
+          await (supabase as any)
+            .from("messages")
+            .update({ status: "failed" })
+            .eq("client_message_id", tempMessageId);
+          throw new Error(response.error.message);
+        }
+        result = response.data;
+      } else {
         await (supabase as any)
           .from("messages")
           .update({ status: "failed" })
           .eq("client_message_id", tempMessageId);
-        throw new Error(response.error.message);
+        throw new Error("Nenhuma integração de envio configurada");
       }
-
-      const result = response.data;
       if (result?.success === false) {
         await (supabase as any)
           .from("messages")
