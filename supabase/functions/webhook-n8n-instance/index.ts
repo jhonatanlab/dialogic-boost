@@ -769,7 +769,7 @@ Deno.serve(async (req) => {
               const mergedMeta = { ...(match.metadata || {}), ...messageMetadata, pending_content: false };
               const { error: reconErr } = await supabase
                 .from("messages")
-                .update({ message_id, status: finalStatus, metadata: mergedMeta, content: messageContent || undefined, message_type: messageType })
+                .update({ message_id, status: finalStatus, metadata: mergedMeta, content: messageContent || undefined, message_type: messageType, sent_at: sent_at || undefined })
                 .eq("id", match.id);
               if (reconErr) throw reconErr;
               upsertedId = match.id;
