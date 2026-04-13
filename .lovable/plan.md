@@ -1,39 +1,54 @@
 
 
-## Problema Identificado
+## Plano: Limpar dados e adicionar filtro de cutoff no webhook
 
-A mensagem "Vou te ajudar agora" aparece com X porque:
-- O `proxy-n8n` recebeu **404** do endpoint n8n → frontend marcou como `failed`
-- O n8n enviou a mensagem por outro caminho e reconciliou o `message_id`
-- Mas o status ficou `failed` porque a hierarquia de prioridade bloqueia "rebaixamento" de `failed` para `delivered`/`read`
+### O que será feito
 
-## Plano de Correção
+1. **Limpar dados novamente** — DELETE em messages, conversation_events, conversations, contact_tags, contact_notes, contact_custom_fields, fidelity_cards, checkin_records, campaign_contacts, contacts.
 
-### 1. Corrigir a hierarquia de status no webhook
+2. **Registrar timestamp de cutoff** — Inserir na tabela `admin_settings` uma chave `data_cutoff_timestamp` com o valor do momento da limpeza (ISO string). Isso será usado pela empresa `6e6a75bf-1766-4748-bbcd-f6c37823557f`.
+
+3. **Adicionar filtro no webhook** — No `upsert_message` do `webhook-n8n-instance/index.ts`, logo após validar os campos obrigatórios, consultar `admin_settings` para buscar `data_cutoff_timestamp` da empresa. Se `sent_at` existir e for anterior ao cutoff, ignorar a mensagem retornando `{ action: "ignored_old_message" }`. Para mensagens sem `sent_at`, não filtrar (são mensagens em tempo real).
+
+### Detalhes técnicos
+
 **Arquivo**: `supabase/functions/webhook-n8n-instance/index.ts`
 
-Na lógica de `update_message_status`, permitir que status `sent`/`delivered`/`read` sobrescrevam `failed`. A ideia é que se o WhatsApp confirmou entrega, a mensagem não está mais "failed". Ajustar a prioridade: `failed` só deve ser final se não houver confirmação posterior.
+Inserir bloco no início da action `upsert_message` (após linha ~546):
+```typescript
+// Check cutoff timestamp
+const { data: cutoffSetting } = await supabase
+  .from("admin_settings")
+  .select("setting_value")
+  .eq("setting_key", "data_cutoff_timestamp")
+  .eq("company_id", company_id)
+  .maybeSingle();
 
-### 2. Corrigir a hierarquia no `useMessages.ts` (frontend)
-**Arquivo**: `src/hooks/useMessages.ts`
+if (cutoffSetting?.setting_value && sent_at) {
+  const cutoff = new Date(cutoffSetting.setting_value).getTime();
+  const msgTime = new Date(sent_at).getTime();
+  if (msgTime < cutoff) {
+    console.log("[upsert_message] ignored old message, sent_at:", sent_at, "< cutoff:", cutoffSetting.setting_value);
+    return json({ success: true, action: "ignored_old_message" });
+  }
+}
+```
 
-Quando o `proxy-n8n` retorna erro, em vez de marcar imediatamente como `failed`, marcar como `error` ou manter `sending` por um período curto (ex: 30s) para dar tempo ao webhook reconciliar. Alternativa: marcar como `failed` mas permitir que o realtime atualize o status se o webhook trouxer confirmação.
+**Também aplicar o mesmo filtro na action `update_message_status`** — quando o webhook tenta criar placeholder para status de mensagens antigas.
 
-### 3. Atualizar o endpoint do n8n (se necessário)
-Verificar no `admin_settings` se o endpoint `n8n_send_message` está correto. O URL atual retorna 404.
+**Database**: Inserir via insert tool:
+```sql
+DELETE FROM messages;
+DELETE FROM conversation_events;
+DELETE FROM conversations;
+DELETE FROM contact_tags;
+DELETE FROM contact_notes;
+DELETE FROM contact_custom_fields;
+DELETE FROM fidelity_cards;
+DELETE FROM checkin_records;
+DELETE FROM campaign_contacts;
+DELETE FROM contacts;
+```
 
-### Detalhes Técnicos
-
-**Mudança principal no webhook** (`update_message_status`):
-- Alterar a lógica de comparação para que `failed` possa ser sobrescrito por `sent`, `delivered`, `read`, `replied`
-- Nova hierarquia: `pending/sending (0) < failed (1) < sent (2) < delivered (3) < read (4) < replied (5) < deleted (6)`
-- Isso garante que confirmações reais do WhatsApp sempre prevaleçam sobre erros temporários de rede
-
-**Mudança no frontend** (`useMessages.ts`):
-- Após erro do `proxy-n8n`, marcar como `failed` normalmente (sem mudança)
-- O realtime já escuta updates, então quando o webhook corrigir o status, o UI vai refletir automaticamente
-
-**Arquivos modificados**:
-- `supabase/functions/webhook-n8n-instance/index.ts` — ajustar hierarquia de status
-- Opcionalmente: migration SQL se a lógica de prioridade estiver na função `update_campaign_contact_status`
+E inserir o cutoff timestamp via insert tool com o user_id do perfil da empresa.
 
