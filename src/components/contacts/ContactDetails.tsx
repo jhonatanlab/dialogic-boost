@@ -184,6 +184,9 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                 </CardContent>
               </Card>
 
+              {/* Resumo IA */}
+              <AiSummaryCard contactId={contact.id} />
+
               {/* Tags */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-3">

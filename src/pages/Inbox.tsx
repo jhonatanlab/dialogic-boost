@@ -1393,6 +1393,11 @@ const Inbox = () => {
 
                     <Separator />
 
+                    {/* Resumo IA */}
+                    <AiSummaryCard contactId={selectedConv?.contact_id} />
+
+                    <Separator />
+
                     {/* Etiquetas */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
