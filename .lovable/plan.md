@@ -1,54 +1,71 @@
 
 
-## Plano: Limpar dados e adicionar filtro de cutoff no webhook
+## Plan: AI Summaries no Painel + Reabertura para Fila
 
-### O que será feito
+### Resumo
+Duas melhorias: (1) adicionar uma seção de "Resumos da IA" no painel lateral de detalhes do contato, preenchida pelo N8N via API REST, e (2) ao reabrir uma conversa fechada (quando chega mensagem inbound), limpar o `assigned_to` e `assigned_team` para que volte à fila.
 
-1. **Limpar dados novamente** — DELETE em messages, conversation_events, conversations, contact_tags, contact_notes, contact_custom_fields, fidelity_cards, checkin_records, campaign_contacts, contacts.
+---
 
-2. **Registrar timestamp de cutoff** — Inserir na tabela `admin_settings` uma chave `data_cutoff_timestamp` com o valor do momento da limpeza (ISO string). Isso será usado pela empresa `6e6a75bf-1766-4748-bbcd-f6c37823557f`.
+### 1. Resumos da IA no painel lateral
 
-3. **Adicionar filtro no webhook** — No `upsert_message` do `webhook-n8n-instance/index.ts`, logo após validar os campos obrigatórios, consultar `admin_settings` para buscar `data_cutoff_timestamp` da empresa. Se `sent_at` existir e for anterior ao cutoff, ignorar a mensagem retornando `{ action: "ignored_old_message" }`. Para mensagens sem `sent_at`, não filtrar (são mensagens em tempo real).
+**Banco de dados:**
+- Criar tabela `contact_ai_summaries` com colunas: `id`, `contact_id`, `company_id`, `summary` (text), `created_at`, `updated_at`
+- RLS: leitura para usuários autenticados da mesma empresa (`company_id = get_user_company_id()`), e política permissiva para INSERT/UPDATE (o N8N usará service_role key, que bypassa RLS)
+
+**Frontend — Inbox (Col 3, aba "Detalhes"):**
+- Após a seção de Atendente/Equipe e antes das Etiquetas, adicionar um card "Resumo IA" que exibe o último resumo do contato
+- Query: buscar de `contact_ai_summaries` filtrado por `contact_id`, ordenado por `created_at desc`, limit 1
+- Mostrar texto do resumo com data/hora da última atualização
+- Estado vazio: "Nenhum resumo disponível"
+
+**Frontend — ContactDetails.tsx (CRM de Contatos):**
+- Adicionar a mesma seção de resumo IA na aba "Detalhes", após as informações de contato
+
+**N8N:** O agente de resumo do N8N fará INSERT/UPDATE diretamente na tabela via API REST com service_role key.
+
+---
+
+### 2. Reabertura de conversa volta para fila
+
+**Edge Function `webhook-n8n-instance`:**
+- Na função `findOrCreateConversation` (linha ~170), quando o status é `closed`, além de mudar para `open`, também limpar `assigned_to` e `assigned_team` para `null`
+- Mudança: `{ status: "open" }` → `{ status: "open", assigned_to: null, assigned_team: null }`
+
+Isso garante que quando um cliente volta a falar (e a IA responde), a conversa reabre na fila sem vínculo com o atendente anterior.
+
+---
 
 ### Detalhes técnicos
 
-**Arquivo**: `supabase/functions/webhook-n8n-instance/index.ts`
-
-Inserir bloco no início da action `upsert_message` (após linha ~546):
-```typescript
-// Check cutoff timestamp
-const { data: cutoffSetting } = await supabase
-  .from("admin_settings")
-  .select("setting_value")
-  .eq("setting_key", "data_cutoff_timestamp")
-  .eq("company_id", company_id)
-  .maybeSingle();
-
-if (cutoffSetting?.setting_value && sent_at) {
-  const cutoff = new Date(cutoffSetting.setting_value).getTime();
-  const msgTime = new Date(sent_at).getTime();
-  if (msgTime < cutoff) {
-    console.log("[upsert_message] ignored old message, sent_at:", sent_at, "< cutoff:", cutoffSetting.setting_value);
-    return json({ success: true, action: "ignored_old_message" });
-  }
-}
-```
-
-**Também aplicar o mesmo filtro na action `update_message_status`** — quando o webhook tenta criar placeholder para status de mensagens antigas.
-
-**Database**: Inserir via insert tool:
+**Migration SQL:**
 ```sql
-DELETE FROM messages;
-DELETE FROM conversation_events;
-DELETE FROM conversations;
-DELETE FROM contact_tags;
-DELETE FROM contact_notes;
-DELETE FROM contact_custom_fields;
-DELETE FROM fidelity_cards;
-DELETE FROM checkin_records;
-DELETE FROM campaign_contacts;
-DELETE FROM contacts;
+CREATE TABLE public.contact_ai_summaries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  contact_id uuid NOT NULL,
+  company_id uuid,
+  summary text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.contact_ai_summaries ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view company summaries"
+  ON public.contact_ai_summaries FOR SELECT TO authenticated
+  USING (company_id = get_user_company_id());
+
+CREATE POLICY "Users can insert company summaries"
+  ON public.contact_ai_summaries FOR INSERT TO authenticated
+  WITH CHECK (company_id = get_user_company_id());
+
+CREATE TRIGGER update_contact_ai_summaries_updated_at
+  BEFORE UPDATE ON public.contact_ai_summaries
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
-E inserir o cutoff timestamp via insert tool com o user_id do perfil da empresa.
+**Arquivos modificados:**
+- `supabase/functions/webhook-n8n-instance/index.ts` — limpar assigned_to/assigned_team na reabertura
+- `src/pages/Inbox.tsx` — adicionar seção Resumo IA na aba Detalhes
+- `src/components/contacts/ContactDetails.tsx` — adicionar seção Resumo IA
 
