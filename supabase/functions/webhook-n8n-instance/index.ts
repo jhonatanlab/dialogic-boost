@@ -545,6 +545,25 @@ Deno.serve(async (req) => {
         return json({ error: "company_id, message_id and phone_number are required" }, 400);
       }
 
+      // ── Check cutoff timestamp: ignore old messages from history sync ──
+      if (sent_at) {
+        const { data: cutoffSetting } = await supabase
+          .from("admin_settings")
+          .select("setting_value")
+          .eq("setting_key", "data_cutoff_timestamp")
+          .eq("company_id", company_id)
+          .maybeSingle();
+
+        if (cutoffSetting?.setting_value) {
+          const cutoff = new Date(cutoffSetting.setting_value).getTime();
+          const msgTime = new Date(sent_at).getTime();
+          if (msgTime < cutoff) {
+            console.log("[upsert_message] ignored old message, sent_at:", sent_at, "< cutoff:", cutoffSetting.setting_value);
+            return json({ success: true, action: "ignored_old_message" });
+          }
+        }
+      }
+
       const normalizedPhone = normalizePhone(phone_number);
       const userId = await getUserForCompany(company_id);
       if (!userId) return json({ error: "No user found for this company" }, 404);
