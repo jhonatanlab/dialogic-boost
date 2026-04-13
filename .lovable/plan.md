@@ -1,33 +1,38 @@
 
 
-## Plano: Criar bucket `media-messages` no Storage
+## Plano: Ordenar mensagens por `sent_at` (timestamp real do WhatsApp)
 
-### O que será feito
-Criar o bucket público `media-messages` no Storage via migration SQL, com políticas de acesso que permitam:
-- **Upload**: qualquer requisição autenticada (ou via service_role key do N8N)
-- **Leitura pública**: para que as URLs dos MP3 sejam acessíveis pelo frontend e WhatsApp
+### Problema
+O N8N processa a resposta da IA antes de fazer o upsert da mensagem inbound original. Como o `created_at` reflete o momento da inserção no banco (não o timestamp real do WhatsApp), as mensagens ficam fora de ordem no chat.
 
-### Migration SQL
+### Solução
+Adicionar coluna `sent_at` na tabela `messages`, preenchê-la no webhook, e ordenar o chat por ela.
+
+### Etapas
+
+**1. Migration: adicionar coluna `sent_at` à tabela `messages`**
 ```sql
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('media-messages', 'media-messages', true);
+ALTER TABLE public.messages
+  ADD COLUMN sent_at TIMESTAMP WITH TIME ZONE;
 
--- Leitura pública
-CREATE POLICY "Public read media-messages"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'media-messages');
-
--- Upload por usuários autenticados
-CREATE POLICY "Authenticated upload media-messages"
-  ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'media-messages');
-
--- Delete por usuários autenticados
-CREATE POLICY "Authenticated delete media-messages"
-  ON storage.objects FOR DELETE TO authenticated
-  USING (bucket_id = 'media-messages');
+-- Preencher registros existentes com created_at como fallback
+UPDATE public.messages SET sent_at = created_at WHERE sent_at IS NULL;
 ```
 
-### Arquivo modificado
+**2. Edge Function `webhook-n8n-instance`**
+- No bloco `upsert_message`, ao inserir/atualizar mensagens, gravar `sent_at` com o valor recebido do payload (ou `new Date().toISOString()` como fallback)
+
+**3. Frontend `useMessages.ts`**
+- Alterar a query para ordenar por `sent_at` em vez de `created_at`:
+```typescript
+.order("sent_at", { ascending: true })
+```
+
+**4. Frontend `useConversations.ts`**
+- Sem alteração necessária (já ordena conversas por `last_message_at`)
+
+### Arquivos modificados
 - Nova migration SQL
+- `supabase/functions/webhook-n8n-instance/index.ts` — gravar `sent_at`
+- `src/hooks/useMessages.ts` — ordenar por `sent_at`
 
