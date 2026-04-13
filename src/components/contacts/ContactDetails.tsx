@@ -14,6 +14,7 @@ import { Contact } from "@/hooks/useContacts";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useTags, useAddTagToContact, useRemoveTagFromContact } from "@/hooks/useTags";
 import { supabase } from "@/integrations/supabase/client";
+import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
