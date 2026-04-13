@@ -1394,7 +1394,7 @@ const Inbox = () => {
                     <Separator />
 
                     {/* Resumo IA */}
-                    <AiSummaryCard contactId={selectedConv?.contact_id} />
+                    <AiSummaryCard contactId={selectedConversation?.contact_id} />
 
                     <Separator />
 
