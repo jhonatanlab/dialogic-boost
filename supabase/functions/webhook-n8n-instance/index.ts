@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
 
       if (existing) {
         if (existing.status === "closed") {
-          await supabase.from("conversations").update({ status: "open" }).eq("id", existing.id);
+          await supabase.from("conversations").update({ status: "open", assigned_to: null, assigned_team: null }).eq("id", existing.id);
         }
         return existing.id;
       }
