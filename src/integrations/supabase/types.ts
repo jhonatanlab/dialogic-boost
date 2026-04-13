@@ -462,6 +462,48 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_ai_summaries: {
+        Row: {
+          company_id: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          summary: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          summary: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          summary?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_ai_summaries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_ai_summaries_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_custom_fields: {
         Row: {
           company_id: string | null
