@@ -491,6 +491,23 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ── Check cutoff: don't create contacts/placeholders for old messages ──
+      {
+        const { data: cutoffSetting } = await supabase
+          .from("admin_settings")
+          .select("setting_value")
+          .eq("setting_key", "data_cutoff_timestamp")
+          .eq("company_id", company_id)
+          .maybeSingle();
+
+        if (cutoffSetting?.setting_value) {
+          // For status events without sent_at, we check if the message_id pattern suggests old data
+          // But primarily this blocks placeholder creation for old history
+          console.log("[update_message_status] cutoff active, skipping placeholder creation for unknown message:", message_id);
+          return json({ success: true, action: "status_deferred_cutoff", message: "Cutoff active, deferring unknown message" });
+        }
+      }
+
       // ── FALLBACK: create contact/conversation only if phone is a real recipient ──
       let contactId: string | null = null;
       let conversationId: string | null = null;
@@ -543,6 +560,25 @@ Deno.serve(async (req) => {
 
       if (!company_id || !message_id || !phone_number) {
         return json({ error: "company_id, message_id and phone_number are required" }, 400);
+      }
+
+      // ── Check cutoff timestamp: ignore old messages from history sync ──
+      if (sent_at) {
+        const { data: cutoffSetting } = await supabase
+          .from("admin_settings")
+          .select("setting_value")
+          .eq("setting_key", "data_cutoff_timestamp")
+          .eq("company_id", company_id)
+          .maybeSingle();
+
+        if (cutoffSetting?.setting_value) {
+          const cutoff = new Date(cutoffSetting.setting_value).getTime();
+          const msgTime = new Date(sent_at).getTime();
+          if (msgTime < cutoff) {
+            console.log("[upsert_message] ignored old message, sent_at:", sent_at, "< cutoff:", cutoffSetting.setting_value);
+            return json({ success: true, action: "ignored_old_message" });
+          }
+        }
       }
 
       const normalizedPhone = normalizePhone(phone_number);
