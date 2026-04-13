@@ -147,10 +147,10 @@ export const useWhatsappIntegrations = () => {
               setting_value: "false",
             }, { onConflict: "user_id,setting_key" });
 
-          // Deactivate API Nativa instances
+          // Deactivate API Nativa instances (set disconnected instead of deleting)
           await supabase
             .from("whatsapp_instances")
-            .delete()
+            .update({ status: "disconnected", updated_at: new Date().toISOString() })
             .eq("company_id", companyId);
         }
       } catch (e) {

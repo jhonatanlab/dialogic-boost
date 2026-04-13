@@ -255,7 +255,11 @@ const WhatsappIntegrations = () => {
                 <TabsTrigger value="native" className="flex items-center gap-2">
                   <Zap className="h-4 w-4" />
                   API Nativa
-                  {companyInstance?.status === 'connected' ? (
+                  {automationEnabled ? (
+                    <Badge variant="secondary" className="ml-2">
+                      Inativo
+                    </Badge>
+                  ) : companyInstance?.status === 'connected' ? (
                     <Badge variant="default" className="ml-2">
                       Conectado ✅
                     </Badge>
@@ -467,9 +471,16 @@ const WhatsappIntegrations = () => {
                                   setting_value: "false",
                                 }, { onConflict: "user_id,setting_key" });
 
+                              // Reconnect API Nativa instance
+                              await supabase
+                                .from("whatsapp_instances")
+                                .update({ status: "connected", updated_at: new Date().toISOString() })
+                                .eq("company_id", companyId);
+
                               setAutomationEnabled(false);
                               queryClient.invalidateQueries({ queryKey: ["whatsapp-integrations"] });
                               queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+                              queryClient.invalidateQueries({ queryKey: ["my-whatsapp-instance"] });
                             }
                           } catch (e) {
                             console.error("Error deactivating competing integrations:", e);
@@ -648,10 +659,10 @@ const WhatsappIntegrations = () => {
                                 .update({ status: "disconnected", updated_at: new Date().toISOString() })
                                 .eq("user_id", userData.user.id);
 
-                              // Deactivate API Nativa
+                              // Deactivate API Nativa (set status to disconnected instead of deleting)
                               await supabase
                                 .from("whatsapp_instances")
-                                .delete()
+                                .update({ status: "disconnected", updated_at: new Date().toISOString() })
                                 .eq("company_id", companyId);
 
                               setNativeEnabled(false);
