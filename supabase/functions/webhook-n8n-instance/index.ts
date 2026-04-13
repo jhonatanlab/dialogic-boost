@@ -736,6 +736,7 @@ Deno.serve(async (req) => {
             status: finalStatus,
             metadata: metaValue,
             created_at: sent_at || new Date().toISOString(),
+            sent_at: sent_at || new Date().toISOString(),
           };
           const { data: upserted, error: msgErr } = await supabase
             .from("messages")
