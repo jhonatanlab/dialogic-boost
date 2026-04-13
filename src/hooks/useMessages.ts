@@ -124,11 +124,7 @@ client_message_id: tempMessageId,
         throw new Error(result.error || "Erro no envio via n8n");
       }
 
-      // Update last_message_at on the conversation
-      await supabase
-        .from("conversations")
-        .update({ last_message_at: new Date().toISOString() })
-        .eq("id", conversationId);
+      // last_message_at is now updated automatically by a database trigger
 
       return result;
     },
