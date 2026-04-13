@@ -806,19 +806,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ── Update conversation ──
-      const updateData: Record<string, unknown> = {
-        last_message_at: sent_at || new Date().toISOString(),
-      };
+      // ── Update conversation (last_message_at is handled by DB trigger) ──
       if (messageDirection === "inbound") {
         const { data: conv } = await supabase
           .from("conversations")
           .select("unread_count")
           .eq("id", conversationId)
           .single();
-        updateData.unread_count = (conv?.unread_count || 0) + 1;
+        await supabase.from("conversations").update({ unread_count: (conv?.unread_count || 0) + 1 }).eq("id", conversationId);
       }
-      await supabase.from("conversations").update(updateData).eq("id", conversationId);
 
       // ── Sync campaign_contacts status ──
       const resolvedCampaignRef = await resolveCampaignRefForMessage(upsertedId, internal_id || null);
