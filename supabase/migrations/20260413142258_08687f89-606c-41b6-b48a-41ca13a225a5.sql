@@ -1,0 +1,1 @@
+ALTER TABLE public.contact_ai_summaries ADD CONSTRAINT contact_ai_summaries_contact_id_unique UNIQUE (contact_id);

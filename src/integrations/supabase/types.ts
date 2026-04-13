@@ -498,7 +498,7 @@ export type Database = {
           {
             foreignKeyName: "contact_ai_summaries_contact_id_fkey"
             columns: ["contact_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
