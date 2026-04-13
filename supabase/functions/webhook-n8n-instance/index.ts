@@ -711,6 +711,7 @@ Deno.serve(async (req) => {
               content: messageContent || undefined,
               message_type: messageType,
               metadata: mergedMeta,
+              sent_at: sent_at || undefined,
             })
             .eq("id", existing.id);
           if (updateErr) throw updateErr;
@@ -735,6 +736,7 @@ Deno.serve(async (req) => {
             status: finalStatus,
             metadata: metaValue,
             created_at: sent_at || new Date().toISOString(),
+            sent_at: sent_at || new Date().toISOString(),
           };
           const { data: upserted, error: msgErr } = await supabase
             .from("messages")
@@ -767,7 +769,7 @@ Deno.serve(async (req) => {
               const mergedMeta = { ...(match.metadata || {}), ...messageMetadata, pending_content: false };
               const { error: reconErr } = await supabase
                 .from("messages")
-                .update({ message_id, status: finalStatus, metadata: mergedMeta, content: messageContent || undefined, message_type: messageType })
+                .update({ message_id, status: finalStatus, metadata: mergedMeta, content: messageContent || undefined, message_type: messageType, sent_at: sent_at || undefined })
                 .eq("id", match.id);
               if (reconErr) throw reconErr;
               upsertedId = match.id;
@@ -792,6 +794,7 @@ Deno.serve(async (req) => {
             status: finalStatus,
             metadata: metaValue,
             created_at: sent_at || new Date().toISOString(),
+            sent_at: sent_at || new Date().toISOString(),
           };
           const { data: upserted, error: msgErr } = await supabase
             .from("messages")

@@ -1121,6 +1121,7 @@ export type Database = {
           message_id: string | null
           message_type: string
           metadata: Json | null
+          sent_at: string | null
           status: string
           user_id: string
         }
@@ -1137,6 +1138,7 @@ export type Database = {
           message_id?: string | null
           message_type?: string
           metadata?: Json | null
+          sent_at?: string | null
           status?: string
           user_id: string
         }
@@ -1153,6 +1155,7 @@ export type Database = {
           message_id?: string | null
           message_type?: string
           metadata?: Json | null
+          sent_at?: string | null
           status?: string
           user_id?: string
         }

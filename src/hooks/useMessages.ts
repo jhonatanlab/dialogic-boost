@@ -28,7 +28,7 @@ export const useMessages = (conversationId: string | null) => {
         .from("messages")
         .select("*")
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
+        .order("sent_at", { ascending: true });
       if (error) throw error;
       return (data || []) as Message[];
     },
@@ -61,7 +61,7 @@ export const useMessages = (conversationId: string | null) => {
       const { error: insertError } = await supabase
         .from("messages")
         .insert([{
-          client_message_id: tempMessageId,
+client_message_id: tempMessageId,
           message_id: null,
           conversation_id: conversationId,
           contact_id: contactId,
@@ -72,6 +72,7 @@ export const useMessages = (conversationId: string | null) => {
           content: messageContent,
           message_type: effectiveMediaType,
           status: "sending",
+          sent_at: new Date().toISOString(),
           metadata: Object.keys(metadata).length > 0 ? (metadata as any) : null,
         }] as any);
 
