@@ -1,32 +1,38 @@
 
 
-## Plano: Identificação do atendente nas mensagens enviadas
+## Plano: Incluir nome do atendente no conteúdo da mensagem enviada ao WhatsApp
 
 ### Problema
-As mensagens outbound no chat não mostram quem as enviou. O usuário quer ver o nome do atendente em negrito acima do conteúdo, como no print: **"Consultor | Artur Alves:"**.
+O nome do atendente aparece apenas visualmente no chat da aplicação, mas o conteúdo real da mensagem enviada ao WhatsApp não inclui essa identificação. O cliente no WhatsApp recebe apenas o texto puro.
 
 ### Solução
+Prefixar o conteúdo da mensagem com `*NomeDoAtendente:*\n` antes de enviá-la, tanto no banco de dados quanto no payload para o n8n/WhatsApp. Isso usa a formatação de negrito do WhatsApp (`*texto*`).
 
-**1. Buscar nomes dos atendentes no hook `useMessages`**
-- Após carregar as mensagens, coletar todos os `user_id` distintos das mensagens outbound
-- Fazer uma query na tabela `profiles` para buscar `full_name` e `role` de cada `user_id`
-- Retornar um mapa `agentNames: Record<string, string>` junto com as mensagens
+### Alterações
 
-**2. Passar o mapa de nomes para o ChatBubble**
-- No componente `Inbox.tsx`, passar uma prop `agentName` para o `ChatBubble` usando o mapa retornado pelo hook
-- O nome será resolvido via `message.user_id`
+**`src/pages/Inbox.tsx` — função `handleSendMessage`**
+- Buscar o `full_name` do usuário atual (já disponível via `companyAgents` ou uma query ao `profiles`)
+- Armazenar o nome do atendente logado em um estado (ex: `currentUserName`)
+- Antes de chamar `sendMessage.mutate()`, prefixar o conteúdo:
+  ```
+  const prefixedContent = `*${currentUserName}:*\n${textContent}`;
+  ```
+- Passar `prefixedContent` como `content` no `sendMessage.mutate()` e no `postToOutbound()`
+- Isso garante que tanto o registro no banco quanto a mensagem enviada ao WhatsApp contenham o nome
 
-**3. Exibir o nome no ChatBubble (apenas outbound)**
-- Antes do conteúdo da mensagem, renderizar o nome do atendente em negrito
-- Formato: **"Nome do Atendente:"** em uma linha separada, seguido pelo conteúdo
-- Estilo: texto em negrito, tamanho ligeiramente menor, cor do texto principal
+**`src/pages/Inbox.tsx` — useEffect de inicialização**
+- Na query que já busca o perfil do usuário (linha ~412), incluir `full_name` no select
+- Salvar em um novo estado `currentUserName`
 
-### Arquivos modificados
-- `src/hooks/useMessages.ts` — adicionar query de perfis e retornar `agentNames`
-- `src/pages/Inbox.tsx` — atualizar `ChatBubble` para receber e exibir o nome do atendente
+**`src/pages/Inbox.tsx` — ChatBubble**
+- Remover a exibição visual separada do nome do atendente (já que agora estará no conteúdo)
+- Ou manter a exibição visual e, ao renderizar, remover o prefixo do conteúdo para não duplicar
 
 ### Detalhes técnicos
-- A query de perfis usa `user_id IN (...)` para buscar apenas os atendentes relevantes
-- Mensagens sem `user_id` (ex: automações) não exibirão nome
-- O nome é exibido apenas em mensagens outbound
+- A formatação `*texto*` gera negrito no WhatsApp
+- O nome será incluído apenas em mensagens de texto (não em mídias sem texto)
+- O prefixo será aplicado apenas quando houver conteúdo textual
+
+### Arquivos modificados
+- `src/pages/Inbox.tsx`
 
