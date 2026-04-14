@@ -1714,12 +1714,18 @@ const Inbox = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-foreground">{getLabel()}</p>
-                              <p className="text-[11px] text-muted-foreground">Por: {ev.actor_name}</p>
-                              {ev.target_name && (
-                                <p className="text-[11px] text-muted-foreground">Para: {ev.target_name}</p>
-                              )}
-                              {ev.target_team_name && (
-                                <p className="text-[11px] text-muted-foreground">Equipe: {ev.target_team_name}</p>
+                              {ev.event_type === "ai_summary" && ev.details?.summary ? (
+                                <p className="text-[11px] text-muted-foreground whitespace-pre-line mt-1">{ev.details.summary}</p>
+                              ) : (
+                                <>
+                                  <p className="text-[11px] text-muted-foreground">Por: {ev.actor_name}</p>
+                                  {ev.target_name && (
+                                    <p className="text-[11px] text-muted-foreground">Para: {ev.target_name}</p>
+                                  )}
+                                  {ev.target_team_name && (
+                                    <p className="text-[11px] text-muted-foreground">Equipe: {ev.target_team_name}</p>
+                                  )}
+                                </>
                               )}
                               <p className="text-[10px] text-muted-foreground/60 mt-1">
                                 {format(new Date(ev.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
