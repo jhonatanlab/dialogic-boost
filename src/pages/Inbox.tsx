@@ -828,7 +828,7 @@ const Inbox = () => {
     try {
       const { error } = await supabase
         .from("conversations")
-        .update({ status: "closed", updated_at: new Date().toISOString() })
+        .update({ status: "closed", updated_at: new Date().toISOString(), restarted_at: new Date().toISOString() } as any)
         .eq("id", selectedConversation.id);
       if (error) { console.error("Close error:", error); throw error; }
 
