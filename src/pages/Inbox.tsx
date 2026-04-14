@@ -202,7 +202,12 @@ const ChatBubble = ({ message, agentName }: { message: Message; agentName?: stri
         )}
         {showText && (
           <p className="text-[14px] leading-relaxed whitespace-pre-wrap break-words px-3 pt-2 pb-1">
-            {rawContent}
+            {rawContent.split(/(\*[^*]+\*)/).map((part, i) => {
+              if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+                return <strong key={i}>{part.slice(1, -1)}</strong>;
+              }
+              return <React.Fragment key={i}>{part}</React.Fragment>;
+            })}
           </p>
         )}
         <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-0.5">
