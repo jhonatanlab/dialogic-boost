@@ -1,37 +1,23 @@
 
 
-## Plano: Incluir nome do atendente no conteúdo da mensagem enviada ao WhatsApp
+## Plano: Corrigir envio duplicado de mensagens
 
 ### Problema
-O nome do atendente aparece apenas visualmente no chat da aplicação, mas o conteúdo real da mensagem enviada ao WhatsApp não inclui essa identificação. O cliente no WhatsApp recebe apenas o texto puro.
+Quando a "API Automação" está habilitada (`n8n_automation_enabled = true`), a mensagem é enviada **duas vezes** ao webhook outbound:
+
+1. Dentro de `sendMessage.mutate()` no hook `useMessages.ts` — que já verifica se a automação está ativa e faz POST direto para `n8n_automation_outbound`
+2. Logo em seguida, `postToOutbound()` no `Inbox.tsx` faz **outro POST** para o mesmo endpoint com o mesmo conteúdo
 
 ### Solução
-Prefixar o conteúdo da mensagem com `*NomeDoAtendente:*\n` antes de enviá-la, tanto no banco de dados quanto no payload para o n8n/WhatsApp. Isso usa a formatação de negrito do WhatsApp (`*texto*`).
+Remover a chamada `postToOutbound()` para envio de mensagens em `handleSendMessage` (linhas 760-769 do `Inbox.tsx`). O hook `useMessages.ts` já gerencia corretamente o envio via API Automação ou API Nativa.
+
+A função `postToOutbound` continuará existindo para os payloads de controle (`pause_ai`, `reactivate_ai`), que são chamados em outros pontos do código.
 
 ### Alterações
 
-**`src/pages/Inbox.tsx` — função `handleSendMessage`**
-- Buscar o `full_name` do usuário atual (já disponível via `companyAgents` ou uma query ao `profiles`)
-- Armazenar o nome do atendente logado em um estado (ex: `currentUserName`)
-- Antes de chamar `sendMessage.mutate()`, prefixar o conteúdo:
-  ```
-  const prefixedContent = `*${currentUserName}:*\n${textContent}`;
-  ```
-- Passar `prefixedContent` como `content` no `sendMessage.mutate()` e no `postToOutbound()`
-- Isso garante que tanto o registro no banco quanto a mensagem enviada ao WhatsApp contenham o nome
-
-**`src/pages/Inbox.tsx` — useEffect de inicialização**
-- Na query que já busca o perfil do usuário (linha ~412), incluir `full_name` no select
-- Salvar em um novo estado `currentUserName`
-
-**`src/pages/Inbox.tsx` — ChatBubble**
-- Remover a exibição visual separada do nome do atendente (já que agora estará no conteúdo)
-- Ou manter a exibição visual e, ao renderizar, remover o prefixo do conteúdo para não duplicar
-
-### Detalhes técnicos
-- A formatação `*texto*` gera negrito no WhatsApp
-- O nome será incluído apenas em mensagens de texto (não em mídias sem texto)
-- O prefixo será aplicado apenas quando houver conteúdo textual
+**`src/pages/Inbox.tsx`**
+- Remover o bloco de código nas linhas 760-769 (o `postToOutbound` com payload de mensagem dentro de `handleSendMessage`)
+- Nenhuma outra alteração necessária
 
 ### Arquivos modificados
 - `src/pages/Inbox.tsx`
