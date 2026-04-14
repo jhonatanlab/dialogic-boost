@@ -37,6 +37,9 @@ const AdminCompanies = () => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newCompanyCnpj, setNewCompanyCnpj] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserName, setNewUserName] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Check admin role
@@ -117,20 +120,34 @@ const AdminCompanies = () => {
   const createCompany = useMutation({
     mutationFn: async () => {
       if (!newCompanyName.trim()) throw new Error("Nome da empresa é obrigatório");
-      const { error } = await supabase
-        .from("companies")
-        .insert({ name: newCompanyName.trim(), cnpj: newCompanyCnpj.trim() || null });
+      if (!newUserEmail.trim()) throw new Error("Email do usuário é obrigatório");
+      if (!newUserPassword || newUserPassword.length < 6) throw new Error("Senha deve ter no mínimo 6 caracteres");
+
+      const { data, error } = await supabase.functions.invoke("manage-users", {
+        body: {
+          action: "create_company_with_user",
+          email: newUserEmail.trim(),
+          password: newUserPassword,
+          full_name: newUserName.trim() || null,
+          company_name: newCompanyName.trim(),
+          cnpj: newCompanyCnpj.trim() || null,
+        },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-companies"] });
-      toast({ title: "Empresa cadastrada com sucesso!" });
+      toast({ title: "Empresa e usuário cadastrados com sucesso!" });
       setNewCompanyName("");
       setNewCompanyCnpj("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserName("");
       setShowCreateForm(false);
     },
     onError: (error: any) => {
-      toast({ title: "Erro ao cadastrar empresa", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao cadastrar", description: error.message, variant: "destructive" });
     },
   });
 
@@ -211,7 +228,7 @@ const AdminCompanies = () => {
         {showCreateForm && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Cadastrar Nova Empresa</CardTitle>
+              <CardTitle className="text-lg">Cadastrar Nova Empresa + Usuário</CardTitle>
             </CardHeader>
             <CardContent>
               <form
@@ -219,28 +236,59 @@ const AdminCompanies = () => {
                   e.preventDefault();
                   createCompany.mutate();
                 }}
-                className="flex flex-col sm:flex-row gap-4 items-end"
+                className="space-y-4"
               >
-                <div className="flex-1 space-y-2">
-                  <Label>Nome da Empresa *</Label>
-                  <Input
-                    value={newCompanyName}
-                    onChange={(e) => setNewCompanyName(e.target.value)}
-                    placeholder="Nome da empresa"
-                    required
-                  />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <Label>CNPJ</Label>
-                  <Input
-                    value={newCompanyCnpj}
-                    onChange={(e) => setNewCompanyCnpj(e.target.value)}
-                    placeholder="00.000.000/0000-00"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Nome da Empresa *</Label>
+                    <Input
+                      value={newCompanyName}
+                      onChange={(e) => setNewCompanyName(e.target.value)}
+                      placeholder="Nome da empresa"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CNPJ</Label>
+                    <Input
+                      value={newCompanyCnpj}
+                      onChange={(e) => setNewCompanyCnpj(e.target.value)}
+                      placeholder="00.000.000/0000-00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nome do Usuário</Label>
+                    <Input
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      placeholder="Nome completo"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email do Usuário *</Label>
+                    <Input
+                      type="email"
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      placeholder="email@empresa.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Senha *</Label>
+                    <Input
+                      type="password"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      minLength={6}
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button type="submit" disabled={createCompany.isPending}>
-                    {createCompany.isPending ? "Cadastrando..." : "Cadastrar"}
+                    {createCompany.isPending ? "Cadastrando..." : "Cadastrar Empresa + Usuário"}
                   </Button>
                   <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>
                     Cancelar
