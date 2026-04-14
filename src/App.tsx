@@ -22,6 +22,7 @@ import ModeloMessages from "./pages/ModeloMessages";
 import Settings from "./pages/Settings";
 import WhatsappIntegrations from "./pages/WhatsappIntegrations";
 import AdminWhatsapp from "./pages/AdminWhatsapp";
+import AdminCompanies from "./pages/AdminCompanies";
 import Users from "./pages/Users";
 import Teams from "./pages/Teams";
 import CompanyProfile from "./pages/CompanyProfile";
@@ -59,6 +60,7 @@ const App = () => (
           <Route path="/settings/company" element={<CompanyProfile />} />
           <Route path="/settings/distribution" element={<ChatDistribution />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
+          <Route path="/admin/companies" element={<AdminCompanies />} />
           <Route path="/profile" element={<Profile />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
