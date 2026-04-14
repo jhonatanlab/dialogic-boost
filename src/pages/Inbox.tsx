@@ -176,13 +176,6 @@ const ChatBubble = ({ message, agentName }: { message: Message; agentName?: stri
           ? "bg-chat-outbound text-chat-outbound-foreground rounded-tr-sm"
           : "bg-chat-inbound text-chat-inbound-foreground rounded-tl-sm"
       }`}>
-        {isOutbound && agentName && (
-          <div className="px-3 pt-2 pb-0">
-            <span className="text-xs font-bold text-chat-outbound-foreground/80 leading-tight">
-              {agentName}:
-            </span>
-          </div>
-        )}
         {hasMedia && (
           <div className="p-1">
             <MediaContent message={message} />
@@ -358,6 +351,7 @@ const Inbox = () => {
   const [currentUserRole, setCurrentUserRole] = useState<string>("agent");
   const [companyAgents, setCompanyAgents] = useState<{ user_id: string; full_name: string }[]>([]);
   const [companyTeams, setCompanyTeams] = useState<{ id: string; name: string }[]>([]);
+  const [currentUserName, setCurrentUserName] = useState<string>("");
 
   const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
@@ -411,11 +405,12 @@ const Inbox = () => {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, company_id")
+        .select("role, company_id, full_name")
         .eq("user_id", user.id)
         .single();
       if (profile) {
         setCurrentUserRole(profile.role || "agent");
+        setCurrentUserName(profile.full_name || "");
 
         // Fetch company agents
         const { data: profiles } = await supabase
@@ -712,7 +707,9 @@ const Inbox = () => {
   const handleSendMessage = async () => {
     if ((!messageInput.trim() && !attachedFile) || !selectedConversation || !companyId) return;
 
-    const textContent = messageInput.trim();
+    const rawText = messageInput.trim();
+    // Prefix text content with agent name for WhatsApp bold formatting
+    const textContent = rawText && currentUserName ? `*${currentUserName}:*\n${rawText}` : rawText;
     let mediaUrl: string | undefined;
     let mediaType: string | undefined;
     let mimetype: string | undefined;
