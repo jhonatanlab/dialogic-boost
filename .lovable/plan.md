@@ -1,55 +1,27 @@
 
 
-## Plano: Página Admin — Gerenciamento de Empresas
+## Plan: Role-Based Menu Visibility
 
-### Objetivo
-Criar uma página `/admin/companies` para gerenciar todas as empresas do EloChat, com visão geral, contagem de usuários, e capacidade de bloquear/reativar empresas. Acesso restrito ao role `admin`.
+### Goal
+Hide Automações, Campanhas, Relatórios, and Check-in from users with `agent` role. Only `admin`, `manager` (and implicitly `proprietário` = admin) can see these pages.
 
-### Alterações no banco de dados
+### Changes
 
-**Migration 1 — Adicionar coluna `is_active` na tabela `companies`**
-```sql
-ALTER TABLE public.companies ADD COLUMN is_active boolean NOT NULL DEFAULT true;
-```
-- Empresas bloqueadas terão `is_active = false`
-- Todas as empresas existentes ficam ativas por padrão
+**1. `src/components/layout/AppSidebar.tsx`**
+- Import and use `useCompany` hook to get the user's `profile.role`
+- Add a `requiredRoles` property to restricted menu items (`/automations`, `/campaigns`, `/analytics`, `/checkin`)
+- Filter `menuItems` before rendering: if `requiredRoles` is set, only show if user's role is in that list
 
-**Migration 2 — Policy para admin atualizar `is_active`**
-- A policy `Admins can update all companies` já existe, então o admin já pode fazer UPDATE. Nenhuma policy adicional é necessária.
+**2. Route protection on restricted pages**
+- In each of the 4 pages (`Automations.tsx`, `Campaigns.tsx`, `Analytics.tsx`, `CheckIn.tsx`), add a role check using `useCompany`
+- If the user's role is `agent`, redirect to `/dashboard` (prevents direct URL access)
 
-### Nova página: `src/pages/AdminCompanies.tsx`
+### Allowed roles for restricted pages
+- `admin`, `manager` — can see all 4 pages
+- `agent` — cannot see Automações, Campanhas, Relatórios, Check-in
 
-Seguindo o padrão visual do `AdminWhatsapp.tsx`:
-
-- **Header** com ícone e título "Admin SaaS — Empresas"
-- **Cards de resumo**: Total de empresas, Empresas ativas, Empresas bloqueadas, Total de usuários
-- **Tabela de empresas** com colunas:
-  - Nome da empresa
-  - CNPJ
-  - Plano
-  - Usuários (count de profiles)
-  - Status (badge ativo/bloqueado)
-  - Data de criação
-  - Ações (botão bloquear/reativar)
-- **Busca** por nome da empresa
-- Botões de ação com confirmação via toast
-
-A query buscará `companies` + count de `profiles` agrupado por `company_id`.
-
-### Rota e navegação
-
-**`src/App.tsx`**
-- Adicionar rota `/admin/companies` apontando para `AdminCompanies`
-
-**`src/components/layout/AppSidebar.tsx`**
-- Não adicionar ao menu principal (é uma rota admin, acessada manualmente como `/admin/whatsapp`)
-
-### Proteção de acesso
-- Na página, verificar se o usuário tem role `admin` via `has_role`
-- Se não for admin, redirecionar para `/dashboard`
-
-### Arquivos criados/modificados
-- `supabase/migrations/xxx.sql` — adicionar `is_active` à tabela `companies`
-- `src/pages/AdminCompanies.tsx` — nova página
-- `src/App.tsx` — nova rota
+### Technical Details
+- The `profiles.role` field stores `admin`, `manager`, or `agent`
+- No database changes needed
+- The sidebar will dynamically filter items based on the logged-in user's role
 
