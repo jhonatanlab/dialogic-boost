@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { FlowBuilderWrapper, type FlowBuilderHandle } from "@/components/automations/FlowBuilder";
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useAutomations } from "@/hooks/useAutomations";
+import { useCompany } from "@/hooks/useCompany";
 import { toast } from "sonner";
 
 const Automations = () => {
+  const navigate = useNavigate();
+  const { profile } = useCompany();
+
+  useEffect(() => {
+    if (profile && profile.role === "agent") {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [profile, navigate]);
+
   const [activeTab, setActiveTab] = useState("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);

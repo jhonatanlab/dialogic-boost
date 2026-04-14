@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useCompany } from "@/hooks/useCompany";
 import { useCampaigns, type CampaignWithStats } from "@/hooks/useCampaigns";
 import { Button } from "@/components/ui/button";
 import { Plus, MoreVertical, Send, Trash2, Calendar } from "lucide-react";
@@ -42,9 +43,15 @@ const statusLabels = {
 
 const Campaigns = () => {
   const navigate = useNavigate();
+  const { profile } = useCompany();
+
+  useEffect(() => {
+    if (profile && profile.role === "agent") {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [profile, navigate]);
+
   const [formOpen, setFormOpen] = useState(false);
-  const [selectedCampaign, setSelectedCampaign] = useState<CampaignWithStats | null>(null);
-  const { campaigns, isLoading, createCampaign, deleteCampaign } = useCampaigns();
 
   const handleCreateCampaign = (data: { name: string; message: string; contactIds: string[] }) => {
     createCampaign(data);
