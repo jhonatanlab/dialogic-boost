@@ -175,7 +175,13 @@ const ChatBubble = ({ message, agentName }: { message: Message; agentName?: stri
         isOutbound
           ? "bg-chat-outbound text-chat-outbound-foreground rounded-tr-sm"
           : "bg-chat-inbound text-chat-inbound-foreground rounded-tl-sm"
-      }`}>
+        {isOutbound && agentName && (
+          <div className="px-3 pt-2 pb-0">
+            <span className="text-xs font-bold text-chat-outbound-foreground/80 leading-tight">
+              {agentName}:
+            </span>
+          </div>
+        )}
         {hasMedia && (
           <div className="p-1">
             <MediaContent message={message} />
