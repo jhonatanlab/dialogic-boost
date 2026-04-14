@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,6 +25,7 @@ import {
   Search,
   Ban,
   CheckCircle,
+  Plus,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -32,6 +34,10 @@ const AdminCompanies = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [newCompanyName, setNewCompanyName] = useState("");
+  const [newCompanyCnpj, setNewCompanyCnpj] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   // Check admin role
@@ -106,6 +112,26 @@ const AdminCompanies = () => {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  const createCompany = useMutation({
+    mutationFn: async () => {
+      if (!newCompanyName.trim()) throw new Error("Nome da empresa é obrigatório");
+      const { error } = await supabase
+        .from("companies")
+        .insert({ name: newCompanyName.trim(), cnpj: newCompanyCnpj.trim() || null });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-companies"] });
+      toast({ title: "Empresa cadastrada com sucesso!" });
+      setNewCompanyName("");
+      setNewCompanyCnpj("");
+      setShowCreateForm(false);
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao cadastrar empresa", description: error.message, variant: "destructive" });
     },
   });
 
