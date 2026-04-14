@@ -1107,7 +1107,7 @@ const Inbox = () => {
                       // Add all messages
                       for (const group of groupedMessages) {
                         for (const msg of group.msgs) {
-                          timeline.push({ type: "message", data: msg, timestamp: msg.sent_at || msg.created_at });
+                          timeline.push({ type: "message", data: msg, timestamp: (msg as any).sent_at || msg.created_at });
                         }
                       }
 
