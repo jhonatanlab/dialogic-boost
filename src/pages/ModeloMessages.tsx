@@ -224,7 +224,7 @@ const ModeloMessages = () => {
                         />
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           <span className="text-xs text-muted-foreground mr-1 self-center">Variáveis:</span>
-                          {["{nome}", "{telefone}", "{email}"].map((v) => (
+                          {["{nome}", "{telefone}", "{email}", "{atendente}"].map((v) => (
                             <Button
                               key={v}
                               type="button"
