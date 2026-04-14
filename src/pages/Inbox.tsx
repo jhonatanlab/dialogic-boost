@@ -1139,6 +1139,7 @@ const Inbox = () => {
                         );
                       });
                     })()
+                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
