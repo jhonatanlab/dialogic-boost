@@ -435,6 +435,7 @@ export type Database = {
           cnpj: string | null
           created_at: string
           id: string
+          is_active: boolean
           name: string
           phone: string | null
           plan: string
@@ -445,6 +446,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           name: string
           phone?: string | null
           plan?: string
@@ -455,6 +457,7 @@ export type Database = {
           cnpj?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           name?: string
           phone?: string | null
           plan?: string
