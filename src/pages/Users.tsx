@@ -66,6 +66,7 @@ const Users = () => {
   const queryClient = useQueryClient();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePassword, setInvitePassword] = useState("");
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState<string>("agent");
 
@@ -80,17 +81,19 @@ const Users = () => {
   const inviteMutation = useMutation({
     mutationFn: async () => {
       return callManageUsers({
-        action: "invite",
+        action: "create_user",
         email: inviteEmail,
+        password: invitePassword,
         full_name: inviteName || null,
         role: inviteRole,
       });
     },
     onSuccess: () => {
-      toast.success("Convite enviado com sucesso!");
+      toast.success("Usuário criado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["company-users"] });
       setInviteOpen(false);
       setInviteEmail("");
+      setInvitePassword("");
       setInviteName("");
       setInviteRole("agent");
     },
@@ -145,15 +148,15 @@ const Users = () => {
 
         <div className="flex justify-end mb-4">
           <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-            <DialogTrigger asChild>
+             <DialogTrigger asChild>
               <Button>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Convidar Usuário
+                Criar Usuário
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Convidar novo usuário</DialogTitle>
+                <DialogTitle>Criar novo usuário</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
@@ -167,6 +170,16 @@ const Users = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="invite-password">Senha *</Label>
+                  <Input
+                    id="invite-password"
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={invitePassword}
+                    onChange={(e) => setInvitePassword(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="invite-name">Nome completo</Label>
                   <Input
                     id="invite-name"
@@ -176,7 +189,7 @@ const Users = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Papel</Label>
+                  <Label>Cargo</Label>
                   <Select value={inviteRole} onValueChange={setInviteRole}>
                     <SelectTrigger>
                       <SelectValue />
@@ -202,9 +215,9 @@ const Users = () => {
                 </DialogClose>
                 <Button
                   onClick={() => inviteMutation.mutate()}
-                  disabled={!inviteEmail || inviteMutation.isPending}
+                  disabled={!inviteEmail || !invitePassword || invitePassword.length < 6 || inviteMutation.isPending}
                 >
-                  {inviteMutation.isPending ? "Enviando..." : "Enviar Convite"}
+                  {inviteMutation.isPending ? "Criando..." : "Criar Usuário"}
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -121,11 +121,7 @@ Deno.serve(async (req) => {
       const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
       
       if (inviteError) {
-        // If user already exists, Supabase returns a specific error
         if (inviteError.message?.includes("already been registered") || inviteError.message?.includes("already exists")) {
-          // Look up user by email using admin API (targeted, not listing all)
-          const { data: { users: matchedUsers } } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
-          // Use getUserByEmail if available, otherwise search
           const { data: existingUsersList } = await supabaseAdmin.auth.admin.listUsers();
           const existingUser = existingUsersList?.users?.find((u) => u.email === email);
           
@@ -133,7 +129,6 @@ Deno.serve(async (req) => {
             throw new Error("User exists but could not be resolved");
           }
 
-          // Check if already in this company
           const { data: existingProfile } = await supabaseAdmin
             .from("profiles")
             .select("id")
@@ -156,7 +151,6 @@ Deno.serve(async (req) => {
         userId = inviteData.user.id;
       }
 
-      // Create profile
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
         .insert({
@@ -168,7 +162,6 @@ Deno.serve(async (req) => {
 
       if (profileError) throw profileError;
 
-      // Create user_role entry
       const roleMapping: Record<string, string> = { manager: "manager", agent: "agent" };
       const { error: roleError } = await supabaseAdmin
         .from("user_roles")
@@ -180,6 +173,58 @@ Deno.serve(async (req) => {
       if (roleError) throw roleError;
 
       return new Response(JSON.stringify({ message: "User invited successfully" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // CREATE a new user with password (no invite email)
+    if (action === "create_user") {
+      const { email, password, full_name, role } = body;
+
+      if (!email || !password || !role) {
+        return new Response(JSON.stringify({ error: "email, password and role are required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const validRoles = ["manager", "agent"];
+      if (!validRoles.includes(role)) {
+        return new Response(JSON.stringify({ error: "Role must be manager or agent" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Create auth user with password
+      const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+
+      if (createUserError) throw createUserError;
+
+      // Create profile
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          user_id: newUser.user.id,
+          company_id: callerProfile.company_id,
+          full_name: full_name || null,
+          role,
+        });
+
+      if (profileError) throw profileError;
+
+      // Create user_role entry
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: newUser.user.id, role });
+
+      if (roleError) throw roleError;
+
+      return new Response(JSON.stringify({ message: "User created successfully" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
