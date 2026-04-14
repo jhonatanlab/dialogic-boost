@@ -38,7 +38,6 @@ const AdminCompanies = () => {
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newCompanyCnpj, setNewCompanyCnpj] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   // Check admin role
   useEffect(() => {
