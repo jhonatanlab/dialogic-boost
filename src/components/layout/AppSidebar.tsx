@@ -6,11 +6,10 @@ import {
   Send,
   BarChart3,
   QrCode,
-  
   LayoutDashboard,
   Settings,
-  
 } from "lucide-react";
+import { useCompany } from "@/hooks/useCompany";
 import {
   Sidebar,
   SidebarContent,
@@ -27,12 +26,10 @@ const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Contatos", url: "/contacts", icon: Users },
-  { title: "Automações", url: "/automations", icon: Bot },
-  { title: "Campanhas", url: "/campaigns", icon: Send },
-  { title: "Relatórios", url: "/analytics", icon: BarChart3 },
-  { title: "Check-in", url: "/checkin", icon: QrCode },
-  
-  
+  { title: "Automações", url: "/automations", icon: Bot, requiredRoles: ["admin", "manager"] },
+  { title: "Campanhas", url: "/campaigns", icon: Send, requiredRoles: ["admin", "manager"] },
+  { title: "Relatórios", url: "/analytics", icon: BarChart3, requiredRoles: ["admin", "manager"] },
+  { title: "Check-in", url: "/checkin", icon: QrCode, requiredRoles: ["admin", "manager"] },
   { title: "Configurações", url: "/settings", icon: Settings },
 ];
 
@@ -40,6 +37,8 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
+  const { profile } = useCompany();
+  const userRole = profile?.role;
 
   const isActive = (path: string) => currentPath === path;
   const isCollapsed = state === "collapsed";
@@ -81,7 +80,7 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => {
+              {menuItems.filter((item) => !item.requiredRoles || (userRole && item.requiredRoles.includes(userRole))).map((item) => {
                 const active = isActive(item.url);
                 return (
                   <SidebarMenuItem key={item.title}>
