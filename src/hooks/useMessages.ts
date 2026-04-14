@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 export interface Message {
   id: string;
@@ -34,6 +34,40 @@ export const useMessages = (conversationId: string | null) => {
     },
     enabled: !!conversationId,
   });
+
+  // Fetch agent names for outbound messages
+  const outboundUserIds = useMemo(() => {
+    if (!messages) return [];
+    const ids = new Set<string>();
+    messages.forEach((m) => {
+      if (m.direction === "outbound" && m.user_id) ids.add(m.user_id);
+    });
+    return Array.from(ids);
+  }, [messages]);
+
+  const { data: agentProfiles } = useQuery({
+    queryKey: ["agent-profiles", outboundUserIds],
+    queryFn: async () => {
+      if (outboundUserIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, role")
+        .in("user_id", outboundUserIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: outboundUserIds.length > 0,
+  });
+
+  const agentNames: Record<string, string> = useMemo(() => {
+    const map: Record<string, string> = {};
+    (agentProfiles || []).forEach((p: any) => {
+      if (p.full_name) {
+        map[p.user_id] = p.full_name;
+      }
+    });
+    return map;
+  }, [agentProfiles]);
 
   const sendMessage = useMutation({
     mutationFn: async ({
@@ -197,5 +231,5 @@ client_message_id: tempMessageId,
     return () => { supabase.removeChannel(channel); };
   }, [conversationId, queryClient]);
 
-  return { messages, isLoading, sendMessage, markAsRead };
+  return { messages, isLoading, sendMessage, markAsRead, agentNames };
 };

@@ -131,7 +131,7 @@ const isImageUrl = (text: string): boolean => {
 };
 
 /* ─── Chat Bubble ─── */
-const ChatBubble = ({ message }: { message: Message }) => {
+const ChatBubble = ({ message, agentName }: { message: Message; agentName?: string }) => {
   const isOutbound = message.direction?.toLowerCase() === "outbound";
   const mediaUrl = getMediaUrl(message);
   const hasMedia = !!mediaUrl && message.message_type !== "text";
@@ -176,6 +176,13 @@ const ChatBubble = ({ message }: { message: Message }) => {
           ? "bg-chat-outbound text-chat-outbound-foreground rounded-tr-sm"
           : "bg-chat-inbound text-chat-inbound-foreground rounded-tl-sm"
       }`}>
+        {isOutbound && agentName && (
+          <div className="px-3 pt-2 pb-0">
+            <span className="text-xs font-bold text-chat-outbound-foreground/80 leading-tight">
+              {agentName}:
+            </span>
+          </div>
+        )}
         {hasMedia && (
           <div className="p-1">
             <MediaContent message={message} />
@@ -354,7 +361,7 @@ const Inbox = () => {
 
   const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
-  const { messages, isLoading: messagesLoading, sendMessage, markAsRead } = useMessages(selectedConversationId);
+  const { messages, isLoading: messagesLoading, sendMessage, markAsRead, agentNames } = useMessages(selectedConversationId);
   const { quickReplies } = useQuickReplies();
 
   // Helper: POST to outbound endpoint (silent on failure or if not configured)
@@ -1132,7 +1139,7 @@ const Inbox = () => {
                               <EventBubble event={item.data} />
                             ) : (
                               <div className="space-y-1">
-                                <ChatBubble message={item.data} />
+                                <ChatBubble message={item.data} agentName={agentNames[item.data.user_id]} />
                               </div>
                             )}
                           </div>
