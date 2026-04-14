@@ -777,6 +777,7 @@ export type Database = {
           id: string
           last_message_at: string
           priority: number | null
+          restarted_at: string | null
           sla_deadline: string | null
           status: string
           unread_count: number
@@ -793,6 +794,7 @@ export type Database = {
           id?: string
           last_message_at?: string
           priority?: number | null
+          restarted_at?: string | null
           sla_deadline?: string | null
           status?: string
           unread_count?: number
@@ -809,6 +811,7 @@ export type Database = {
           id?: string
           last_message_at?: string
           priority?: number | null
+          restarted_at?: string | null
           sla_deadline?: string | null
           status?: string
           unread_count?: number
