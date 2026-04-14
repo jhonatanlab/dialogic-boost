@@ -16,7 +16,7 @@ import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
   X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic, Square,
   ImageOff, UserCheck, CheckCircle2, ArrowRightLeft, Users, User, Inbox as InboxIcon, History, PlayCircle,
-  XCircle, ArrowRight, Clock,
+  XCircle, ArrowRight, Clock, Brain,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -299,6 +299,8 @@ const EventBubble = ({ event }: { event: any }) => {
         return { icon: PlayCircle, text: `${event.actor_name} reabriu a conversa`, color: "text-primary" };
       case "closed":
         return { icon: XCircle, text: `${event.actor_name} concluiu a conversa`, color: "text-destructive" };
+      case "ai_summary":
+        return { icon: Brain, text: "Resumo IA salvo no histórico", color: "text-primary" };
       case "transferred_agent":
         return { icon: ArrowRight, text: `${event.actor_name} transferiu para ${event.target_name || "atendente"}`, color: "text-muted-foreground" };
       case "transferred_team":
@@ -1687,6 +1689,7 @@ const Inbox = () => {
                           switch (ev.event_type) {
                             case "started": case "reopened": return PlayCircle;
                             case "closed": return XCircle;
+                            case "ai_summary": return Brain;
                             case "transferred_agent": return ArrowRight;
                             case "transferred_team": return Users;
                             default: return Clock;
@@ -1697,6 +1700,7 @@ const Inbox = () => {
                             case "started": return "Conversa iniciada";
                             case "reopened": return "Conversa reaberta";
                             case "closed": return "Conversa concluída";
+                            case "ai_summary": return "Resumo IA";
                             case "transferred_agent": return "Transferido para atendente";
                             case "transferred_team": return "Transferido para equipe";
                             default: return ev.event_type;
