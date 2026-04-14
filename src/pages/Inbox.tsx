@@ -829,6 +829,25 @@ const Inbox = () => {
         .update({ status: "closed", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
       if (error) { console.error("Close error:", error); throw error; }
+
+      // Fetch AI summary and save it as a conversation event, then delete it
+      const contactId = selectedConversation.contact_id;
+      const { data: aiSummary } = await supabase
+        .from("contact_ai_summaries")
+        .select("summary")
+        .eq("contact_id", contactId)
+        .maybeSingle();
+
+      if (aiSummary?.summary) {
+        await logConversationEvent(selectedConversation.id, "ai_summary", {
+          details: { summary: aiSummary.summary },
+        });
+        await supabase
+          .from("contact_ai_summaries")
+          .delete()
+          .eq("contact_id", contactId);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa concluída!");
       logConversationEvent(selectedConversation.id, "closed");
