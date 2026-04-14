@@ -757,16 +757,6 @@ const Inbox = () => {
       internalId: msgInternalId,
     });
 
-    // Also POST to outbound automation endpoint (if configured)
-    postToOutbound({
-      company_id: companyId,
-      number: selectedConversation.contact.phone || "",
-      text: textContent,
-      type: mediaType || "text",
-      internal_id: msgInternalId,
-      ...(mediaUrl ? { media_url: mediaUrl } : {}),
-      ...(mimetype ? { mimetype } : {}),
-    });
   };
 
   const insertQuickReply = (text: string) => {
