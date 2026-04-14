@@ -89,9 +89,9 @@ const Auth = () => {
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-2">
             <MessageSquare className="h-7 w-7 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">LeadChat</CardTitle>
+          <CardTitle className="text-2xl font-bold">EloChat</CardTitle>
           <CardDescription>
-            Plataforma de Marketing Conversacional
+            Sua Plataforma de Atendimento!
           </CardDescription>
         </CardHeader>
         <CardContent>
