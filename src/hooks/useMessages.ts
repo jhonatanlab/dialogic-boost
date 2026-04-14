@@ -36,7 +36,7 @@ export const useMessages = (conversationId: string | null) => {
   });
 
   // Fetch agent names for outbound messages
-  const outboundUserIds = React.useMemo(() => {
+  const outboundUserIds = useMemo(() => {
     if (!messages) return [];
     const ids = new Set<string>();
     messages.forEach((m) => {
@@ -59,7 +59,7 @@ export const useMessages = (conversationId: string | null) => {
     enabled: outboundUserIds.length > 0,
   });
 
-  const agentNames: Record<string, string> = React.useMemo(() => {
+  const agentNames: Record<string, string> = useMemo(() => {
     const map: Record<string, string> = {};
     (agentProfiles || []).forEach((p: any) => {
       if (p.full_name) {
