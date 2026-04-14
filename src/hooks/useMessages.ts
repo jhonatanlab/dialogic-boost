@@ -35,6 +35,40 @@ export const useMessages = (conversationId: string | null) => {
     enabled: !!conversationId,
   });
 
+  // Fetch agent names for outbound messages
+  const outboundUserIds = React.useMemo(() => {
+    if (!messages) return [];
+    const ids = new Set<string>();
+    messages.forEach((m) => {
+      if (m.direction === "outbound" && m.user_id) ids.add(m.user_id);
+    });
+    return Array.from(ids);
+  }, [messages]);
+
+  const { data: agentProfiles } = useQuery({
+    queryKey: ["agent-profiles", outboundUserIds],
+    queryFn: async () => {
+      if (outboundUserIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, role")
+        .in("user_id", outboundUserIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: outboundUserIds.length > 0,
+  });
+
+  const agentNames: Record<string, string> = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    (agentProfiles || []).forEach((p: any) => {
+      if (p.full_name) {
+        map[p.user_id] = p.full_name;
+      }
+    });
+    return map;
+  }, [agentProfiles]);
+
   const sendMessage = useMutation({
     mutationFn: async ({
       conversationId, contactId, content, phone, companyId,
