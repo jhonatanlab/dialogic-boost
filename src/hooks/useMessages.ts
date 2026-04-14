@@ -231,5 +231,5 @@ client_message_id: tempMessageId,
     return () => { supabase.removeChannel(channel); };
   }, [conversationId, queryClient]);
 
-  return { messages, isLoading, sendMessage, markAsRead };
+  return { messages, isLoading, sendMessage, markAsRead, agentNames };
 };
