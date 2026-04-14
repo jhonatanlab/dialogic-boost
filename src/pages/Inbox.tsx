@@ -766,7 +766,8 @@ const Inbox = () => {
     const resolved = text
       .replace(/\{nome\}/gi, contact?.name || "")
       .replace(/\{telefone\}/gi, contact?.phone || "")
-      .replace(/\{email\}/gi, contact?.email || "");
+      .replace(/\{email\}/gi, contact?.email || "")
+      .replace(/\{atendente\}/gi, currentUserName || "");
     setMessageInput(resolved);
     setShowQuickReplies(false);
   };
