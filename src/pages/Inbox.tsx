@@ -1099,34 +1099,46 @@ const Inbox = () => {
                       <p className="text-sm">Nenhuma mensagem ainda</p>
                     </div>
                   ) : (
-                    groupedMessages.map((group, gi) => {
-                      const groupDate = format(new Date(group.date), "yyyy-MM-dd");
-                      // Find events for this date group
-                      const dayEvents = conversationEvents.filter(ev =>
-                        format(new Date(ev.created_at), "yyyy-MM-dd") === groupDate
-                      );
-                      return (
-                        <div key={gi}>
-                          <DateSeparator date={group.date} />
-                          {/* Show events that happened on this day */}
-                          {dayEvents.map(ev => (
-                            <EventBubble key={ev.id} event={ev} />
-                          ))}
-                          <div className="space-y-1">
-                            {group.msgs.map(msg => <ChatBubble key={msg.id} message={msg} />)}
+                    (() => {
+                      // Merge all messages and events into a single timeline
+                      type TimelineItem = { type: "message"; data: Message; timestamp: string } | { type: "event"; data: any; timestamp: string };
+                      const timeline: TimelineItem[] = [];
+
+                      // Add all messages
+                      for (const group of groupedMessages) {
+                        for (const msg of group.msgs) {
+                          timeline.push({ type: "message", data: msg, timestamp: msg.sent_at || msg.created_at });
+                        }
+                      }
+
+                      // Add all events
+                      for (const ev of conversationEvents) {
+                        timeline.push({ type: "event", data: ev, timestamp: ev.created_at });
+                      }
+
+                      // Sort by timestamp ascending
+                      timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+                      // Group by date for date separators
+                      let lastDate = "";
+                      return timeline.map((item, i) => {
+                        const itemDate = format(new Date(item.timestamp), "yyyy-MM-dd");
+                        const showSeparator = itemDate !== lastDate;
+                        lastDate = itemDate;
+                        return (
+                          <div key={item.type === "message" ? `msg-${item.data.id}` : `ev-${item.data.id}`}>
+                            {showSeparator && <DateSeparator date={item.timestamp} />}
+                            {item.type === "event" ? (
+                              <EventBubble event={item.data} />
+                            ) : (
+                              <div className="space-y-1">
+                                <ChatBubble message={item.data} />
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      );
-                    })
-                  )}
-                  {/* Show events that don't match any message date group */}
-                  {(() => {
-                    const msgDates = new Set(groupedMessages.map(g => format(new Date(g.date), "yyyy-MM-dd")));
-                    const orphanEvents = conversationEvents.filter(ev =>
-                      !msgDates.has(format(new Date(ev.created_at), "yyyy-MM-dd"))
-                    );
-                    return orphanEvents.map(ev => <EventBubble key={ev.id} event={ev} />);
-                  })()}
+                        );
+                      });
+                    })()
                   <div ref={messagesEndRef} />
                 </div>
 
