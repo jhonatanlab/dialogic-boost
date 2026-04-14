@@ -1,24 +1,55 @@
 
 
-## Plano: Corrigir envio duplicado de mensagens
+## Plano: Página Admin — Gerenciamento de Empresas
 
-### Problema
-Quando a "API Automação" está habilitada (`n8n_automation_enabled = true`), a mensagem é enviada **duas vezes** ao webhook outbound:
+### Objetivo
+Criar uma página `/admin/companies` para gerenciar todas as empresas do EloChat, com visão geral, contagem de usuários, e capacidade de bloquear/reativar empresas. Acesso restrito ao role `admin`.
 
-1. Dentro de `sendMessage.mutate()` no hook `useMessages.ts` — que já verifica se a automação está ativa e faz POST direto para `n8n_automation_outbound`
-2. Logo em seguida, `postToOutbound()` no `Inbox.tsx` faz **outro POST** para o mesmo endpoint com o mesmo conteúdo
+### Alterações no banco de dados
 
-### Solução
-Remover a chamada `postToOutbound()` para envio de mensagens em `handleSendMessage` (linhas 760-769 do `Inbox.tsx`). O hook `useMessages.ts` já gerencia corretamente o envio via API Automação ou API Nativa.
+**Migration 1 — Adicionar coluna `is_active` na tabela `companies`**
+```sql
+ALTER TABLE public.companies ADD COLUMN is_active boolean NOT NULL DEFAULT true;
+```
+- Empresas bloqueadas terão `is_active = false`
+- Todas as empresas existentes ficam ativas por padrão
 
-A função `postToOutbound` continuará existindo para os payloads de controle (`pause_ai`, `reactivate_ai`), que são chamados em outros pontos do código.
+**Migration 2 — Policy para admin atualizar `is_active`**
+- A policy `Admins can update all companies` já existe, então o admin já pode fazer UPDATE. Nenhuma policy adicional é necessária.
 
-### Alterações
+### Nova página: `src/pages/AdminCompanies.tsx`
 
-**`src/pages/Inbox.tsx`**
-- Remover o bloco de código nas linhas 760-769 (o `postToOutbound` com payload de mensagem dentro de `handleSendMessage`)
-- Nenhuma outra alteração necessária
+Seguindo o padrão visual do `AdminWhatsapp.tsx`:
 
-### Arquivos modificados
-- `src/pages/Inbox.tsx`
+- **Header** com ícone e título "Admin SaaS — Empresas"
+- **Cards de resumo**: Total de empresas, Empresas ativas, Empresas bloqueadas, Total de usuários
+- **Tabela de empresas** com colunas:
+  - Nome da empresa
+  - CNPJ
+  - Plano
+  - Usuários (count de profiles)
+  - Status (badge ativo/bloqueado)
+  - Data de criação
+  - Ações (botão bloquear/reativar)
+- **Busca** por nome da empresa
+- Botões de ação com confirmação via toast
+
+A query buscará `companies` + count de `profiles` agrupado por `company_id`.
+
+### Rota e navegação
+
+**`src/App.tsx`**
+- Adicionar rota `/admin/companies` apontando para `AdminCompanies`
+
+**`src/components/layout/AppSidebar.tsx`**
+- Não adicionar ao menu principal (é uma rota admin, acessada manualmente como `/admin/whatsapp`)
+
+### Proteção de acesso
+- Na página, verificar se o usuário tem role `admin` via `has_role`
+- Se não for admin, redirecionar para `/dashboard`
+
+### Arquivos criados/modificados
+- `supabase/migrations/xxx.sql` — adicionar `is_active` à tabela `companies`
+- `src/pages/AdminCompanies.tsx` — nova página
+- `src/App.tsx` — nova rota
 
