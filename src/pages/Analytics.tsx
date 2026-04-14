@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/analytics/StatCard";
 import { MessagesChart } from "@/components/analytics/MessagesChart";
@@ -7,6 +8,7 @@ import { ConversationsChart } from "@/components/analytics/ConversationsChart";
 import { CampaignStatsCards } from "@/components/analytics/CampaignStatsCards";
 import { PrintReportDialog } from "@/components/analytics/PrintReportDialog";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useCompany } from "@/hooks/useCompany";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -44,6 +46,15 @@ const formatDuration = (ms: number) => {
 };
 
 const Analytics = () => {
+  const navigate = useNavigate();
+  const { profile } = useCompany();
+
+  useEffect(() => {
+    if (profile && profile.role === "agent") {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [profile, navigate]);
+
   const [dateRange, setDateRange] = useState({
     start: startOfMonth(new Date()),
     end: endOfMonth(new Date()),

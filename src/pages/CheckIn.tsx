@@ -1,11 +1,22 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { CheckinLinksManager } from "@/components/checkin/CheckinLinksManager";
 import { FidelityProgramsManager } from "@/components/checkin/FidelityProgramsManager";
 import { CheckinRecordsTable } from "@/components/checkin/CheckinRecordsTable";
 import { FidelityCardsManager } from "@/components/checkin/FidelityCardsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCompany } from "@/hooks/useCompany";
 
 const CheckIn = () => {
+  const navigate = useNavigate();
+  const { profile } = useCompany();
+
+  useEffect(() => {
+    if (profile && profile.role === "agent") {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [profile, navigate]);
   return (
     <DashboardLayout>
       <div className="space-y-6">
