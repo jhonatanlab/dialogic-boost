@@ -275,6 +275,59 @@ Deno.serve(async (req) => {
       });
     }
 
+    // CREATE COMPANY WITH USER (admin SaaS)
+    if (action === "create_company_with_user") {
+      const { email, password, full_name, company_name, cnpj } = body;
+
+      if (!email || !password || !company_name) {
+        return new Response(JSON.stringify({ error: "email, password and company_name are required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Create auth user with password
+      const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+
+      if (createUserError) throw createUserError;
+
+      // Create company
+      const { data: company, error: companyError } = await supabaseAdmin
+        .from("companies")
+        .insert({ name: company_name, cnpj: cnpj || null })
+        .select()
+        .single();
+
+      if (companyError) throw companyError;
+
+      // Create profile linking user to company as admin
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          user_id: newUser.user.id,
+          company_id: company.id,
+          full_name: full_name || null,
+          role: "admin",
+        });
+
+      if (profileError) throw profileError;
+
+      // Create admin user_role
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: newUser.user.id, role: "admin" });
+
+      if (roleError) throw roleError;
+
+      return new Response(JSON.stringify({ message: "Company and user created", company_id: company.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Invalid action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
