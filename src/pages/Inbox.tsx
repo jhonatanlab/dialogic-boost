@@ -16,7 +16,7 @@ import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
   X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic, Square,
   ImageOff, UserCheck, CheckCircle2, ArrowRightLeft, Users, User, Inbox as InboxIcon, History, PlayCircle,
-  XCircle, ArrowRight, Clock,
+  XCircle, ArrowRight, Clock, Brain,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -299,6 +299,8 @@ const EventBubble = ({ event }: { event: any }) => {
         return { icon: PlayCircle, text: `${event.actor_name} reabriu a conversa`, color: "text-primary" };
       case "closed":
         return { icon: XCircle, text: `${event.actor_name} concluiu a conversa`, color: "text-destructive" };
+      case "ai_summary":
+        return { icon: Brain, text: "Resumo IA salvo no histórico", color: "text-primary" };
       case "transferred_agent":
         return { icon: ArrowRight, text: `${event.actor_name} transferiu para ${event.target_name || "atendente"}`, color: "text-muted-foreground" };
       case "transferred_team":
@@ -829,6 +831,25 @@ const Inbox = () => {
         .update({ status: "closed", updated_at: new Date().toISOString() })
         .eq("id", selectedConversation.id);
       if (error) { console.error("Close error:", error); throw error; }
+
+      // Fetch AI summary and save it as a conversation event, then delete it
+      const contactId = selectedConversation.contact_id;
+      const { data: aiSummary } = await supabase
+        .from("contact_ai_summaries")
+        .select("summary")
+        .eq("contact_id", contactId)
+        .maybeSingle();
+
+      if (aiSummary?.summary) {
+        await logConversationEvent(selectedConversation.id, "ai_summary", {
+          details: { summary: aiSummary.summary },
+        });
+        await supabase
+          .from("contact_ai_summaries")
+          .delete()
+          .eq("contact_id", contactId);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa concluída!");
       logConversationEvent(selectedConversation.id, "closed");
@@ -1668,6 +1689,7 @@ const Inbox = () => {
                           switch (ev.event_type) {
                             case "started": case "reopened": return PlayCircle;
                             case "closed": return XCircle;
+                            case "ai_summary": return Brain;
                             case "transferred_agent": return ArrowRight;
                             case "transferred_team": return Users;
                             default: return Clock;
@@ -1678,6 +1700,7 @@ const Inbox = () => {
                             case "started": return "Conversa iniciada";
                             case "reopened": return "Conversa reaberta";
                             case "closed": return "Conversa concluída";
+                            case "ai_summary": return "Resumo IA";
                             case "transferred_agent": return "Transferido para atendente";
                             case "transferred_team": return "Transferido para equipe";
                             default: return ev.event_type;
@@ -1691,12 +1714,18 @@ const Inbox = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-foreground">{getLabel()}</p>
-                              <p className="text-[11px] text-muted-foreground">Por: {ev.actor_name}</p>
-                              {ev.target_name && (
-                                <p className="text-[11px] text-muted-foreground">Para: {ev.target_name}</p>
-                              )}
-                              {ev.target_team_name && (
-                                <p className="text-[11px] text-muted-foreground">Equipe: {ev.target_team_name}</p>
+                              {ev.event_type === "ai_summary" && ev.details?.summary ? (
+                                <p className="text-[11px] text-muted-foreground whitespace-pre-line mt-1">{ev.details.summary}</p>
+                              ) : (
+                                <>
+                                  <p className="text-[11px] text-muted-foreground">Por: {ev.actor_name}</p>
+                                  {ev.target_name && (
+                                    <p className="text-[11px] text-muted-foreground">Para: {ev.target_name}</p>
+                                  )}
+                                  {ev.target_team_name && (
+                                    <p className="text-[11px] text-muted-foreground">Equipe: {ev.target_team_name}</p>
+                                  )}
+                                </>
                               )}
                               <p className="text-[10px] text-muted-foreground/60 mt-1">
                                 {format(new Date(ev.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
