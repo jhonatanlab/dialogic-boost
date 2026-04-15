@@ -508,43 +508,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      // ── FALLBACK: create contact/conversation only if phone is a real recipient ──
-      let contactId: string | null = null;
-      let conversationId: string | null = null;
-
-      if (phone_number) {
-        const normalizedPhone = normalizePhone(phone_number);
-        contactId = await findOrCreateContact(company_id, userId, normalizedPhone);
-        conversationId = await findOrCreateConversation(company_id, userId, contactId, 0);
-      }
-
-      if (!contactId || !conversationId) {
-        console.log("[update_message_status] cannot resolve contact/conversation — deferring");
-        return json({ success: true, action: "status_deferred", message: "Cannot resolve contact, deferring" });
-      }
-
-      // Last resort: create placeholder shell
-      const { data: upserted, error: upsertErr } = await supabase
-        .from("messages")
-        .upsert({
-          message_id,
-          conversation_id: conversationId,
-          contact_id: contactId,
-          user_id: userId,
-          company_id,
-          channel: "whatsapp",
-          direction: "outbound",
-          content: "",
-          message_type: "text",
-          status: mappedStatus,
-          metadata: { pending_content: true },
-        }, { onConflict: "message_id" })
-        .select("id")
-        .single();
-      if (upsertErr) throw upsertErr;
-
-      console.log("[update_message_status] placeholder created via upsert, id:", upserted.id);
-      return json({ success: true, action: "upserted_placeholder", id: upserted.id, status: mappedStatus });
+      // ── Message not found — defer status update, do NOT create placeholders ──
+      console.log("[update_message_status] message not found for message_id:", message_id, "— deferring (no placeholder creation)");
+      return json({ success: true, action: "status_deferred", message: "Message not yet ingested, deferring status update" });
     }
 
     // ═══════════════════════════════════════════
