@@ -2,9 +2,24 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useCompany } from "@/hooks/useCompany";
 
 const Settings = () => {
   const navigate = useNavigate();
+  const { profile, isLoading } = useCompany();
+
+  // Redirect agents away from settings
+  useEffect(() => {
+    if (!isLoading && profile?.role === "agent") {
+      navigate("/dashboard");
+    }
+  }, [profile, isLoading, navigate]);
+
+  // Show nothing while checking role or if agent
+  if (isLoading || profile?.role === "agent") {
+    return null;
+  }
 
   const settingsCards = [
     {

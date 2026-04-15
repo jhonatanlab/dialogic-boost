@@ -30,7 +30,7 @@ const menuItems = [
   { title: "Campanhas", url: "/campaigns", icon: Send, requiredRoles: ["admin", "manager"] },
   { title: "Relatórios", url: "/analytics", icon: BarChart3, requiredRoles: ["admin", "manager"] },
   { title: "Check-in", url: "/checkin", icon: QrCode, requiredRoles: ["admin", "manager"] },
-  { title: "Configurações", url: "/settings", icon: Settings },
+  { title: "Configurações", url: "/settings", icon: Settings, requiredRoles: ["admin", "manager"] },
 ];
 
 export function AppSidebar() {
