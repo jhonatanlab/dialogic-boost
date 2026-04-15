@@ -1,32 +1,40 @@
 
 
-## Diagnosis: White Screen on Inbox
+## Diagnosis: Ghost Conversations with Empty Placeholder Messages
 
-The `useConversations` hook throws an unhandled error (`"Company not found"`) when the user's profile has no `company_id` or the profile query returns no rows. This crashes the Inbox silently.
+The webhook `webhook-n8n-instance` receives `update_message_status` events (sent/delivered/read) before the actual message content arrives via `upsert_message`. The `update_message_status` handler creates a conversation (via `findOrCreateConversation`) and inserts a placeholder message with `pending_content: true` and empty content. If the corresponding `upsert_message` never arrives, you get ghost conversations containing only empty shells — showing "Sem mensagens" in the inbox.
+
+## Root Cause
+
+In `supabase/functions/webhook-n8n-instance/index.ts` (line ~527), the `update_message_status` action creates a placeholder shell AND a conversation even when no real message exists yet. This is overly aggressive — status updates should only update existing messages, not create new conversations.
 
 ## Plan
 
-### 1. Add error handling in `useConversations.ts`
-- Replace `throw new Error("Company not found")` with a graceful return of an empty array
-- Do the same for the auth check — return empty instead of throwing
+### 1. Fix `update_message_status` to not create conversations
 
-### 2. Add error/empty state UI in `Inbox.tsx`
-- Show a friendly message when `conversations` is empty or the hook encounters an error
-- Display a "No company linked" message if the user has no company association
+**File: `supabase/functions/webhook-n8n-instance/index.ts`**
 
-### 3. Verify database state
-- Run a read query to check if `kaique@dlsenergiasolar.com` has a valid `company_id` in their profile
-- If not, identify the root cause (missing profile row, null company_id, etc.)
+- Change the logic so that when `update_message_status` cannot find an existing message by `message_id`, it does NOT call `findOrCreateConversation` and does NOT create a placeholder shell
+- Instead, it should return a "deferred" response — the message content will arrive later via `upsert_message` which will properly create the conversation
+- Specifically: remove/skip the "Last resort: create placeholder shell" block (lines ~527-547) and return a deferred response instead
+
+### 2. Clean up existing ghost conversations
+
+**Database migration:**
+
+- Delete messages where `metadata->>'pending_content' = 'true'` AND content is empty
+- Delete conversations that have zero remaining messages after cleanup
 
 ### Technical Details
 
-**File: `src/hooks/useConversations.ts`**
-- Change line 50 from `throw new Error("Company not found")` to `return []`
-- Change line 41 from `throw new Error("User not authenticated")` to `return []`
+The key change is in the `update_message_status` action handler. Currently it flows:
+1. Try to find message by `message_id` → not found
+2. Try to resolve contact/conversation → creates conversation if needed
+3. Create placeholder shell with `pending_content: true`
 
-**File: `src/pages/Inbox.tsx`**
-- Add a check: if `useConversations` returns an error state, show a user-friendly message instead of a blank screen
+After fix:
+1. Try to find message by `message_id` → not found
+2. Return `{ success: true, action: "status_deferred" }` — do not create anything
 
-**Database check:**
-- Query `profiles` table for the user's `company_id` to confirm whether the data issue exists
+This is safe because the actual `upsert_message` action handles conversation and contact creation properly with real content.
 
