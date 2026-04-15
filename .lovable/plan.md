@@ -1,27 +1,32 @@
 
 
-## Plan: Role-Based Menu Visibility
+## Diagnosis: White Screen on Inbox
 
-### Goal
-Hide Automações, Campanhas, Relatórios, and Check-in from users with `agent` role. Only `admin`, `manager` (and implicitly `proprietário` = admin) can see these pages.
+The `useConversations` hook throws an unhandled error (`"Company not found"`) when the user's profile has no `company_id` or the profile query returns no rows. This crashes the Inbox silently.
 
-### Changes
+## Plan
 
-**1. `src/components/layout/AppSidebar.tsx`**
-- Import and use `useCompany` hook to get the user's `profile.role`
-- Add a `requiredRoles` property to restricted menu items (`/automations`, `/campaigns`, `/analytics`, `/checkin`)
-- Filter `menuItems` before rendering: if `requiredRoles` is set, only show if user's role is in that list
+### 1. Add error handling in `useConversations.ts`
+- Replace `throw new Error("Company not found")` with a graceful return of an empty array
+- Do the same for the auth check — return empty instead of throwing
 
-**2. Route protection on restricted pages**
-- In each of the 4 pages (`Automations.tsx`, `Campaigns.tsx`, `Analytics.tsx`, `CheckIn.tsx`), add a role check using `useCompany`
-- If the user's role is `agent`, redirect to `/dashboard` (prevents direct URL access)
+### 2. Add error/empty state UI in `Inbox.tsx`
+- Show a friendly message when `conversations` is empty or the hook encounters an error
+- Display a "No company linked" message if the user has no company association
 
-### Allowed roles for restricted pages
-- `admin`, `manager` — can see all 4 pages
-- `agent` — cannot see Automações, Campanhas, Relatórios, Check-in
+### 3. Verify database state
+- Run a read query to check if `kaique@dlsenergiasolar.com` has a valid `company_id` in their profile
+- If not, identify the root cause (missing profile row, null company_id, etc.)
 
 ### Technical Details
-- The `profiles.role` field stores `admin`, `manager`, or `agent`
-- No database changes needed
-- The sidebar will dynamically filter items based on the logged-in user's role
+
+**File: `src/hooks/useConversations.ts`**
+- Change line 50 from `throw new Error("Company not found")` to `return []`
+- Change line 41 from `throw new Error("User not authenticated")` to `return []`
+
+**File: `src/pages/Inbox.tsx`**
+- Add a check: if `useConversations` returns an error state, show a user-friendly message instead of a blank screen
+
+**Database check:**
+- Query `profiles` table for the user's `company_id` to confirm whether the data issue exists
 
