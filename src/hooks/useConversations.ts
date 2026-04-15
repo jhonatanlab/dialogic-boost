@@ -38,7 +38,7 @@ export const useConversations = () => {
     queryKey: ["conversations"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      if (!user) return [] as Conversation[];
 
       // Get user's company_id
       const { data: profile } = await supabase
@@ -47,7 +47,7 @@ export const useConversations = () => {
         .eq("user_id", user.id)
         .single();
 
-      if (!profile?.company_id) throw new Error("Company not found");
+      if (!profile?.company_id) return [] as Conversation[];
 
       // Fetch ALL conversations for this company (not just user's own)
       const { data, error } = await supabase
