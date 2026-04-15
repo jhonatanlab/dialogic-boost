@@ -54,14 +54,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Only admins can manage users
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
-      _user_id: caller.id,
-      _role: "admin",
-    });
-
-    if (!isAdmin && callerProfile.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Only admins can manage users" }), {
+    // Only admins and managers can manage users
+    const allowedRoles = ["admin", "manager"];
+    if (!allowedRoles.includes(callerProfile.role)) {
+      return new Response(JSON.stringify({ error: "Only admins and managers can manage users" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
