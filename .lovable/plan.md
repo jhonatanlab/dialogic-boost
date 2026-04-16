@@ -1,40 +1,43 @@
 
 
-## Diagnosis: Ghost Conversations with Empty Placeholder Messages
+## Problema: Tempo Médio de Resposta Hardcoded
 
-The webhook `webhook-n8n-instance` receives `update_message_status` events (sent/delivered/read) before the actual message content arrives via `upsert_message`. The `update_message_status` handler creates a conversation (via `findOrCreateConversation`) and inserts a placeholder message with `pending_content: true` and empty content. If the corresponding `upsert_message` never arrives, you get ghost conversations containing only empty shells — showing "Sem mensagens" in the inbox.
+O campo `avgResponseTime` no hook `useDashboardStats.ts` (linha 136) está fixado como `"—"` — nunca é calculado a partir dos dados reais.
 
-## Root Cause
+## Plano
 
-In `supabase/functions/webhook-n8n-instance/index.ts` (line ~527), the `update_message_status` action creates a placeholder shell AND a conversation even when no real message exists yet. This is overly aggressive — status updates should only update existing messages, not create new conversations.
+### 1. Calcular o tempo médio de primeira resposta
 
-## Plan
+**File: `src/hooks/useDashboardStats.ts`**
 
-### 1. Fix `update_message_status` to not create conversations
+Para cada conversa que tem mensagens, calcular o tempo entre a primeira mensagem **inbound** (do contato) e a primeira mensagem **outbound** (do atendente). A média desses deltas é o "tempo médio de resposta".
 
-**File: `supabase/functions/webhook-n8n-instance/index.ts`**
+- Buscar mensagens das conversas filtradas, agrupando por `conversation_id`, com `direction` e `sent_at`
+- Para cada conversa: encontrar o primeiro par inbound→outbound e calcular o delta em milissegundos
+- Calcular a média dos deltas e formatar como "Xm Ys" ou "Xh Ym"
 
-- Change the logic so that when `update_message_status` cannot find an existing message by `message_id`, it does NOT call `findOrCreateConversation` and does NOT create a placeholder shell
-- Instead, it should return a "deferred" response — the message content will arrive later via `upsert_message` which will properly create the conversation
-- Specifically: remove/skip the "Last resort: create placeholder shell" block (lines ~527-547) and return a deferred response instead
+### Lógica de cálculo
 
-### 2. Clean up existing ghost conversations
+```text
+Para cada conversa:
+  1. Ordenar mensagens por sent_at ASC
+  2. Encontrar a primeira mensagem com direction = 'inbound'
+  3. Encontrar a primeira mensagem com direction = 'outbound' APÓS a inbound
+  4. Delta = outbound.sent_at - inbound.sent_at
+  
+Média = soma(deltas) / count(deltas)
+Formatar: < 60s → "Xs", < 3600s → "Xm Ys", else → "Xh Ym"
+```
 
-**Database migration:**
+### Detalhes técnicos
 
-- Delete messages where `metadata->>'pending_content' = 'true'` AND content is empty
-- Delete conversations that have zero remaining messages after cleanup
+**Adicionar query de mensagens** no `useDashboardStats` para buscar `conversation_id, direction, sent_at` das mensagens da empresa no período filtrado. Limitar a busca às conversas já carregadas para eficiência (usar `.in('conversation_id', convIds)`).
 
-### Technical Details
+**Calcular o delta** iterando por conversa, encontrando o primeiro par inbound→outbound.
 
-The key change is in the `update_message_status` action handler. Currently it flows:
-1. Try to find message by `message_id` → not found
-2. Try to resolve contact/conversation → creates conversation if needed
-3. Create placeholder shell with `pending_content: true`
+**Substituir** a linha `avgResponseTime: "—"` pelo valor calculado e formatado.
 
-After fix:
-1. Try to find message by `message_id` → not found
-2. Return `{ success: true, action: "status_deferred" }` — do not create anything
+### Observação sobre performance
 
-This is safe because the actual `upsert_message` action handles conversation and contact creation properly with real content.
+A query pode retornar muitas mensagens. Para mitigar, limitaremos a busca às primeiras 2 mensagens por conversa usando ordenação e filtrando apenas `direction IN ('inbound','outbound')`. Alternativamente, buscaremos apenas conversas dos últimos 30 dias se nenhum filtro de data for aplicado.
 
