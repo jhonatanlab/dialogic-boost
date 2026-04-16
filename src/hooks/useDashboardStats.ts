@@ -129,11 +129,53 @@ export function useDashboardStats(filters: DashboardFilters) {
           status: c.status,
         }));
 
+      // Calculate average first response time
+      let avgResponseTime = "—";
+      const convIds = convs.map(c => c.id);
+      if (convIds.length > 0) {
+        const batchSize = 50;
+        const allMsgs: Array<{ conversation_id: string; direction: string; sent_at: string }> = [];
+        for (let i = 0; i < convIds.length; i += batchSize) {
+          const batch = convIds.slice(i, i + batchSize);
+          const { data: msgs } = await supabase
+            .from("messages")
+            .select("conversation_id, direction, sent_at")
+            .eq("company_id", companyId)
+            .in("conversation_id", batch)
+            .in("direction", ["inbound", "outbound"])
+            .order("sent_at", { ascending: true });
+          if (msgs) allMsgs.push(...msgs);
+        }
+
+        const grouped: Record<string, typeof allMsgs> = {};
+        allMsgs.forEach(m => {
+          if (!grouped[m.conversation_id]) grouped[m.conversation_id] = [];
+          grouped[m.conversation_id].push(m);
+        });
+
+        const deltas: number[] = [];
+        Object.values(grouped).forEach(msgs => {
+          const firstInbound = msgs.find(m => m.direction === "inbound");
+          if (!firstInbound) return;
+          const firstOutbound = msgs.find(
+            m => m.direction === "outbound" && new Date(m.sent_at).getTime() > new Date(firstInbound.sent_at).getTime()
+          );
+          if (!firstOutbound) return;
+          const delta = new Date(firstOutbound.sent_at).getTime() - new Date(firstInbound.sent_at).getTime();
+          if (delta > 0) deltas.push(delta);
+        });
+
+        if (deltas.length > 0) {
+          const avgMs = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+          avgResponseTime = formatDuration(avgMs);
+        }
+      }
+
       return {
         activeConversations,
         totalContacts: totalContacts || 0,
         totalMessages: totalMessages || 0,
-        avgResponseTime: "—",
+        avgResponseTime,
         recentConversations,
         channelDistribution,
         sourceDistribution,
