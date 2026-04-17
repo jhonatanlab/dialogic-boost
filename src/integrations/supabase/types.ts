@@ -777,6 +777,7 @@ export type Database = {
           id: string
           last_message_at: string
           pending_at: string | null
+          pending_token: string | null
           priority: number | null
           restarted_at: string | null
           sla_deadline: string | null
@@ -795,6 +796,7 @@ export type Database = {
           id?: string
           last_message_at?: string
           pending_at?: string | null
+          pending_token?: string | null
           priority?: number | null
           restarted_at?: string | null
           sla_deadline?: string | null
@@ -813,6 +815,7 @@ export type Database = {
           id?: string
           last_message_at?: string
           pending_at?: string | null
+          pending_token?: string | null
           priority?: number | null
           restarted_at?: string | null
           sla_deadline?: string | null
