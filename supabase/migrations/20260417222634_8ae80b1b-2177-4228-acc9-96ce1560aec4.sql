@@ -1,0 +1,125 @@
+-- Delete all data related to specified phone numbers
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.messages WHERE contact_id IN (SELECT id FROM target_contacts);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.conversation_events WHERE conversation_id IN (
+  SELECT id FROM public.conversations WHERE contact_id IN (SELECT id FROM target_contacts)
+);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.conversations WHERE contact_id IN (SELECT id FROM target_contacts);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.contact_tags WHERE contact_id IN (SELECT id FROM target_contacts);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.contact_notes WHERE contact_id IN (SELECT id FROM target_contacts);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.contact_custom_fields WHERE contact_id IN (SELECT id FROM target_contacts);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.contact_ai_summaries WHERE contact_id IN (SELECT id FROM target_contacts);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.fidelity_cards WHERE contact_id IN (SELECT id FROM target_contacts);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.checkin_records WHERE contact_id IN (SELECT id FROM target_contacts);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.campaign_contacts WHERE contact_id IN (SELECT id FROM target_contacts);
+
+WITH target_contacts AS (
+  SELECT id FROM public.contacts 
+  WHERE phone IN (
+    '558897917750','558788073321','557499490796','558781004146',
+    '558398170825','558391968472','558796389858','558781450009',
+    '558781478613','558388907220'
+  )
+)
+DELETE FROM public.activity_logs WHERE contact_id IN (SELECT id FROM target_contacts);
+
+DELETE FROM public.incoming_messages WHERE from_phone IN (
+  '558897917750','558788073321','557499490796','558781004146',
+  '558398170825','558391968472','558796389858','558781450009',
+  '558781478613','558388907220'
+);
+
+DELETE FROM public.contacts 
+WHERE phone IN (
+  '558897917750','558788073321','557499490796','558781004146',
+  '558398170825','558391968472','558796389858','558781450009',
+  '558781478613','558388907220'
+);
