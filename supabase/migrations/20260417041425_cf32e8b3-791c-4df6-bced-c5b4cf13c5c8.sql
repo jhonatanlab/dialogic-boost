@@ -1,0 +1,1 @@
+ALTER TABLE public.conversations ADD COLUMN pending_token text;
