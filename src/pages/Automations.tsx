@@ -77,6 +77,8 @@ const Automations = () => {
     // Extract trigger settings from the visual trigger node (source of truth)
     let resolvedTriggerType = triggerType;
     let resolvedKeyword = triggerType === "keyword" ? keyword : null;
+    let resolvedInactivityMinutes: number | null = null;
+    let resolvedMaxFollowups: number | null = null;
 
     if (flowData.nodes && Array.isArray(flowData.nodes)) {
       const triggerNode = flowData.nodes.find((n: any) => n.type === "trigger");
@@ -87,12 +89,24 @@ const Automations = () => {
         if (triggerNode.data.keyword) {
           resolvedKeyword = triggerNode.data.keyword as string;
         }
+        if (triggerNode.data.inactivityMinutes) {
+          resolvedInactivityMinutes = Number(triggerNode.data.inactivityMinutes);
+        }
+        if (triggerNode.data.maxFollowups) {
+          resolvedMaxFollowups = Number(triggerNode.data.maxFollowups);
+        }
       }
     }
 
     // Ensure keyword is null when not using keyword trigger
     if (resolvedTriggerType !== "keyword") {
       resolvedKeyword = null;
+    }
+
+    // Ensure inactivity fields are null when not using inactivity trigger
+    if (resolvedTriggerType !== "inactivity") {
+      resolvedInactivityMinutes = null;
+      resolvedMaxFollowups = null;
     }
 
     if (editingFlowId) {
@@ -103,6 +117,8 @@ const Automations = () => {
         status: "active",
         trigger_type: resolvedTriggerType,
         keyword: resolvedKeyword,
+        inactivity_minutes: resolvedInactivityMinutes,
+        max_followups: resolvedMaxFollowups,
       });
     } else {
       createAutomation.mutate({
@@ -110,6 +126,8 @@ const Automations = () => {
         flow_data: flowData,
         trigger_type: resolvedTriggerType,
         keyword: resolvedKeyword,
+        inactivity_minutes: resolvedInactivityMinutes,
+        max_followups: resolvedMaxFollowups,
       });
     }
     setActiveTab("list");
