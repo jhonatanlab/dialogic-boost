@@ -36,13 +36,15 @@ Deno.serve(async (req) => {
       const companyId = automation.company_id;
       const inactivityMinutes = automation.inactivity_minutes;
       const maxFollowups = automation.max_followups || 1;
+      const automationCreatedAt = new Date(automation.created_at).getTime();
 
-      // 2. Get open/in_progress conversations for this company
+      // 2. Get ONLY open conversations without an assigned agent
       const { data: conversations, error: convErr } = await supabase
         .from("conversations")
         .select("id, contact_id")
         .eq("company_id", companyId)
-        .in("status", ["open", "in_progress"])
+        .eq("status", "open")
+        .is("assigned_to", null)
         .limit(50);
 
       if (convErr || !conversations || conversations.length === 0) continue;
@@ -64,9 +66,13 @@ Deno.serve(async (req) => {
         const threshold = inactivityMinutes * 60 * 1000;
         const now = Date.now();
 
+        // Skip if not yet inactive
         if (now - lastInboundAt < threshold) continue;
 
-        // 4. Check followup count
+        // Skip if last inbound message is older than the automation itself
+        if (lastInboundAt < automationCreatedAt) continue;
+
+        // 4. Check followup count for THIS automation
         const { data: existingFollowup } = await supabase
           .from("automation_followups")
           .select("id, followup_count, last_followup_at")
@@ -77,13 +83,26 @@ Deno.serve(async (req) => {
         const currentCount = existingFollowup?.followup_count || 0;
         if (currentCount >= maxFollowups) continue;
 
-        // 5. Check cooldown - don't re-trigger if last followup was within the inactivity window
+        // 5. Cooldown per-automation
         if (existingFollowup?.last_followup_at) {
           const lastFollowupAt = new Date(existingFollowup.last_followup_at).getTime();
           if (now - lastFollowupAt < threshold) continue;
         }
 
-        // 6. Execute automation
+        // 6. Cross-automation cooldown: skip if ANY inactivity followup was sent
+        //    for this conversation in the last 24 hours
+        const twentyFourHoursAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+        const { data: recentAnyFollowup } = await supabase
+          .from("automation_followups")
+          .select("id")
+          .eq("conversation_id", conv.id)
+          .eq("company_id", companyId)
+          .gte("last_followup_at", twentyFourHoursAgo)
+          .limit(1);
+
+        if (recentAnyFollowup && recentAnyFollowup.length > 0) continue;
+
+        // 7. Execute automation
         try {
           const execRes = await fetch(`${supabaseUrl}/functions/v1/execute-automation`, {
             method: "POST",
@@ -98,9 +117,9 @@ Deno.serve(async (req) => {
               company_id: companyId,
             }),
           });
-          await execRes.text(); // consume body
+          await execRes.text();
 
-          // 7. Upsert followup record
+          // 8. Upsert followup record
           if (existingFollowup) {
             await supabase
               .from("automation_followups")
