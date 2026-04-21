@@ -58,6 +58,7 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
                   <SelectItem value="keyword">Palavra-chave</SelectItem>
                   <SelectItem value="first_message">Primeira mensagem</SelectItem>
                   <SelectItem value="all_messages">Todas as mensagens</SelectItem>
+                  <SelectItem value="inactivity">Inatividade (follow-up)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -70,6 +71,63 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
                   placeholder="Ex: oi, olá, ajuda"
                 />
               </div>
+            )}
+            {formData.triggerType === "inactivity" && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label>Tempo de Inatividade</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={formData.inactivityValue || ""}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const unit = formData.inactivityUnit || "minutes";
+                        const multiplier = unit === "hours" ? 60 : unit === "days" ? 1440 : 1;
+                        handleChange("inactivityValue", val);
+                        handleChange("inactivityMinutes", val * multiplier);
+                      }}
+                      placeholder="30"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Unidade</Label>
+                    <Select
+                      value={formData.inactivityUnit || "minutes"}
+                      onValueChange={(value) => {
+                        const val = formData.inactivityValue || 0;
+                        const multiplier = value === "hours" ? 60 : value === "days" ? 1440 : 1;
+                        handleChange("inactivityUnit", value);
+                        handleChange("inactivityMinutes", val * multiplier);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="minutes">Minutos</SelectItem>
+                        <SelectItem value="hours">Horas</SelectItem>
+                        <SelectItem value="days">Dias</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Máximo de Follow-ups</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={formData.maxFollowups || 1}
+                    onChange={(e) => handleChange("maxFollowups", parseInt(e.target.value) || 1)}
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Quantas vezes enviar o follow-up por conversa
+                  </p>
+                </div>
+              </>
             )}
           </>
         );

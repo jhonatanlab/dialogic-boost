@@ -7,6 +7,7 @@ interface TriggerNodeData {
   label: string;
   triggerType?: string;
   keyword?: string;
+  inactivityMinutes?: number;
 }
 
 const TriggerNode = memo(({ data, selected }: { data: TriggerNodeData; selected?: boolean }) => {
@@ -24,6 +25,7 @@ const TriggerNode = memo(({ data, selected }: { data: TriggerNodeData; selected?
           {data.triggerType === 'keyword' && `Palavra-chave: "${data.keyword}"`}
           {data.triggerType === 'first_message' && 'Primeira mensagem'}
           {data.triggerType === 'all_messages' && 'Todas as mensagens'}
+          {data.triggerType === 'inactivity' && `Sem resposta há ${data.inactivityMinutes || '?'} min`}
         </p>
       )}
       

@@ -13,6 +13,8 @@ interface Automation {
   keyword: string | null;
   flow_data: any;
   execution_count: number;
+  inactivity_minutes: number | null;
+  max_followups: number | null;
   last_execution: string | null;
   created_at: string;
   updated_at: string;
@@ -34,7 +36,7 @@ export function useAutomations() {
   });
 
   const createAutomation = useMutation({
-    mutationFn: async (params: { name: string; description?: string; flow_data: any; trigger_type?: string; keyword?: string }) => {
+    mutationFn: async (params: { name: string; description?: string; flow_data: any; trigger_type?: string; keyword?: string; inactivity_minutes?: number; max_followups?: number }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Não autenticado");
 
@@ -55,6 +57,8 @@ export function useAutomations() {
           flow_data: params.flow_data,
           trigger_type: params.trigger_type || "first_message",
           keyword: params.keyword || null,
+          inactivity_minutes: params.inactivity_minutes || null,
+          max_followups: params.max_followups || 1,
           status: "active",
         })
         .select()
@@ -72,7 +76,7 @@ export function useAutomations() {
   });
 
   const updateAutomation = useMutation({
-    mutationFn: async (params: { id: string; name?: string; description?: string; flow_data?: any; status?: string; trigger_type?: string; keyword?: string }) => {
+    mutationFn: async (params: { id: string; name?: string; description?: string; flow_data?: any; status?: string; trigger_type?: string; keyword?: string; inactivity_minutes?: number; max_followups?: number }) => {
       const { id, ...updates } = params;
       const { data, error } = await supabase
         .from("automations" as any)

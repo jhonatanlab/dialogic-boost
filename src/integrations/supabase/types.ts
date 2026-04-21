@@ -158,6 +158,68 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_followups: {
+        Row: {
+          automation_id: string
+          company_id: string
+          contact_id: string
+          conversation_id: string
+          created_at: string
+          followup_count: number
+          id: string
+          last_followup_at: string | null
+        }
+        Insert: {
+          automation_id: string
+          company_id: string
+          contact_id: string
+          conversation_id: string
+          created_at?: string
+          followup_count?: number
+          id?: string
+          last_followup_at?: string | null
+        }
+        Update: {
+          automation_id?: string
+          company_id?: string
+          contact_id?: string
+          conversation_id?: string
+          created_at?: string
+          followup_count?: number
+          id?: string
+          last_followup_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_followups_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_followups_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_followups_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_followups_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automations: {
         Row: {
           company_id: string
@@ -166,8 +228,10 @@ export type Database = {
           execution_count: number
           flow_data: Json
           id: string
+          inactivity_minutes: number | null
           keyword: string | null
           last_execution: string | null
+          max_followups: number | null
           name: string
           status: string
           trigger_type: string | null
@@ -181,8 +245,10 @@ export type Database = {
           execution_count?: number
           flow_data?: Json
           id?: string
+          inactivity_minutes?: number | null
           keyword?: string | null
           last_execution?: string | null
+          max_followups?: number | null
           name?: string
           status?: string
           trigger_type?: string | null
@@ -196,8 +262,10 @@ export type Database = {
           execution_count?: number
           flow_data?: Json
           id?: string
+          inactivity_minutes?: number | null
           keyword?: string | null
           last_execution?: string | null
+          max_followups?: number | null
           name?: string
           status?: string
           trigger_type?: string | null
