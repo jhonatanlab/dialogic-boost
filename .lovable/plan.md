@@ -1,75 +1,35 @@
 
 
-## Implementar Automação de Follow-up por Inatividade
+## Criar 3 Fluxos de Exemplo de Follow-up por Inatividade
 
-### Visão Geral
-Adicionar a capacidade de criar automações que disparam automaticamente quando um contato fica sem responder por um tempo configurável (ex: 30 minutos, 1 hora, 24 horas).
+Inserir diretamente no banco de dados 3 automações pré-configuradas com fluxos visuais completos, usando o gatilho de inatividade.
 
-### 1. Novo tipo de gatilho "Inatividade" no Flow Builder
+### Fluxo 1 — Follow-up Rápido (30 minutos)
+- **Nome**: "Follow-up Rápido — 30 min"
+- **Gatilho**: Inatividade de 30 minutos
+- **Max follow-ups**: 1
+- **Mensagem**: "Oi! Vi que ainda não tivemos retorno. Posso te ajudar com algo? 😊"
 
-**Arquivos**: `FlowSidebar.tsx`, `NodeConfigPanel.tsx`, `TriggerNode.tsx`, `FlowBuilder.tsx`
+### Fluxo 2 — Follow-up Diário (1 dia)
+- **Nome**: "Follow-up 24h"
+- **Gatilho**: Inatividade de 1440 minutos (1 dia)
+- **Max follow-ups**: 2
+- **Mensagem**: "Olá! Passando para verificar se ainda precisa de alguma ajuda. Estamos à disposição!"
 
-- Adicionar opção `inactivity` no seletor de tipo de gatilho (Trigger Node)
-- Campos de configuração: tempo de inatividade (número + unidade: minutos/horas/dias) e número máximo de follow-ups
-- Exibir no nó visual: "Sem resposta há X minutos"
-
-### 2. Colunas na tabela `automations`
-
-**Migração SQL**
-
-Adicionar colunas para automações de inatividade:
-- `inactivity_minutes` (integer, default null) -- tempo em minutos para considerar inativo
-- `max_followups` (integer, default 1) -- limite de follow-ups por conversa
-
-### 3. Tabela de controle de follow-ups
-
-**Migração SQL**
-
-Criar tabela `automation_followups` para rastrear envios e evitar duplicatas:
-- `id`, `automation_id`, `conversation_id`, `contact_id`, `company_id`
-- `followup_count` (integer) -- quantos follow-ups já foram enviados
-- `last_followup_at` (timestamptz) -- quando foi o último
-- `created_at`
-- Unique constraint em `(automation_id, conversation_id)`
-- RLS por `company_id`
-
-### 4. Edge Function: `process-inactivity-followups`
-
-**Arquivo**: `supabase/functions/process-inactivity-followups/index.ts`
-
-Worker que:
-1. Busca automações ativas com `trigger_type = 'inactivity'` e `inactivity_minutes IS NOT NULL`
-2. Para cada automação, busca conversas da empresa com status `open` ou `in_progress`
-3. Verifica a última mensagem `inbound` de cada conversa
-4. Se `now() - last_inbound_at >= inactivity_minutes` E `followup_count < max_followups`:
-   - Chama `execute-automation` para disparar o fluxo
-   - Incrementa `followup_count` na tabela de controle
-5. Segurança: usa Service Role Key, valida timestamps
-
-### 5. Cron Job para execução periódica
-
-**SQL (via insert tool, não migração)**
-
-Agendar `pg_cron` para chamar o worker a cada 2 minutos:
-```
-cron.schedule('process-inactivity-followups', '*/2 * * * *', ...)
-```
-
-### 6. Atualizar `useAutomations.ts`
-
-Incluir os novos campos (`inactivity_minutes`, `max_followups`) no tipo `Automation` e nas mutations de criação/atualização.
-
-### 7. UI do painel de configuração
-
-No `NodeConfigPanel`, quando `triggerType === 'inactivity'`:
-- Campo numérico para tempo de inatividade
-- Seletor de unidade (minutos, horas, dias)
-- Campo para máximo de follow-ups (padrão: 1)
+### Fluxo 3 — Follow-up Longo (3 dias)
+- **Nome**: "Reengajamento — 3 dias"
+- **Gatilho**: Inatividade de 4320 minutos (3 dias)
+- **Max follow-ups**: 1
+- **Mensagem**: "Oi! Faz alguns dias que não conversamos. Caso tenha interesse, estamos aqui para te atender. 🙂"
 
 ### Detalhes Técnicos
 
-- O `pending_at` e `pending_token` já existem na tabela `conversations` e podem ser aproveitados para marcar o início da espera
-- O worker respeita o limite de 50 conversas por automação por execução para evitar sobrecarga
-- Cada follow-up é registrado com timestamp para permitir intervalos progressivos futuros
-- A Edge Function `execute-automation` existente não precisa de alteração -- o worker apenas a invoca com os mesmos parâmetros
+Cada automação será inserida com:
+- `trigger_type`: `"inactivity"`
+- `inactivity_minutes`: 30 / 1440 / 4320
+- `max_followups`: 1 / 2 / 1
+- `status`: `"active"`
+- `flow_data`: JSON completo com nós (trigger + message) e edges do React Flow
+
+Além disso, corrigir o `handleSave` em `Automations.tsx` (linhas 70-116) para extrair `inactivityMinutes` e `maxFollowups` do trigger node e passá-los ao mutation — sem isso, automações de inatividade criadas pela UI não salvam esses campos corretamente.
 
