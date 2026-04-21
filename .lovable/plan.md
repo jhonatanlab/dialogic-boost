@@ -1,43 +1,75 @@
 
 
-## Problema: Tempo Médio de Resposta Hardcoded
+## Implementar Automação de Follow-up por Inatividade
 
-O campo `avgResponseTime` no hook `useDashboardStats.ts` (linha 136) está fixado como `"—"` — nunca é calculado a partir dos dados reais.
+### Visão Geral
+Adicionar a capacidade de criar automações que disparam automaticamente quando um contato fica sem responder por um tempo configurável (ex: 30 minutos, 1 hora, 24 horas).
 
-## Plano
+### 1. Novo tipo de gatilho "Inatividade" no Flow Builder
 
-### 1. Calcular o tempo médio de primeira resposta
+**Arquivos**: `FlowSidebar.tsx`, `NodeConfigPanel.tsx`, `TriggerNode.tsx`, `FlowBuilder.tsx`
 
-**File: `src/hooks/useDashboardStats.ts`**
+- Adicionar opção `inactivity` no seletor de tipo de gatilho (Trigger Node)
+- Campos de configuração: tempo de inatividade (número + unidade: minutos/horas/dias) e número máximo de follow-ups
+- Exibir no nó visual: "Sem resposta há X minutos"
 
-Para cada conversa que tem mensagens, calcular o tempo entre a primeira mensagem **inbound** (do contato) e a primeira mensagem **outbound** (do atendente). A média desses deltas é o "tempo médio de resposta".
+### 2. Colunas na tabela `automations`
 
-- Buscar mensagens das conversas filtradas, agrupando por `conversation_id`, com `direction` e `sent_at`
-- Para cada conversa: encontrar o primeiro par inbound→outbound e calcular o delta em milissegundos
-- Calcular a média dos deltas e formatar como "Xm Ys" ou "Xh Ym"
+**Migração SQL**
 
-### Lógica de cálculo
+Adicionar colunas para automações de inatividade:
+- `inactivity_minutes` (integer, default null) -- tempo em minutos para considerar inativo
+- `max_followups` (integer, default 1) -- limite de follow-ups por conversa
 
-```text
-Para cada conversa:
-  1. Ordenar mensagens por sent_at ASC
-  2. Encontrar a primeira mensagem com direction = 'inbound'
-  3. Encontrar a primeira mensagem com direction = 'outbound' APÓS a inbound
-  4. Delta = outbound.sent_at - inbound.sent_at
-  
-Média = soma(deltas) / count(deltas)
-Formatar: < 60s → "Xs", < 3600s → "Xm Ys", else → "Xh Ym"
+### 3. Tabela de controle de follow-ups
+
+**Migração SQL**
+
+Criar tabela `automation_followups` para rastrear envios e evitar duplicatas:
+- `id`, `automation_id`, `conversation_id`, `contact_id`, `company_id`
+- `followup_count` (integer) -- quantos follow-ups já foram enviados
+- `last_followup_at` (timestamptz) -- quando foi o último
+- `created_at`
+- Unique constraint em `(automation_id, conversation_id)`
+- RLS por `company_id`
+
+### 4. Edge Function: `process-inactivity-followups`
+
+**Arquivo**: `supabase/functions/process-inactivity-followups/index.ts`
+
+Worker que:
+1. Busca automações ativas com `trigger_type = 'inactivity'` e `inactivity_minutes IS NOT NULL`
+2. Para cada automação, busca conversas da empresa com status `open` ou `in_progress`
+3. Verifica a última mensagem `inbound` de cada conversa
+4. Se `now() - last_inbound_at >= inactivity_minutes` E `followup_count < max_followups`:
+   - Chama `execute-automation` para disparar o fluxo
+   - Incrementa `followup_count` na tabela de controle
+5. Segurança: usa Service Role Key, valida timestamps
+
+### 5. Cron Job para execução periódica
+
+**SQL (via insert tool, não migração)**
+
+Agendar `pg_cron` para chamar o worker a cada 2 minutos:
+```
+cron.schedule('process-inactivity-followups', '*/2 * * * *', ...)
 ```
 
-### Detalhes técnicos
+### 6. Atualizar `useAutomations.ts`
 
-**Adicionar query de mensagens** no `useDashboardStats` para buscar `conversation_id, direction, sent_at` das mensagens da empresa no período filtrado. Limitar a busca às conversas já carregadas para eficiência (usar `.in('conversation_id', convIds)`).
+Incluir os novos campos (`inactivity_minutes`, `max_followups`) no tipo `Automation` e nas mutations de criação/atualização.
 
-**Calcular o delta** iterando por conversa, encontrando o primeiro par inbound→outbound.
+### 7. UI do painel de configuração
 
-**Substituir** a linha `avgResponseTime: "—"` pelo valor calculado e formatado.
+No `NodeConfigPanel`, quando `triggerType === 'inactivity'`:
+- Campo numérico para tempo de inatividade
+- Seletor de unidade (minutos, horas, dias)
+- Campo para máximo de follow-ups (padrão: 1)
 
-### Observação sobre performance
+### Detalhes Técnicos
 
-A query pode retornar muitas mensagens. Para mitigar, limitaremos a busca às primeiras 2 mensagens por conversa usando ordenação e filtrando apenas `direction IN ('inbound','outbound')`. Alternativamente, buscaremos apenas conversas dos últimos 30 dias se nenhum filtro de data for aplicado.
+- O `pending_at` e `pending_token` já existem na tabela `conversations` e podem ser aproveitados para marcar o início da espera
+- O worker respeita o limite de 50 conversas por automação por execução para evitar sobrecarga
+- Cada follow-up é registrado com timestamp para permitir intervalos progressivos futuros
+- A Edge Function `execute-automation` existente não precisa de alteração -- o worker apenas a invoca com os mesmos parâmetros
 
