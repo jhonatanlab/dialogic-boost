@@ -7,6 +7,7 @@ interface TriggerNodeData {
   label: string;
   triggerType?: string;
   keyword?: string;
+  inactivityMinutes?: number;
 }
 
 const TriggerNode = memo(({ data, selected }: { data: TriggerNodeData; selected?: boolean }) => {
