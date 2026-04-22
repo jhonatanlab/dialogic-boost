@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { FlowBuilderWrapper, type FlowBuilderHandle } from "@/components/automations/FlowBuilder";
 import { AutomationStatsModal } from "@/components/automations/AutomationStatsModal";
+import { AutomationDetailModal } from "@/components/automations/AutomationDetailModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,7 @@ const Automations = () => {
   const [triggerType, setTriggerType] = useState<string>("keyword");
   const [keyword, setKeyword] = useState("");
   const [statsOpen, setStatsOpen] = useState(false);
+  const [detailAutomation, setDetailAutomation] = useState<typeof automations[0] | null>(null);
   const flowBuilderRef = useRef<FlowBuilderHandle>(null);
 
   const { automations, isLoading, createAutomation, updateAutomation, deleteAutomation, toggleStatus } = useAutomations();
@@ -183,7 +185,7 @@ const Automations = () => {
               ) : (
                 <div className="grid gap-4">
                   {filteredAutomations.map((automation) => (
-                    <Card key={automation.id} className="hover:shadow-md transition-shadow">
+                    <Card key={automation.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setDetailAutomation(automation)}>
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="space-y-1">
@@ -328,6 +330,11 @@ const Automations = () => {
           open={statsOpen}
           onOpenChange={setStatsOpen}
           automations={automations}
+        />
+        <AutomationDetailModal
+          open={!!detailAutomation}
+          onOpenChange={(open) => { if (!open) setDetailAutomation(null); }}
+          automation={detailAutomation}
         />
       </div>
     </DashboardLayout>
