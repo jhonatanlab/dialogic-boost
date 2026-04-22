@@ -27,9 +27,19 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
   if (!node) return null;
 
   const handleChange = (field: string, value: any) => {
-    const newData = { ...formData, [field]: value };
-    setFormData(newData);
-    onUpdate(node.id, newData);
+    setFormData((prev: any) => {
+      const newData = { ...prev, [field]: value };
+      onUpdate(node.id, newData);
+      return newData;
+    });
+  };
+
+  const handleChangeMulti = (updates: Record<string, any>) => {
+    setFormData((prev: any) => {
+      const newData = { ...prev, ...updates };
+      onUpdate(node.id, newData);
+      return newData;
+    });
   };
 
   const renderFields = () => {
@@ -85,8 +95,7 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
                         const val = parseInt(e.target.value) || 0;
                         const unit = formData.inactivityUnit || "minutes";
                         const multiplier = unit === "hours" ? 60 : unit === "days" ? 1440 : 1;
-                        handleChange("inactivityValue", val);
-                        handleChange("inactivityMinutes", val * multiplier);
+                        handleChangeMulti({ inactivityValue: val, inactivityMinutes: val * multiplier });
                       }}
                       placeholder="30"
                     />
@@ -98,8 +107,7 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
                       onValueChange={(value) => {
                         const val = formData.inactivityValue || 0;
                         const multiplier = value === "hours" ? 60 : value === "days" ? 1440 : 1;
-                        handleChange("inactivityUnit", value);
-                        handleChange("inactivityMinutes", val * multiplier);
+                        handleChangeMulti({ inactivityUnit: value, inactivityMinutes: val * multiplier });
                       }}
                     >
                       <SelectTrigger>
