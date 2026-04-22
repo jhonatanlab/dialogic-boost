@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       // 2. Get ONLY open conversations without an assigned agent
       const { data: conversations, error: convErr } = await supabase
         .from("conversations")
-        .select("id, contact_id")
+        .select("id, contact_id, company_id, contacts(id, company_id)")
         .eq("company_id", companyId)
         .eq("status", "open")
         .is("assigned_to", null)
@@ -50,6 +50,22 @@ Deno.serve(async (req) => {
       if (convErr || !conversations || conversations.length === 0) continue;
 
       for (const conv of conversations) {
+        const linkedContact = Array.isArray((conv as any).contacts)
+          ? (conv as any).contacts[0]
+          : (conv as any).contacts;
+
+        if (conv.company_id !== companyId || linkedContact?.company_id !== companyId) {
+          console.error("[process-inactivity-followups] skipped company mismatch", {
+            automation_id: automation.id,
+            company_id: companyId,
+            conversation_id: conv.id,
+            conversation_company_id: conv.company_id,
+            contact_id: conv.contact_id,
+            contact_company_id: linkedContact?.company_id,
+          });
+          continue;
+        }
+
         // 3. Get last inbound message time
         const { data: lastInbound } = await supabase
           .from("messages")
