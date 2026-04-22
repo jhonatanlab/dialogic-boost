@@ -296,9 +296,18 @@ const ConversationItem = ({
           </span>
         </div>
 
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[13px] text-muted-foreground truncate flex-1">{preview}</p>
+          {conv.unread_count > 0 && (
+            <span className="bg-primary text-primary-foreground text-[11px] font-bold rounded-full h-5 min-w-5 flex items-center justify-center px-1.5 shrink-0">
+              {conv.unread_count}
+            </span>
+          )}
+        </div>
+
         {/* Tags + Assigned agent */}
         {(tags.length > 0 || conv.assigned_agent_name) && (
-          <div className="flex items-center gap-1 mb-0.5 overflow-hidden">
+          <div className="flex items-center gap-1 mt-0.5 overflow-hidden">
             {tags.slice(0, 3).map(tag => (
               <span key={tag.id} className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: tag.color }} title={tag.name} />
             ))}
@@ -310,15 +319,6 @@ const ConversationItem = ({
             )}
           </div>
         )}
-
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[13px] text-muted-foreground truncate flex-1">{preview}</p>
-          {conv.unread_count > 0 && (
-            <span className="bg-primary text-primary-foreground text-[11px] font-bold rounded-full h-5 min-w-5 flex items-center justify-center px-1.5 shrink-0">
-              {conv.unread_count}
-            </span>
-          )}
-        </div>
       </div>
     </div>
   );
