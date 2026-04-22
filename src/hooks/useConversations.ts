@@ -2,6 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 
+export interface ConversationTag {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Conversation {
   id: string;
   user_id: string;
@@ -29,6 +35,7 @@ export interface Conversation {
   };
   assigned_agent_name?: string | null;
   assigned_team_name?: string | null;
+  contact_tags?: ConversationTag[];
 }
 
 export const useConversations = () => {
@@ -80,6 +87,24 @@ export const useConversations = () => {
         teamMap = Object.fromEntries((teams || []).map(t => [t.id, t.name]));
       }
 
+      // Fetch tags for all contacts in batch
+      const contactIds = [...new Set((data || []).map(c => c.contact_id).filter(Boolean))] as string[];
+      let contactTagsMap: Record<string, ConversationTag[]> = {};
+
+      if (contactIds.length > 0) {
+        const { data: ctData } = await supabase
+          .from("contact_tags")
+          .select("contact_id, tag_id, tags(id, name, color)")
+          .in("contact_id", contactIds);
+        
+        for (const ct of (ctData || [])) {
+          const tag = (ct as any).tags;
+          if (!tag) continue;
+          if (!contactTagsMap[ct.contact_id]) contactTagsMap[ct.contact_id] = [];
+          contactTagsMap[ct.contact_id].push({ id: tag.id, name: tag.name, color: tag.color });
+        }
+      }
+
       const conversationsWithMessages = await Promise.all(
         (data || []).map(async (conv) => {
           const { data: lastMessages } = await supabase
@@ -101,6 +126,7 @@ export const useConversations = () => {
             last_message: validMsg || undefined,
             assigned_agent_name: conv.assigned_to ? (agentMap[conv.assigned_to] || "Atendente") : null,
             assigned_team_name: conv.assigned_team ? (teamMap[conv.assigned_team] || "Equipe") : null,
+            contact_tags: contactTagsMap[conv.contact_id] || [],
           };
         })
       );
