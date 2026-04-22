@@ -1,104 +1,134 @@
 
-## Diagnóstico
+## Motivo do ocorrido
 
-Esses dois contatos não foram apagados porque eles pertencem a outro usuário da mesma empresa.
+O follow-up aconteceu porque a mensagem inbound desse contato entrou no sistema vinculada à empresa **ELOHUB**, não à **DLS Energia Solar**.
 
-Hoje a tela de Contatos permite visualizar contatos da empresa inteira, mas a regra de exclusão no banco ainda permite apagar apenas contatos cujo `user_id` seja igual ao usuário logado.
+Pelo que foi encontrado nos dados:
 
-No caso mostrado:
+- O mesmo telefone existe em duas empresas:
+  - **DLS Energia Solar**: conversa antiga do contato Kleber.
+  - **ELOHUB**: uma conversa nova criada para o mesmo telefone.
+- Na conversa da **ELOHUB**, entrou a mensagem inbound **“OI”** às 20:26.
+- Depois de mais de 30 minutos sem resposta, a automação ativa da **ELOHUB** chamada **“Follow-Up — 30 minutos”** disparou às 20:58.
+- Por isso apareceu o follow-up onde não deveria.
 
-- Os contatos “Cliente” pertencem ao usuário administrador que os criou.
-- Você está logado como gerente.
-- A listagem aparece porque existe permissão para ver contatos da empresa.
-- A exclusão não acontece porque a política atual de DELETE ainda é baseada no dono do contato.
-- Como o banco bloqueia a exclusão via segurança, a operação não remove nenhuma linha.
+Ou seja: o problema não foi a regra do follow-up em si. O problema foi antes: o webhook recebeu/processou esse contato usando o `company_id` da ELOHUB, então o sistema entendeu que a conversa pertencia à ELOHUB.
 
-Além disso, o frontend hoje não valida se algum registro foi realmente apagado. Então pode parecer que tentou excluir, mas o contato continua na lista.
+## Causa técnica provável
+
+A função `webhook-n8n-instance` hoje confia no `company_id` enviado pelo n8n no payload.
+
+Então, se o n8n mandar:
+
+```text
+company_id = ELOHUB
+phone = telefone do Kleber
+```
+
+o sistema cria ou reabre o contato/conversa dentro da ELOHUB, mesmo que aquele número de atendimento seja da DLS Energia Solar.
+
+Além disso, o sistema ainda precisa de travas extras para impedir que automações sejam executadas quando contato, conversa e empresa não batem exatamente.
 
 ## Plano de correção
 
-### 1. Corrigir permissão de exclusão de contatos
+### 1. Blindar o recebimento de mensagens por empresa
 
-Vou ajustar as regras do banco para permitir que usuários com perfil `admin` ou `manager` apaguem contatos da própria empresa.
+Vou ajustar `supabase/functions/webhook-n8n-instance/index.ts` para não confiar cegamente no `company_id` recebido.
+
+A nova regra será:
+
+- Se o payload trouxer `instance_id`, o sistema tentará resolver a empresa real pela instância cadastrada.
+- Se a instância pertencer à DLS, a mensagem será processada como DLS.
+- Se a instância pertencer à ELOHUB, será processada como ELOHUB.
+- Se houver divergência entre `company_id` recebido e empresa da instância, o sistema vai:
+  - registrar log de alerta;
+  - usar a empresa correta da instância;
+  - ou rejeitar o evento, se não for possível resolver com segurança.
+
+Isso evita que uma mensagem da DLS crie conversa dentro da ELOHUB.
+
+### 2. Impedir automações com dados cruzados
+
+Vou reforçar `supabase/functions/execute-automation/index.ts` para validar antes de enviar qualquer mensagem:
+
+- a automação precisa pertencer ao mesmo `company_id`;
+- a conversa precisa pertencer ao mesmo `company_id`;
+- o contato precisa pertencer ao mesmo `company_id`;
+- a conversa precisa estar ligada ao contato correto.
+
+Se qualquer uma dessas validações falhar, a automação não executa.
+
+### 3. Remover fallback perigoso de envio global
+
+Hoje o motor de automação pode usar um fallback global de `n8n_send_message` se não encontrar endpoint específico da empresa.
+
+Vou remover/limitar esse fallback para evitar que uma empresa use, por engano, endpoint de outra empresa.
 
 A regra será:
 
-- `admin`: pode apagar contatos da empresa.
-- `manager`: pode apagar contatos da empresa.
-- `agent`: não pode apagar contatos de outros usuários.
-- Todos continuam isolados por `company_id`.
+- primeiro: endpoint da própria empresa;
+- depois: endpoint do usuário da própria empresa;
+- nunca usar endpoint aleatório/global de outra empresa.
 
-Isso mantém o isolamento multiempresa e resolve o caso em que um gerente precisa excluir contatos criados por outro membro.
+### 4. Reforçar o worker de follow-up por inatividade
 
-### 2. Manter segurança por empresa
+Vou ajustar `supabase/functions/process-inactivity-followups/index.ts` para buscar conversas com validação mais rígida:
 
-A nova política de exclusão usará o vínculo da empresa do usuário logado.
+- conversa da mesma empresa da automação;
+- contato da mesma empresa da automação;
+- conversa aberta;
+- sem atendente atribuído;
+- última mensagem inbound válida;
+- contato/conversa consistentes antes de chamar a automação.
 
-A exclusão só será permitida quando:
+Isso reduz o risco de follow-up disparar em conversas criadas de forma incorreta.
 
-```text
-contact.company_id = empresa_do_usuario_logado
-AND usuario.role IN ('admin', 'manager')
-```
+### 5. Corrigir os dados afetados
 
-Assim, ninguém poderá apagar contatos de outra empresa.
+Vou revisar os registros desse telefone na empresa ELOHUB e DLS.
 
-### 3. Melhorar feedback da tela de Contatos
+A correção segura será:
 
-Vou ajustar `useDeleteContact` em `src/hooks/useContacts.ts` para verificar se o contato realmente foi excluído.
+- manter o contato/conversa correto na **DLS Energia Solar**;
+- remover ou arquivar o contato/conversa criado incorretamente na **ELOHUB**;
+- remover o registro de follow-up indevido da ELOHUB para esse contato/conversa;
+- preservar o histórico real da DLS.
 
-Hoje o código faz:
+Antes de remover dados, vou limitar a correção ao telefone/contato afetado para não impactar outros contatos.
 
-```ts
-.delete().eq("id", id)
-```
+### 6. Melhorar logs para rastrear novos casos
 
-Vou mudar para retornar os registros excluídos e validar o resultado.
+Vou adicionar logs mais claros nos webhooks:
 
-Resultado esperado:
-
-- Se apagou corretamente: mostrar “Contato excluído com sucesso”.
-- Se não apagou nada: mostrar uma mensagem clara, como “Você não tem permissão para excluir este contato”.
-- Se houver erro real do banco: mostrar erro detalhado no console e mensagem amigável na tela.
-
-### 4. Fechar painel e atualizar a lista corretamente
-
-Após a exclusão bem-sucedida:
-
-- invalidar a query de contatos;
-- remover o contato da lista;
-- fechar o painel lateral se o contato excluído estiver aberto.
-
-### 5. Atenção ao histórico de conversas
-
-O banco já possui vínculos em cascata para contatos, conversas e mensagens.
-
-Isso significa que excluir um contato pode também excluir:
-
-- conversas vinculadas;
-- mensagens vinculadas;
-- etiquetas do contato;
-- notas do contato;
-- resumos de IA;
-- registros de follow-up vinculados.
-
-Vou manter esse comportamento atual, mas posso incluir uma mensagem de confirmação mais clara para avisar que a exclusão remove também o histórico relacionado ao contato.
+- empresa recebida no payload;
+- empresa resolvida pela instância;
+- telefone normalizado;
+- contato criado/reutilizado;
+- conversa criada/reutilizada;
+- motivo quando uma automação for bloqueada por divergência de empresa.
 
 ## Arquivos envolvidos
 
-- `supabase/migrations/...`
-  - adicionar/corrigir política de DELETE para contatos por empresa e cargo.
-- `src/hooks/useContacts.ts`
-  - validar se o DELETE realmente apagou algo.
-  - melhorar mensagens de erro.
-- `src/pages/Contacts.tsx`
-  - ajustar confirmação de exclusão, se necessário.
+- `supabase/functions/webhook-n8n-instance/index.ts`
+  - validar empresa pela instância;
+  - impedir criação de conversa na empresa errada.
+
+- `supabase/functions/execute-automation/index.ts`
+  - validar consistência entre automação, conversa, contato e empresa;
+  - remover fallback global perigoso de endpoint.
+
+- `supabase/functions/process-inactivity-followups/index.ts`
+  - validar contato/conversa antes de executar follow-up.
+
+- Banco de dados
+  - corrigir o registro indevido do contato/conversa/follow-up na ELOHUB, preservando o histórico correto da DLS.
 
 ## Resultado esperado
 
 Depois da correção:
 
-- Gerentes conseguirão excluir contatos da própria empresa.
-- Atendentes continuarão sem permissão para apagar contatos de outros usuários.
-- A tela não mostrará sucesso quando a exclusão for bloqueada.
-- Os dois contatos exibidos poderão ser apagados corretamente por um gerente/admin da empresa.
+- Mensagens da DLS não criarão conversas na ELOHUB.
+- O follow-up da ELOHUB não será disparado para contatos que pertencem à DLS.
+- Automações só rodarão quando contato, conversa e empresa estiverem consistentes.
+- Endpoints de envio não serão compartilhados indevidamente entre empresas.
+- O caso do Kleber será limpo para manter apenas o histórico correto na empresa DLS.
