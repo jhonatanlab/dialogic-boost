@@ -185,7 +185,7 @@ const Automations = () => {
               ) : (
                 <div className="grid gap-4">
                   {filteredAutomations.map((automation) => (
-                    <Card key={automation.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setDetailAutomation(automation)}>
+                    <Card key={automation.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={(e) => { if (!(e.target as HTMLElement).closest('[role="menuitem"], [role="menu"], [data-radix-collection-item]')) setDetailAutomation(automation); }}>
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="space-y-1">
@@ -205,15 +205,15 @@ const Automations = () => {
                           
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
+                              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEditFlow(automation.id)}>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditFlow(automation.id); }}>
                                 Editar fluxo
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => toggleStatus.mutate({ id: automation.id, currentStatus: automation.status })}>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toggleStatus.mutate({ id: automation.id, currentStatus: automation.status }); }}>
                                 {automation.status === "active" ? (
                                   <>
                                     <Pause className="h-4 w-4 mr-2" />
@@ -228,7 +228,7 @@ const Automations = () => {
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-destructive"
-                                onClick={() => deleteAutomation.mutate(automation.id)}
+                                onClick={(e) => { e.stopPropagation(); deleteAutomation.mutate(automation.id); }}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Excluir
