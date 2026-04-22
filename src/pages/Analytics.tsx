@@ -50,7 +50,7 @@ const formatDuration = (ms: number) => {
 
 const Analytics = () => {
   const navigate = useNavigate();
-  const { profile } = useCompany();
+  const { profile, companyId } = useCompany();
 
   useEffect(() => {
     if (profile && profile.role === "agent") {
