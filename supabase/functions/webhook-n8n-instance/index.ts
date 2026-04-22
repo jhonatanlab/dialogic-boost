@@ -124,6 +124,40 @@ Deno.serve(async (req) => {
       return profile?.user_id || null;
     };
 
+    const resolveCompanyForInstance = async (payloadCompanyId: string, instanceId?: string | null) => {
+      if (!instanceId) {
+        console.warn("[company-resolution] no instance_id provided; using payload company_id", payloadCompanyId);
+        return { companyId: payloadCompanyId, source: "payload" };
+      }
+
+      const normalizedInstance = normalizePhone(instanceId);
+      const candidates = Array.from(new Set([instanceId, normalizedInstance].filter(Boolean)));
+      const { data: instance, error } = await supabase
+        .from("whatsapp_instances")
+        .select("company_id, company_name, instance_id, hash")
+        .or(candidates.map((value) => `instance_id.eq.${value},hash.eq.${value}`).join(","))
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!instance?.company_id) {
+        console.error("[company-resolution] blocked: instance_id not registered", { payloadCompanyId, instanceId });
+        return { companyId: null, source: "unresolved" };
+      }
+
+      if (instance.company_id !== payloadCompanyId) {
+        console.warn("[company-resolution] payload company_id mismatch; using registered instance company", {
+          payloadCompanyId,
+          resolvedCompanyId: instance.company_id,
+          instanceId,
+          registeredInstanceId: instance.instance_id,
+          registeredHash: instance.hash,
+        });
+      }
+
+      return { companyId: instance.company_id as string, source: "instance" };
+    };
+
     // ── Helper: find or create contact ──
     const findOrCreateContact = async (company_id: string, userId: string, normalizedPhone: string, contactName?: string) => {
       const { data: existing } = await supabase
