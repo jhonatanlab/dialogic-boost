@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { FlowBuilderWrapper, type FlowBuilderHandle } from "@/components/automations/FlowBuilder";
+import { AutomationStatsModal } from "@/components/automations/AutomationStatsModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Play, Pause, Trash2, Copy, MoreVertical, Bot, Zap, Loader2 } from "lucide-react";
+import { Plus, Play, Pause, Trash2, Copy, MoreVertical, Bot, Zap, Loader2, BarChart3 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +43,7 @@ const Automations = () => {
   const [automationName, setAutomationName] = useState("Nova Automação");
   const [triggerType, setTriggerType] = useState<string>("keyword");
   const [keyword, setKeyword] = useState("");
+  const [statsOpen, setStatsOpen] = useState(false);
   const flowBuilderRef = useRef<FlowBuilderHandle>(null);
 
   const { automations, isLoading, createAutomation, updateAutomation, deleteAutomation, toggleStatus } = useAutomations();
@@ -168,6 +170,10 @@ const Automations = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="max-w-sm"
                 />
+                <Button variant="outline" size="sm" className="gap-2 ml-auto" onClick={() => setStatsOpen(true)}>
+                  <BarChart3 className="h-4 w-4" />
+                  Dashboard
+                </Button>
               </div>
 
               {isLoading ? (
