@@ -95,8 +95,7 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
                         const val = parseInt(e.target.value) || 0;
                         const unit = formData.inactivityUnit || "minutes";
                         const multiplier = unit === "hours" ? 60 : unit === "days" ? 1440 : 1;
-                        handleChange("inactivityValue", val);
-                        handleChange("inactivityMinutes", val * multiplier);
+                        handleChangeMulti({ inactivityValue: val, inactivityMinutes: val * multiplier });
                       }}
                       placeholder="30"
                     />
