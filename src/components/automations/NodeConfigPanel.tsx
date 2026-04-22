@@ -107,8 +107,7 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
                       onValueChange={(value) => {
                         const val = formData.inactivityValue || 0;
                         const multiplier = value === "hours" ? 60 : value === "days" ? 1440 : 1;
-                        handleChange("inactivityUnit", value);
-                        handleChange("inactivityMinutes", val * multiplier);
+                        handleChangeMulti({ inactivityUnit: value, inactivityMinutes: val * multiplier });
                       }}
                     >
                       <SelectTrigger>
