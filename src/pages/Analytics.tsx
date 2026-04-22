@@ -74,6 +74,31 @@ const Analytics = () => {
     isLoading,
   } = useAnalytics(dateRange);
 
+  // User presence / activity data
+  const { data: presenceData = [], isLoading: presenceLoading } = useQuery({
+    queryKey: ["user-presence-report", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("user_presence" as any)
+        .select("user_id, is_online, last_seen_at, total_online_seconds")
+        .eq("company_id", companyId);
+      if (error) return [];
+      const userIds = (data || []).map((u: any) => u.user_id);
+      if (userIds.length === 0) return [];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", userIds);
+      const nameMap = Object.fromEntries((profiles || []).map(p => [p.user_id, p.full_name || "Usuário"]));
+      return (data || []).map((u: any) => ({
+        ...u,
+        full_name: nameMap[u.user_id] || "Usuário",
+      }));
+    },
+    enabled: !!companyId,
+  });
+
   const presetRanges = [
     { label: "Este mês", start: startOfMonth(new Date()), end: endOfMonth(new Date()) },
     { label: "Mês passado", start: startOfMonth(subMonths(new Date(), 1)), end: endOfMonth(subMonths(new Date(), 1)) },
@@ -337,6 +362,57 @@ const Analytics = () => {
             campaignPerformance && <CampaignsTable campaigns={campaignPerformance} />
           )}
         </div>
+
+        {/* User Activity Report */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wifi className="h-5 w-5 text-primary" />
+              Tempo de Atividade dos Usuários
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {presenceLoading ? (
+              <Skeleton className="h-40" />
+            ) : presenceData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem dados de atividade.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Usuário</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Tempo Online Total</TableHead>
+                    <TableHead className="text-right">Último Acesso</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {presenceData.map((u: any) => {
+                    const totalSec = u.total_online_seconds || 0;
+                    const hours = Math.floor(totalSec / 3600);
+                    const mins = Math.floor((totalSec % 3600) / 60);
+                    const timeStr = hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
+                    return (
+                      <TableRow key={u.user_id}>
+                        <TableCell className="font-medium">{u.full_name}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center gap-1.5 text-xs ${u.is_online ? "text-green-600" : "text-muted-foreground"}`}>
+                            <span className={`h-2 w-2 rounded-full ${u.is_online ? "bg-green-500" : "bg-muted-foreground/40"}`} />
+                            {u.is_online ? "Online" : "Offline"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">{timeStr}</TableCell>
+                        <TableCell className="text-right text-muted-foreground text-xs">
+                          {u.last_seen_at ? format(new Date(u.last_seen_at), "dd/MM HH:mm") : "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
