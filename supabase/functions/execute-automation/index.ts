@@ -166,7 +166,12 @@ Deno.serve(async (req) => {
             content: msgContent,
             message_type: "text",
             status: "sending",
-            metadata: { automation_id, node_id: currentId },
+            metadata: {
+              automation_id,
+              node_id: currentId,
+              automation_name: automation.name,
+              automation_trigger_type: automation.trigger_type,
+            },
           });
 
           // Try to send via n8n (same payload format as Inbox)
@@ -266,6 +271,8 @@ Deno.serve(async (req) => {
 
               if (!resp.ok) {
                 await supabase.from("messages").update({ status: "failed" }).eq("client_message_id", tempMessageId);
+              } else {
+                await supabase.from("messages").update({ status: "sent" }).eq("client_message_id", tempMessageId);
               }
             }
           } catch (sendErr) {
