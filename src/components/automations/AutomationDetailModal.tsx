@@ -41,7 +41,7 @@ export function AutomationDetailModal({ open, onOpenChange, automation }: Automa
         .lte("executed_at", dateTo.toISOString())
         .order("executed_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as { id: string; status: string; executed_at: string }[];
+      return (data || []) as unknown as { id: string; status: string; executed_at: string }[];
     },
     enabled: open && !!automation?.id,
   });
