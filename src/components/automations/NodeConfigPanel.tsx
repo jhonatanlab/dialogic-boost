@@ -132,7 +132,33 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
           </>
         );
 
-      case "message":
+      case "message": {
+        const messageVariables = [
+          { label: "Nome", value: "{nome}" },
+          { label: "Telefone", value: "{telefone}" },
+          { label: "E-mail", value: "{email}" },
+          { label: "Empresa", value: "{empresa}" },
+          { label: "Data", value: "{data}" },
+          { label: "Hora", value: "{hora}" },
+        ];
+
+        const insertVariable = (variable: string) => {
+          const textarea = document.querySelector<HTMLTextAreaElement>("#message-textarea");
+          if (textarea) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const current = formData.message || "";
+            const newValue = current.substring(0, start) + variable + current.substring(end);
+            handleChange("message", newValue);
+            setTimeout(() => {
+              textarea.focus();
+              textarea.setSelectionRange(start + variable.length, start + variable.length);
+            }, 0);
+          } else {
+            handleChange("message", (formData.message || "") + variable);
+          }
+        };
+
         return (
           <>
             <div className="space-y-2">
@@ -146,14 +172,27 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
             <div className="space-y-2">
               <Label>Mensagem</Label>
               <Textarea
+                id="message-textarea"
                 value={formData.message || ""}
                 onChange={(e) => handleChange("message", e.target.value)}
                 placeholder="Digite a mensagem..."
                 rows={4}
               />
-              <p className="text-xs text-muted-foreground">
-                Use {"{{nome}}"} para variáveis dinâmicas
-              </p>
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Inserir variável:</p>
+                <div className="flex flex-wrap gap-1">
+                  {messageVariables.map((v) => (
+                    <button
+                      key={v.value}
+                      type="button"
+                      onClick={() => insertVariable(v.value)}
+                      className="px-2 py-0.5 text-xs rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/20"
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>URL da Mídia (opcional)</Label>
@@ -165,6 +204,7 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
             </div>
           </>
         );
+      }
 
       case "question":
         return (
