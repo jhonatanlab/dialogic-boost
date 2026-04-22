@@ -1,17 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MessageSquare, Users, TrendingUp, Clock, CalendarIcon, Filter } from "lucide-react";
+import { MessageSquare, Users, TrendingUp, Clock, CalendarIcon, Filter, Wifi } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useDashboardStats, useAgentsAndTeams, DashboardFilters } from "@/hooks/useDashboardStats";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCompany } from "@/hooks/useCompany";
 
 const Dashboard = () => {
+  const queryClient = useQueryClient();
+  const { companyId } = useCompany();
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [agentId, setAgentId] = useState<string>("all");
@@ -35,6 +40,43 @@ const Dashboard = () => {
   };
 
   const hasFilters = dateFrom || dateTo || agentId !== "all" || teamId !== "all";
+
+  // Online users query
+  const { data: onlineUsers = [] } = useQuery({
+    queryKey: ["online-users", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("user_presence" as any)
+        .select("user_id, is_online, last_seen_at")
+        .eq("company_id", companyId)
+        .eq("is_online", true);
+      if (error) return [];
+      // Get profile names
+      const userIds = (data || []).map((u: any) => u.user_id);
+      if (userIds.length === 0) return [];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", userIds);
+      const nameMap = Object.fromEntries((profiles || []).map(p => [p.user_id, p.full_name || "Usuário"]));
+      return (data || []).map((u: any) => ({ ...u, full_name: nameMap[u.user_id] || "Usuário" }));
+    },
+    enabled: !!companyId,
+    refetchInterval: 30000,
+  });
+
+  // Realtime subscription for presence changes
+  useEffect(() => {
+    if (!companyId) return;
+    const channel = supabase
+      .channel("presence-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_presence" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["online-users", companyId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [companyId, queryClient]);
 
   const channelColors: Record<string, string> = {
     Whatsapp: "#00D4D4",
