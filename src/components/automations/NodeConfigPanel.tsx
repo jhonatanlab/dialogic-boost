@@ -27,9 +27,19 @@ export function NodeConfigPanel({ node, onClose, onUpdate, onDelete }: NodeConfi
   if (!node) return null;
 
   const handleChange = (field: string, value: any) => {
-    const newData = { ...formData, [field]: value };
-    setFormData(newData);
-    onUpdate(node.id, newData);
+    setFormData((prev: any) => {
+      const newData = { ...prev, [field]: value };
+      onUpdate(node.id, newData);
+      return newData;
+    });
+  };
+
+  const handleChangeMulti = (updates: Record<string, any>) => {
+    setFormData((prev: any) => {
+      const newData = { ...prev, ...updates };
+      onUpdate(node.id, newData);
+      return newData;
+    });
   };
 
   const renderFields = () => {
