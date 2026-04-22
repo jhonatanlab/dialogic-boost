@@ -114,19 +114,30 @@ export function useDeleteContact() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("contacts")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error("NO_CONTACT_DELETED");
+
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       toast.success("Contato excluído com sucesso!");
     },
-    onError: () => {
-      toast.error("Erro ao excluir contato");
+    onError: (error) => {
+      console.error("Erro ao excluir contato:", error);
+      if (error instanceof Error && error.message === "NO_CONTACT_DELETED") {
+        toast.error("Você não tem permissão para excluir este contato");
+        return;
+      }
+
+      toast.error("Erro ao excluir contato. Tente novamente.");
     },
   });
 }

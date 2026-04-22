@@ -57,12 +57,15 @@ const Contacts = () => {
   };
 
   const handleDeleteContact = (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este contato?")) {
-      deleteContact.mutate(id);
-      if (selectedContact?.id === id) {
-        setIsDetailsOpen(false);
-        setSelectedContact(null);
-      }
+    if (confirm("Tem certeza que deseja excluir este contato? O histórico relacionado também poderá ser removido.")) {
+      deleteContact.mutate(id, {
+        onSuccess: () => {
+          if (selectedContact?.id === id) {
+            setIsDetailsOpen(false);
+            setSelectedContact(null);
+          }
+        },
+      });
     }
   };
 
