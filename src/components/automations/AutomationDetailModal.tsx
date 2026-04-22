@@ -34,17 +34,66 @@ export function AutomationDetailModal({ open, onOpenChange, automation }: Automa
     queryFn: async () => {
       if (!automation?.id) return [];
 
-      // Try automation_executions first (granular tracking)
+      const fromIso = dateFrom.toISOString();
+      const toIso = dateTo.toISOString();
+
+      // Prefer real outbound messages so delivered/read statuses updated by webhooks are reflected.
+      const { data: outboundMessages, error: msgErr } = await supabase
+        .from("messages")
+        .select("id, status, sent_at, created_at, conversation_id, contact_id")
+        .eq("direction", "outbound")
+        .filter("metadata->>automation_id", "eq", automation.id)
+        .gte("sent_at", fromIso)
+        .lte("sent_at", toIso)
+        .order("sent_at", { ascending: false });
+
+      if (msgErr) throw msgErr;
+
+      if (outboundMessages && outboundMessages.length > 0) {
+        const conversationIds = [...new Set(outboundMessages.map(m => m.conversation_id).filter(Boolean))];
+        const earliestOutbound = outboundMessages.reduce((earliest, message) => {
+          const sentAt = message.sent_at || message.created_at;
+          return sentAt < earliest ? sentAt : earliest;
+        }, outboundMessages[0].sent_at || outboundMessages[0].created_at);
+
+        const { data: inboundMessages, error: inboundErr } = conversationIds.length > 0
+          ? await supabase
+              .from("messages")
+              .select("id, conversation_id, sent_at, created_at")
+              .eq("direction", "inbound")
+              .in("conversation_id", conversationIds)
+              .gte("sent_at", earliestOutbound)
+          : { data: [], error: null };
+
+        if (inboundErr) throw inboundErr;
+
+        return outboundMessages.map(message => {
+          const sentAt = message.sent_at || message.created_at;
+          const hasReply = (inboundMessages || []).some(reply =>
+            reply.conversation_id === message.conversation_id &&
+            (reply.sent_at || reply.created_at) > sentAt
+          );
+
+          return {
+            id: message.id,
+            status: message.status,
+            executed_at: sentAt,
+            replied: hasReply,
+          };
+        });
+      }
+
+      // Fallback: use automation_executions when legacy data has no message metadata.
       const { data: execData, error: execErr } = await supabase
         .from("automation_executions")
         .select("*")
         .eq("automation_id", automation.id)
-        .gte("executed_at", dateFrom.toISOString())
-        .lte("executed_at", dateTo.toISOString())
+        .gte("executed_at", fromIso)
+        .lte("executed_at", toIso)
         .order("executed_at", { ascending: false });
 
       if (!execErr && execData && execData.length > 0) {
-        return execData.map(e => ({ id: e.id, status: e.status, executed_at: e.executed_at }));
+        return execData.map(e => ({ id: e.id, status: e.status, executed_at: e.executed_at, replied: e.status === "replied" }));
       }
 
       // Fallback: use automation_followups (legacy data)
@@ -52,8 +101,8 @@ export function AutomationDetailModal({ open, onOpenChange, automation }: Automa
         .from("automation_followups")
         .select("id, followup_count, last_followup_at, created_at")
         .eq("automation_id", automation.id)
-        .gte("created_at", dateFrom.toISOString())
-        .lte("created_at", dateTo.toISOString())
+        .gte("created_at", fromIso)
+        .lte("created_at", toIso)
         .order("created_at", { ascending: false });
 
       if (fErr) throw fErr;
@@ -61,6 +110,7 @@ export function AutomationDetailModal({ open, onOpenChange, automation }: Automa
         id: f.id,
         status: "sent" as string,
         executed_at: f.last_followup_at || f.created_at,
+        replied: false,
       }));
     },
     enabled: open && !!automation?.id,
@@ -68,10 +118,10 @@ export function AutomationDetailModal({ open, onOpenChange, automation }: Automa
 
   const stats = useMemo(() => {
     const total = executions.length;
-    const sent = executions.filter(e => e.status === "sent").length;
-    const delivered = executions.filter(e => e.status === "delivered").length;
-    const read = executions.filter(e => e.status === "read").length;
-    const replied = executions.filter(e => e.status === "replied").length;
+    const sent = executions.filter(e => ["sent", "delivered", "read", "replied"].includes(e.status)).length;
+    const delivered = executions.filter(e => ["delivered", "read", "replied"].includes(e.status)).length;
+    const read = executions.filter(e => ["read", "replied"].includes(e.status)).length;
+    const replied = executions.filter(e => e.status === "replied" || e.replied).length;
     const failed = executions.filter(e => e.status === "failed").length;
     const successRate = total > 0 ? Math.round(((total - failed) / total) * 100) : 0;
     return { total, sent, delivered, read, replied, failed, successRate };
