@@ -35,8 +35,31 @@ function playNotificationSound() {
 
 function showBrowserNotification(title: string, body: string) {
   if (typeof Notification === "undefined") return;
+  
+  // If inside iframe, skip (won't work)
+  try {
+    if (window.self !== window.top) return;
+  } catch { /* cross-origin, assume iframe */ return; }
+
   if (Notification.permission === "granted") {
-    new Notification(title, { body, icon: "/favicon.ico" });
+    try {
+      const n = new Notification(title, { 
+        body, 
+        icon: "/favicon.ico",
+        tag: `elochat-${Date.now()}`,
+        requireInteraction: false,
+      });
+      // Auto-close after 5s
+      setTimeout(() => n.close(), 5000);
+    } catch {
+      // Fallback: ignore
+    }
+  } else if (Notification.permission === "default") {
+    Notification.requestPermission().then((perm) => {
+      if (perm === "granted") {
+        new Notification(title, { body, icon: "/favicon.ico" });
+      }
+    });
   }
 }
 
