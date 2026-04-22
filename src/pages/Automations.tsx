@@ -323,6 +323,12 @@ const Automations = () => {
             />
           </TabsContent>
         </Tabs>
+
+        <AutomationStatsModal
+          open={statsOpen}
+          onOpenChange={setStatsOpen}
+          automations={automations}
+        />
       </div>
     </DashboardLayout>
   );
