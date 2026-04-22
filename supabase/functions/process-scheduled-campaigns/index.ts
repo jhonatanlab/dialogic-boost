@@ -131,8 +131,37 @@ Deno.serve(async (req) => {
         endpoint = fallbackSettings?.setting_value;
       }
 
+      // Fallback: use whatsapp_integrations endpoint
+      if (!endpoint && campaign.company_id) {
+        const { data: integration } = await supabase
+          .from("whatsapp_integrations")
+          .select("provider, instance_id, api_token, access_token, phone_number_id")
+          .eq("company_id", campaign.company_id)
+          .eq("status", "connected")
+          .limit(1)
+          .maybeSingle();
+
+        if (integration) {
+          console.log(`Using whatsapp_integrations fallback (provider: ${integration.provider}) for campaign ${campaign.id}`);
+          // For Z-API provider
+          if (integration.provider === "z-api" && integration.instance_id && integration.api_token) {
+            endpoint = `https://api.z-api.io/instances/${integration.instance_id}/token/${integration.api_token}/send-text`;
+          }
+          // For other providers, try admin_settings n8n_automation_outbound
+          if (!endpoint) {
+            const { data: outboundSettings } = await supabase
+              .from("admin_settings")
+              .select("setting_value")
+              .eq("setting_key", "n8n_automation_outbound")
+              .eq("company_id", campaign.company_id)
+              .maybeSingle();
+            endpoint = outboundSettings?.setting_value;
+          }
+        }
+      }
+
       if (!endpoint) {
-        console.error(`No n8n endpoint configured for campaign ${campaign.id}`);
+        console.error(`No send endpoint found for campaign ${campaign.id} (company: ${campaign.company_id}). Checked: n8n_send_message, whatsapp_integrations, n8n_automation_outbound.`);
         await supabase
           .from("campaign_contacts")
           .update({ status: "failed", error_message: "Endpoint de envio não configurado" })
