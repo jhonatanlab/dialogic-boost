@@ -158,6 +158,68 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_executions: {
+        Row: {
+          automation_id: string
+          company_id: string
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string
+          executed_at: string
+          id: string
+          status: string
+        }
+        Insert: {
+          automation_id: string
+          company_id: string
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          executed_at?: string
+          id?: string
+          status?: string
+        }
+        Update: {
+          automation_id?: string
+          company_id?: string
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          executed_at?: string
+          id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_executions_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_followups: {
         Row: {
           automation_id: string
@@ -1450,6 +1512,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "teams_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_presence: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_online: boolean
+          last_seen_at: string
+          session_started_at: string | null
+          total_online_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_online?: boolean
+          last_seen_at?: string
+          session_started_at?: string | null
+          total_online_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_online?: boolean
+          last_seen_at?: string
+          session_started_at?: string | null
+          total_online_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_presence_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
