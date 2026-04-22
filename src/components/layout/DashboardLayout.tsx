@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useCompany } from "@/hooks/useCompany";
 import { usePresence } from "@/hooks/usePresence";
+import { useNotifications } from "@/hooks/useNotifications";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -27,6 +28,7 @@ export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const { profile } = useCompany();
   usePresence();
+  useNotifications();
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();

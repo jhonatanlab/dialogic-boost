@@ -33,15 +33,35 @@ export function AutomationDetailModal({ open, onOpenChange, automation }: Automa
     queryKey: ["automation-executions", automation?.id, dateFrom.toISOString(), dateTo.toISOString()],
     queryFn: async () => {
       if (!automation?.id) return [];
-      const { data, error } = await supabase
-        .from("automation_executions" as any)
+
+      // Try automation_executions first (granular tracking)
+      const { data: execData, error: execErr } = await supabase
+        .from("automation_executions")
         .select("*")
         .eq("automation_id", automation.id)
         .gte("executed_at", dateFrom.toISOString())
         .lte("executed_at", dateTo.toISOString())
         .order("executed_at", { ascending: false });
-      if (error) throw error;
-      return (data || []) as unknown as { id: string; status: string; executed_at: string }[];
+
+      if (!execErr && execData && execData.length > 0) {
+        return execData.map(e => ({ id: e.id, status: e.status, executed_at: e.executed_at }));
+      }
+
+      // Fallback: use automation_followups (legacy data)
+      const { data: followups, error: fErr } = await supabase
+        .from("automation_followups")
+        .select("id, followup_count, last_followup_at, created_at")
+        .eq("automation_id", automation.id)
+        .gte("created_at", dateFrom.toISOString())
+        .lte("created_at", dateTo.toISOString())
+        .order("created_at", { ascending: false });
+
+      if (fErr) throw fErr;
+      return (followups || []).map(f => ({
+        id: f.id,
+        status: "sent" as string,
+        executed_at: f.last_followup_at || f.created_at,
+      }));
     },
     enabled: open && !!automation?.id,
   });

@@ -369,6 +369,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Insert execution record for tracking
+    await supabase.from("automation_executions").insert({
+      automation_id,
+      company_id,
+      contact_id,
+      conversation_id,
+      status: "sent",
+      executed_at: new Date().toISOString(),
+    });
+
     // Update automation stats
     await supabase
       .from("automations")
