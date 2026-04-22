@@ -52,6 +52,43 @@ Deno.serve(async (req) => {
       return json({ error: "Automation not found" }, 404);
     }
 
+    if (automation.company_id !== company_id) {
+      console.error("[execute-automation] blocked: automation company mismatch", {
+        automation_id,
+        automation_company_id: automation.company_id,
+        request_company_id: company_id,
+      });
+      return json({ error: "Automation does not belong to this company" }, 403);
+    }
+
+    const { data: integrity, error: integrityErr } = await supabase
+      .from("conversations")
+      .select("id, company_id, contact_id, contacts(id, company_id)")
+      .eq("id", conversation_id)
+      .maybeSingle();
+
+    if (integrityErr) throw integrityErr;
+    const linkedContact = Array.isArray((integrity as any)?.contacts)
+      ? (integrity as any).contacts[0]
+      : (integrity as any)?.contacts;
+    if (
+      !integrity ||
+      integrity.company_id !== company_id ||
+      integrity.contact_id !== contact_id ||
+      linkedContact?.company_id !== company_id
+    ) {
+      console.error("[execute-automation] blocked: company/contact/conversation mismatch", {
+        automation_id,
+        company_id,
+        contact_id,
+        conversation_id,
+        conversation_company_id: integrity?.company_id,
+        conversation_contact_id: integrity?.contact_id,
+        contact_company_id: linkedContact?.company_id,
+      });
+      return json({ error: "Automation integrity check failed" }, 409);
+    }
+
     const flowData = automation.flow_data as { nodes: FlowNode[]; edges: FlowEdge[] };
     if (!flowData?.nodes?.length) {
       return json({ success: true, message: "No nodes to execute" });
@@ -225,20 +262,6 @@ Deno.serve(async (req) => {
               if (s2?.setting_value) {
                 sendEndpoint = s2.setting_value;
                 resolvedVia = "user_id";
-              }
-            }
-
-            if (!sendEndpoint) {
-              const { data: s3 } = await supabase
-                .from("admin_settings")
-                .select("setting_value")
-                .eq("setting_key", "n8n_send_message")
-                .not("setting_value", "is", null)
-                .limit(1)
-                .maybeSingle();
-              if (s3?.setting_value) {
-                sendEndpoint = s3.setting_value;
-                resolvedVia = "fallback";
               }
             }
 
