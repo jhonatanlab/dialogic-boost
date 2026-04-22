@@ -16,7 +16,7 @@ import { useCompany } from "@/hooks/useCompany";
 
 const Dashboard = () => {
   const queryClient = useQueryClient();
-  const { companyId } = useCompany();
+  const { companyId, profile } = useCompany();
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [agentId, setAgentId] = useState<string>("all");
@@ -40,6 +40,7 @@ const Dashboard = () => {
   };
 
   const hasFilters = dateFrom || dateTo || agentId !== "all" || teamId !== "all";
+  const canViewOnlineUsers = profile?.role === "admin" || profile?.role === "manager";
 
   // Online users query
   const { data: onlineUsers = [] } = useQuery({
@@ -62,13 +63,13 @@ const Dashboard = () => {
       const nameMap = Object.fromEntries((profiles || []).map(p => [p.user_id, p.full_name || "Usuário"]));
       return (data || []).map((u: any) => ({ ...u, full_name: nameMap[u.user_id] || "Usuário" }));
     },
-    enabled: !!companyId,
+    enabled: !!companyId && canViewOnlineUsers,
     refetchInterval: 30000,
   });
 
   // Realtime subscription for presence changes
   useEffect(() => {
-    if (!companyId) return;
+    if (!companyId || !canViewOnlineUsers) return;
     const channel = supabase
       .channel("presence-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "user_presence" }, () => {
@@ -76,7 +77,7 @@ const Dashboard = () => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [companyId, queryClient]);
+  }, [companyId, canViewOnlineUsers, queryClient]);
 
   const channelColors: Record<string, string> = {
     Whatsapp: "#00D4D4",
@@ -193,29 +194,31 @@ const Dashboard = () => {
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Online Users Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wifi className="h-4 w-4" style={{ color: "#00D4D4" }} />
-                Usuários Online
-              </CardTitle>
-              <CardDescription>{onlineUsers.length} online agora</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {onlineUsers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum usuário online</p>
-                ) : (
-                  onlineUsers.map((u: any) => (
-                    <div key={u.user_id} className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                      <span className="text-sm font-medium truncate">{u.full_name}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {canViewOnlineUsers && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Wifi className="h-4 w-4" style={{ color: "#00D4D4" }} />
+                  Usuários Online
+                </CardTitle>
+                <CardDescription>{onlineUsers.length} online agora</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {onlineUsers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum usuário online</p>
+                  ) : (
+                    onlineUsers.map((u: any) => (
+                      <div key={u.user_id} className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                        <span className="text-sm font-medium truncate">{u.full_name}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent Conversations */}
           <Card>
