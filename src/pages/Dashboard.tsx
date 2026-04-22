@@ -191,7 +191,32 @@ const Dashboard = () => {
           ))}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Online Users Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wifi className="h-4 w-4" style={{ color: "#00D4D4" }} />
+                Usuários Online
+              </CardTitle>
+              <CardDescription>{onlineUsers.length} online agora</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {onlineUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum usuário online</p>
+                ) : (
+                  onlineUsers.map((u: any) => (
+                    <div key={u.user_id} className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                      <span className="text-sm font-medium truncate">{u.full_name}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Recent Conversations */}
           <Card>
             <CardHeader>
