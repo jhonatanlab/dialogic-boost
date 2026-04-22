@@ -552,15 +552,21 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════
     if (action === "upsert_message") {
       const {
-        company_id, instance_id, message_id, phone_number,
+        company_id: payloadCompanyId, instance_id, message_id, phone_number,
         contact_name, direction, content, media_type,
         media_url, mimetype, status, sent_at, internal_id,
         file_name, campaign_id,
       } = data as Record<string, string>;
 
-      if (!company_id || !message_id || !phone_number) {
+      if (!payloadCompanyId || !message_id || !phone_number) {
         return json({ error: "company_id, message_id and phone_number are required" }, 400);
       }
+
+      const resolvedCompany = await resolveCompanyForInstance(payloadCompanyId, instance_id);
+      if (!resolvedCompany.companyId) {
+        return json({ error: "Unable to resolve company from registered instance" }, 409);
+      }
+      const company_id = resolvedCompany.companyId;
 
       // ── Check cutoff timestamp: ignore old messages from history sync ──
       if (sent_at) {
