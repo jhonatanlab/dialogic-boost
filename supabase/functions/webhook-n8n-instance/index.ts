@@ -124,6 +124,40 @@ Deno.serve(async (req) => {
       return profile?.user_id || null;
     };
 
+    const resolveCompanyForInstance = async (payloadCompanyId: string, instanceId?: string | null) => {
+      if (!instanceId) {
+        console.warn("[company-resolution] no instance_id provided; using payload company_id", payloadCompanyId);
+        return { companyId: payloadCompanyId, source: "payload" };
+      }
+
+      const normalizedInstance = normalizePhone(instanceId);
+      const candidates = Array.from(new Set([instanceId, normalizedInstance].filter(Boolean)));
+      const { data: instance, error } = await supabase
+        .from("whatsapp_instances")
+        .select("company_id, company_name, instance_id, hash")
+        .or(candidates.map((value) => `instance_id.eq.${value},hash.eq.${value}`).join(","))
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!instance?.company_id) {
+        console.error("[company-resolution] blocked: instance_id not registered", { payloadCompanyId, instanceId });
+        return { companyId: null, source: "unresolved" };
+      }
+
+      if (instance.company_id !== payloadCompanyId) {
+        console.warn("[company-resolution] payload company_id mismatch; using registered instance company", {
+          payloadCompanyId,
+          resolvedCompanyId: instance.company_id,
+          instanceId,
+          registeredInstanceId: instance.instance_id,
+          registeredHash: instance.hash,
+        });
+      }
+
+      return { companyId: instance.company_id as string, source: "instance" };
+    };
+
     // ── Helper: find or create contact ──
     const findOrCreateContact = async (company_id: string, userId: string, normalizedPhone: string, contactName?: string) => {
       const { data: existing } = await supabase
@@ -518,15 +552,21 @@ Deno.serve(async (req) => {
     // ═══════════════════════════════════════════
     if (action === "upsert_message") {
       const {
-        company_id, instance_id, message_id, phone_number,
+        company_id: payloadCompanyId, instance_id, message_id, phone_number,
         contact_name, direction, content, media_type,
         media_url, mimetype, status, sent_at, internal_id,
         file_name, campaign_id,
       } = data as Record<string, string>;
 
-      if (!company_id || !message_id || !phone_number) {
+      if (!payloadCompanyId || !message_id || !phone_number) {
         return json({ error: "company_id, message_id and phone_number are required" }, 400);
       }
+
+      const resolvedCompany = await resolveCompanyForInstance(payloadCompanyId, instance_id);
+      if (!resolvedCompany.companyId) {
+        return json({ error: "Unable to resolve company from registered instance" }, 409);
+      }
+      const company_id = resolvedCompany.companyId;
 
       // ── Check cutoff timestamp: ignore old messages from history sync ──
       if (sent_at) {
