@@ -15,13 +15,14 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // 1. Get active inactivity automations
+    // 1. Get active inactivity automations (ordered by inactivity_minutes ascending)
     const { data: automations, error: autoErr } = await supabase
       .from("automations")
       .select("*")
       .eq("status", "active")
       .eq("trigger_type", "inactivity")
-      .not("inactivity_minutes", "is", null);
+      .not("inactivity_minutes", "is", null)
+      .order("inactivity_minutes", { ascending: true });
 
     if (autoErr) throw autoErr;
     if (!automations || automations.length === 0) {
