@@ -106,18 +106,12 @@ Deno.serve(async (req) => {
           if (now - lastFollowupAt < threshold) continue;
         }
 
-        // 6. Cross-automation cooldown: skip if ANY inactivity followup was sent
-        //    for this conversation in the last 24 hours
-        const twentyFourHoursAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString();
-        const { data: recentAnyFollowup } = await supabase
-          .from("automation_followups")
-          .select("id")
-          .eq("conversation_id", conv.id)
-          .eq("company_id", companyId)
-          .gte("last_followup_at", twentyFourHoursAgo)
-          .limit(1);
-
-        if (recentAnyFollowup && recentAnyFollowup.length > 0) continue;
+        // 6. (Removido) Cooldown cruzado entre automações.
+        //    Cada automação de follow-up roda independentemente, respeitando apenas:
+        //    - seu próprio max_followups
+        //    - sua própria janela de inatividade
+        //    - inatividade real do contato (última mensagem inbound)
+        //    Isso permite que 30min, 2h, 24h e 2d coexistam sem se bloquearem.
 
         // 7. Execute automation
         try {
