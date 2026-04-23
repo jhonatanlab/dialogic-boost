@@ -58,12 +58,15 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const companyId = profile?.company_id;
+    if (!companyId) {
+      throw new Error("User has no company assigned");
+    }
 
     // Try to find active integration in whatsapp_integrations (Meta or Z-API)
     const { data: integration } = await supabase
       .from('whatsapp_integrations')
       .select('*')
-      .eq('user_id', userId)
+      .eq('company_id', companyId)
       .eq('status', 'connected')
       .maybeSingle();
 
@@ -115,7 +118,7 @@ Deno.serve(async (req) => {
 
         console.log("Message sent via Z-API:", sendResult);
       }
-    } else if (companyId) {
+    } else {
       // Fallback: check if API Automação is enabled for this company
       const { data: automationSettings } = await supabase
         .from('admin_settings')
@@ -201,8 +204,6 @@ Deno.serve(async (req) => {
           if (!response.ok) throw new Error(`n8n send error: ${JSON.stringify(sendResult)}`);
         }
       }
-    } else {
-      throw new Error("No active WhatsApp integration found");
     }
 
     return new Response(
