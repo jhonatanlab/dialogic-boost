@@ -124,10 +124,15 @@ Deno.serve(async (req) => {
       return profile?.user_id || null;
     };
 
-    const resolveCompanyForInstance = async (payloadCompanyId: string, instanceId?: string | null) => {
+    const resolveCompanyForInstance = async (payloadCompanyId: string, instanceId?: string | null, allowPayloadFallback = false) => {
       if (!instanceId) {
-        console.warn("[company-resolution] no instance_id provided; using payload company_id", payloadCompanyId);
-        return { companyId: payloadCompanyId, source: "payload" };
+        if (allowPayloadFallback) {
+          console.warn("[company-resolution] no instance_id provided; using payload company_id for non-mutating legacy action", payloadCompanyId);
+          return { companyId: payloadCompanyId, source: "payload" };
+        }
+
+        console.error("[company-resolution] blocked: no instance_id provided for tenant-scoped write", { payloadCompanyId });
+        return { companyId: null, source: "missing_instance" };
       }
 
       const normalizedInstance = normalizePhone(instanceId);
@@ -413,8 +418,13 @@ Deno.serve(async (req) => {
     // ACTION: update_message_status
     // ═══════════════════════════════════════════
     if (action === "update_message_status") {
-      const { message_id, status, company_id, phone_number, internal_id } = data as Record<string, string>;
+      const { message_id, status, company_id: payloadCompanyId, instance_id, phone_number, internal_id } = data as Record<string, string>;
       if (!message_id || !status) return json({ error: "message_id and status are required" }, 400);
+
+      const resolvedCompany = payloadCompanyId
+        ? await resolveCompanyForInstance(payloadCompanyId, instance_id, true)
+        : { companyId: null, source: "none" };
+      const company_id = resolvedCompany.companyId;
 
       console.log("[update_message_status] message_id:", message_id, "status:", status, "company_id:", company_id || "N/A", "phone:", phone_number || "N/A");
 
@@ -426,11 +436,12 @@ Deno.serve(async (req) => {
       const mappedStatus = normalizeStatus(incomingStatus);
 
       // 1. Try exact match by message_id — check hierarchy before updating
-      const { data: current, error: findErr } = await supabase
+      let currentQuery = supabase
         .from("messages")
-        .select("id, status")
-        .eq("message_id", message_id)
-        .maybeSingle();
+        .select("id, status, company_id")
+        .eq("message_id", message_id);
+      if (company_id) currentQuery = currentQuery.eq("company_id", company_id);
+      const { data: current, error: findErr } = await currentQuery.maybeSingle();
       if (findErr) throw findErr;
 
       if (current) {
