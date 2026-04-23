@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     for (const automation of automations) {
       const companyId = automation.company_id;
       const inactivityMinutes = automation.inactivity_minutes;
-      const maxFollowups = automation.max_followups || 1;
+      const maxFollowups = automation.max_followups ?? 1;
       const automationCreatedAt = new Date(automation.created_at).getTime();
 
       // 2. Get ONLY open conversations without an assigned agent
