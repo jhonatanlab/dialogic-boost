@@ -15,13 +15,14 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // 1. Get active inactivity automations
+    // 1. Get active inactivity automations (ordered by inactivity_minutes ascending)
     const { data: automations, error: autoErr } = await supabase
       .from("automations")
       .select("*")
       .eq("status", "active")
       .eq("trigger_type", "inactivity")
-      .not("inactivity_minutes", "is", null);
+      .not("inactivity_minutes", "is", null)
+      .order("inactivity_minutes", { ascending: true });
 
     if (autoErr) throw autoErr;
     if (!automations || automations.length === 0) {
@@ -35,7 +36,7 @@ Deno.serve(async (req) => {
     for (const automation of automations) {
       const companyId = automation.company_id;
       const inactivityMinutes = automation.inactivity_minutes;
-      const maxFollowups = automation.max_followups || 1;
+      const maxFollowups = automation.max_followups ?? 1;
       const automationCreatedAt = new Date(automation.created_at).getTime();
 
       // 2. Get ONLY open conversations without an assigned agent
@@ -105,18 +106,12 @@ Deno.serve(async (req) => {
           if (now - lastFollowupAt < threshold) continue;
         }
 
-        // 6. Cross-automation cooldown: skip if ANY inactivity followup was sent
-        //    for this conversation in the last 24 hours
-        const twentyFourHoursAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString();
-        const { data: recentAnyFollowup } = await supabase
-          .from("automation_followups")
-          .select("id")
-          .eq("conversation_id", conv.id)
-          .eq("company_id", companyId)
-          .gte("last_followup_at", twentyFourHoursAgo)
-          .limit(1);
-
-        if (recentAnyFollowup && recentAnyFollowup.length > 0) continue;
+        // 6. (Removido) Cooldown cruzado entre automações.
+        //    Cada automação de follow-up roda independentemente, respeitando apenas:
+        //    - seu próprio max_followups
+        //    - sua própria janela de inatividade
+        //    - inatividade real do contato (última mensagem inbound)
+        //    Isso permite que 30min, 2h, 24h e 2d coexistam sem se bloquearem.
 
         // 7. Execute automation
         try {
