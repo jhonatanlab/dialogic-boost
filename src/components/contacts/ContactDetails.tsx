@@ -15,6 +15,7 @@ import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/h
 import { useTags, useAddTagToContact, useRemoveTagFromContact } from "@/hooks/useTags";
 import { supabase } from "@/integrations/supabase/client";
 import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
+import { ContactFollowupsCard } from "@/components/contacts/ContactFollowupsCard";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -187,6 +188,9 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
 
               {/* Resumo IA */}
               <AiSummaryCard contactId={contact.id} />
+
+              {/* Follow-Ups por Inatividade */}
+              <ContactFollowupsCard contactId={contact.id} />
 
               {/* Tags */}
               <Card>
