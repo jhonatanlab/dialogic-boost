@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useCompany } from "@/hooks/useCompany";
 import { usePresence } from "@/hooks/usePresence";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useAutoLogout } from "@/hooks/useAutoLogout";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -29,6 +30,7 @@ export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
   const { profile } = useCompany();
   usePresence();
   useNotifications();
+  useAutoLogout();
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();

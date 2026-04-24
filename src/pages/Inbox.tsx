@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { NewConversationDialog } from "@/components/inbox/NewConversationDialog";
 import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
+import { ForceAutomationCard } from "@/components/contacts/ForceAutomationCard";
 
 /* ─── Helpers ─── */
 
@@ -1465,6 +1466,15 @@ const Inbox = () => {
 
                     {/* Resumo IA */}
                     <AiSummaryCard contactId={selectedConversation?.contact_id} />
+
+                    <Separator />
+
+                    {/* Forçar Automação */}
+                    <ForceAutomationCard
+                      conversationId={selectedConversation?.id}
+                      contactId={selectedConversation?.contact_id}
+                      companyId={selectedConversation?.company_id ?? undefined}
+                    />
 
                     <Separator />
 
