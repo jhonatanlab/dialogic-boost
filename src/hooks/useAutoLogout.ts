@@ -43,7 +43,7 @@ export function useAutoLogout() {
       }
 
       await supabase.auth.signOut();
-      toast.error("Sessão encerrada por inatividade (2h sem atividade)");
+      toast.error("Sessão encerrada por inatividade (40 minutos sem atividade)");
       navigate("/auth");
     };
 
