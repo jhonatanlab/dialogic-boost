@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Zap, Loader2 } from "lucide-react";
+import { FastForward, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface ForceAutomationCardProps {
@@ -120,7 +120,7 @@ export function ForceAutomationCard({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <Zap className="h-4 w-4 text-primary" />
+          <FastForward className="h-4 w-4 text-primary" />
           Forçar Automação
         </CardTitle>
       </CardHeader>
@@ -158,7 +158,7 @@ export function ForceAutomationCard({
                 </>
               ) : (
                 <>
-                  <Zap className="h-3 w-3 mr-1" />
+                  <FastForward className="h-3 w-3 mr-1" />
                   Disparar agora
                 </>
               )}
