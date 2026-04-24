@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const INACTIVITY_MS = 2 * 60 * 60 * 1000; // 2 hours
+const INACTIVITY_MS = 40 * 60 * 1000; // 40 minutes
 const WARNING_MS = 60 * 1000; // 1 minute before logout
 const DEBOUNCE_MS = 1000;
 
@@ -43,7 +43,7 @@ export function useAutoLogout() {
       }
 
       await supabase.auth.signOut();
-      toast.error("Sessão encerrada por inatividade (2h sem atividade)");
+      toast.error("Sessão encerrada por inatividade (40 minutos sem atividade)");
       navigate("/auth");
     };
 
