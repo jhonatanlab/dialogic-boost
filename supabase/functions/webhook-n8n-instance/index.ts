@@ -625,7 +625,7 @@ Deno.serve(async (req) => {
       messageMetadata.pending_content = false;
       const metaValue = Object.keys(messageMetadata).length > 0 ? messageMetadata : null;
 
-      let upsertedId: string;
+      let upsertedId: string = "";
 
       // ── Helper: resolve final status respecting hierarchy ──
       const resolveStatus = async (targetMessageId: string, incomingStatus: string): Promise<string> => {
@@ -691,7 +691,7 @@ Deno.serve(async (req) => {
           if (!existing && messageContent && messageContent.trim() !== "") {
             const { data: fuzzy } = await supabase
               .from("messages")
-              .select("id, status, message_id, client_message_id")
+              .select("id, status, message_id, client_message_id, metadata")
               .eq("conversation_id", conversationId)
               .eq("direction", "outbound")
               .eq("content", messageContent)
@@ -1007,6 +1007,7 @@ Deno.serve(async (req) => {
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (error) {
     console.error("Error:", error);
-    return json({ error: error.message }, 500);
+    const message = error instanceof Error ? error.message : String(error);
+    return json({ error: message }, 500);
   }
 });
