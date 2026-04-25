@@ -33,6 +33,9 @@ Deno.serve(async (req) => {
 
     let totalProcessed = 0;
 
+    // IDs de todas as automações de inatividade (para identificar follow-ups passados)
+    const inactivityAutomationIds = automations.map((a: any) => a.id);
+
     for (const automation of automations) {
       const companyId = automation.company_id;
       const inactivityMinutes = automation.inactivity_minutes;
@@ -67,7 +70,56 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // 3. Get last inbound message time
+        // 2.1 Re-check defensivo: garantir que conversa ainda está na fila (status=open, sem atendente)
+        const { data: convFresh } = await supabase
+          .from("conversations")
+          .select("status, assigned_to")
+          .eq("id", conv.id)
+          .single();
+
+        if (!convFresh || convFresh.status !== "open" || convFresh.assigned_to !== null) {
+          continue; // saiu da fila → encerra follow-ups
+        }
+
+        // 2.2 Bloquear se já existe Resumo IA para o contato
+        const { data: aiSummary } = await supabase
+          .from("contact_ai_summaries")
+          .select("id")
+          .eq("contact_id", conv.contact_id)
+          .eq("company_id", companyId)
+          .maybeSingle();
+
+        if (aiSummary) continue; // resumo IA gerado → bloqueia follow-ups
+
+        // 2.3 Verificar última mensagem da conversa (qualquer direção)
+        const { data: lastMsg } = await supabase
+          .from("messages")
+          .select("direction, sent_at")
+          .eq("conversation_id", conv.id)
+          .order("sent_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!lastMsg?.sent_at) continue;
+
+        // Se a última mensagem foi outbound, só liberar se for um follow-up anterior
+        if (lastMsg.direction === "outbound") {
+          const sentAt = new Date(lastMsg.sent_at).getTime();
+          const { data: nearbyExec } = await supabase
+            .from("automation_executions")
+            .select("id")
+            .eq("conversation_id", conv.id)
+            .in("automation_id", inactivityAutomationIds)
+            .gte("executed_at", new Date(sentAt - 60_000).toISOString())
+            .lte("executed_at", new Date(sentAt + 60_000).toISOString())
+            .limit(1)
+            .maybeSingle();
+
+          if (!nearbyExec) continue; // outbound não é follow-up → bloqueia
+          // se for follow-up, segue para checagens abaixo
+        }
+
+        // 3. Get last inbound message time (usado para janela de inatividade)
         const { data: lastInbound } = await supabase
           .from("messages")
           .select("sent_at")
@@ -75,7 +127,7 @@ Deno.serve(async (req) => {
           .eq("direction", "inbound")
           .order("sent_at", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (!lastInbound?.sent_at) continue;
 
