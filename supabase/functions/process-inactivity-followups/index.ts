@@ -33,6 +33,9 @@ Deno.serve(async (req) => {
 
     let totalProcessed = 0;
 
+    // IDs de todas as automações de inatividade (para identificar follow-ups passados)
+    const inactivityAutomationIds = automations.map((a: any) => a.id);
+
     for (const automation of automations) {
       const companyId = automation.company_id;
       const inactivityMinutes = automation.inactivity_minutes;
