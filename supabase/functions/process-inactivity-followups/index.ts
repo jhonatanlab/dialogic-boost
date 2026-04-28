@@ -119,6 +119,38 @@ Deno.serve(async (req) => {
           // se for follow-up, segue para checagens abaixo
         }
 
+        // 2.4 Cooldown global por conversa entre automações de follow-up:
+        // se já existe um follow-up enviado para esta conversa (de qualquer automação)
+        // E o cliente NÃO respondeu desde então, exigir que tenha decorrido a janela
+        // desta automação a partir do último follow-up — não a partir do último inbound.
+        // Isso evita cascata (30min, 2h, 24h, 2d disparando em sequência).
+        const { data: lastFollowupAny } = await supabase
+          .from("automation_followups")
+          .select("last_followup_at, automation_id")
+          .eq("conversation_id", conv.id)
+          .not("last_followup_at", "is", null)
+          .order("last_followup_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastFollowupAny?.last_followup_at) {
+          const lastFollowupTs = new Date(lastFollowupAny.last_followup_at).getTime();
+
+          const { data: inboundAfter } = await supabase
+            .from("messages")
+            .select("id")
+            .eq("conversation_id", conv.id)
+            .eq("direction", "inbound")
+            .gt("sent_at", lastFollowupAny.last_followup_at)
+            .limit(1)
+            .maybeSingle();
+
+          if (!inboundAfter) {
+            const thresholdMs = inactivityMinutes * 60 * 1000;
+            if (Date.now() - lastFollowupTs < thresholdMs) continue;
+          }
+        }
+
         // 3. Get last inbound message time (usado para janela de inatividade)
         const { data: lastInbound } = await supabase
           .from("messages")
