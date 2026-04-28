@@ -36,11 +36,26 @@ Deno.serve(async (req) => {
     // IDs de todas as automações de inatividade (para identificar follow-ups passados)
     const inactivityAutomationIds = automations.map((a: any) => a.id);
 
+    // Cache: company_id -> Set<agent user_id> (para distinguir outbound humano vs IA/sistema)
+    const agentsByCompany = new Map<string, Set<string>>();
+    const getAgentUserIds = async (companyId: string): Promise<Set<string>> => {
+      if (agentsByCompany.has(companyId)) return agentsByCompany.get(companyId)!;
+      const { data: ag } = await supabase
+        .from("agents")
+        .select("user_id")
+        .eq("company_id", companyId);
+      const set = new Set<string>((ag ?? []).map((a: any) => a.user_id).filter(Boolean));
+      agentsByCompany.set(companyId, set);
+      return set;
+    };
+
     for (const automation of automations) {
       const companyId = automation.company_id;
       const inactivityMinutes = automation.inactivity_minutes;
       const maxFollowups = automation.max_followups ?? 1;
       const automationCreatedAt = new Date(automation.created_at).getTime();
+
+      const agentUserIds = await getAgentUserIds(companyId);
 
       // 2. Get ONLY open conversations without an assigned agent
       const { data: conversations, error: convErr } = await supabase
