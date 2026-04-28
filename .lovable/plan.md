@@ -1,76 +1,79 @@
-## Problema
+## Causa raiz
 
-Follow-ups de automações diferentes (30min, 2h, 24h, 2d) podem disparar em sequência rápida porque cada uma calcula sua janela a partir da última mensagem **inbound** do contato. Se o contato ficou inativo por muito tempo (ex.: 18h), todas as janelas já estão "vencidas" e disparam uma após a outra nas execuções seguintes do worker (a cada 2 min).
+Investiguei a empresa `8559e919-3d02-477c-890a-fcb4ebb58d6e`:
 
-No caso do Vinicius Sousa: Follow-Up 30min às 16:34 → Follow-Up 2h às 16:36 (intervalo de 90s).
+- 4 automações de inatividade ativas (30min, 2h, 24h, 2 dias).
+- 38 conversas em `status='open'` e `assigned_to IS NULL` (todas elegíveis em tese).
+- Worker `process-inactivity-followups` rodando normalmente a cada 2 minutos.
+- A tabela `automation_followups` está **vazia** para essas conversas — nenhum follow-up foi disparado.
 
-## Solução proposta
+Caso concreto (Kleiton Gomes, conv `9bd14dd7-...`):
+- Última inbound: 11:49 UTC. Última outbound: 11:50 UTC. Agora: ~17:53 UTC → 6h de inatividade real.
+- Deveria ter disparado pelo menos o "Follow-Up 30min" e o "Follow-Up 2h".
+- Não disparou nenhum.
 
-Adicionar um **cooldown global por conversa** no worker `process-inactivity-followups`: após qualquer follow-up de inatividade ser enviado para uma conversa, **nenhuma outra automação de inatividade** pode disparar para essa mesma conversa até que se passe um tempo mínimo razoável **OU** até que o contato responda (nova mensagem inbound).
+O bloqueio está na regra **2.3** que adicionamos antes:
 
-### Regra exata
-
-Antes de disparar um follow-up para a conversa, verificar:
-
-1. Buscar o último registro em `automation_followups` para essa `conversation_id` (qualquer automação) com `last_followup_at` mais recente.
-2. Se existe um follow-up enviado e:
-   - **Não houve mensagem inbound após esse follow-up** (ou seja, o cliente não respondeu desde então), E
-   - O `inactivity_minutes` da automação atual sendo avaliada **é maior** que a anterior (significa que é um "próximo nível" da escada de follow-ups),
-   
-   então: **exigir que tenha passado pelo menos `inactivity_minutes` da automação atual desde o último follow-up enviado** (não desde o último inbound).
-
-Em outras palavras: a janela das automações "mais longas" (2h, 24h, 2d) passa a ser contada a partir do **último follow-up enviado**, não a partir do último inbound do contato. Isso evita o efeito cascata.
-
-### Pseudocódigo
-
-```typescript
-// Após passar nas checagens existentes (status, AI summary, last msg direction),
-// e antes de disparar:
-
-const { data: lastFollowupAny } = await supabase
-  .from("automation_followups")
-  .select("last_followup_at, automation_id")
-  .eq("conversation_id", conv.id)
-  .order("last_followup_at", { ascending: false, nullsFirst: false })
-  .limit(1)
-  .maybeSingle();
-
-if (lastFollowupAny?.last_followup_at) {
-  const lastFollowupTs = new Date(lastFollowupAny.last_followup_at).getTime();
-  
-  // Verificar se houve inbound após o último follow-up
-  const { data: inboundAfter } = await supabase
-    .from("messages")
+```ts
+if (lastMsg.direction === "outbound") {
+  // só libera se existir uma automation_executions perto desse outbound
+  const { data: nearbyExec } = await supabase
+    .from("automation_executions")
     .select("id")
     .eq("conversation_id", conv.id)
-    .eq("direction", "inbound")
-    .gt("sent_at", lastFollowupAny.last_followup_at)
-    .limit(1)
-    .maybeSingle();
-  
-  // Se NÃO houve resposta do cliente, exigir que a janela desta automação
-  // tenha decorrido desde o último follow-up (não desde o último inbound)
-  if (!inboundAfter) {
-    if (now - lastFollowupTs < threshold) continue; // bloqueia
-  }
-  // Se houve inbound após, libera (regra normal já cuida)
+    .in("automation_id", inactivityAutomationIds)
+    .gte("executed_at", new Date(sentAt - 60_000).toISOString())
+    .lte("executed_at", new Date(sentAt + 60_000).toISOString())
+    ...
+  if (!nearbyExec) continue; // bloqueia
 }
 ```
 
-## Resultado esperado no caso Vinicius
+A intenção era: "se a última mensagem foi outbound, só seguir se essa outbound for um follow-up nosso (não um envio manual do atendente)".
 
-- 24/04 22:23 — cliente envia "Oi"
-- 24/04 22:24 — bot responde
-- 25/04 16:34 — Follow-Up 30min dispara (nenhum follow-up anterior, libera)
-- 25/04 16:36 — worker avalia Follow-Up 2h:
-  - última inbound foi às 22:23 (~18h atrás) → passa janela de inatividade
-  - **MAS** existe follow-up enviado às 16:34, sem inbound depois
-  - Verifica: `now - 16:34 = 2min < 120min` → **BLOQUEIA** ✅
-- Próximo disparo do Follow-Up 2h só aconteceria 2h após 16:34 = **18:34**, e só se o cliente continuar sem responder.
-- Mesma lógica para 24h e 2 dias: cada um espera sua própria janela a partir do último follow-up.
+**Mas as mensagens outbound da IA / agente automático da conversa não geram registro em `automation_executions`** — só as próprias automações de follow-up por inatividade geram. Então qualquer conversa onde a IA respondeu por último é silenciosamente pulada para sempre, e o follow-up nunca dispara.
 
-## Arquivo afetado
+Isso explica 100% do comportamento observado.
 
-- `supabase/functions/process-inactivity-followups/index.ts` — adicionar bloco de checagem do "último follow-up qualquer + inbound posterior" antes da execução.
+## Correção
 
-Sem mudanças de schema, sem migrations.
+Trocar o critério "outbound = bloqueia salvo se for follow-up" por "outbound = bloqueia **somente** se foi enviada por um atendente humano". Ou seja: outbounds enviadas por IA/automação/sistema não devem cancelar o follow-up — elas são parte do fluxo automatizado em que o cliente parou de responder, que é exatamente o que queremos cobrir.
+
+### Lógica nova em `process-inactivity-followups/index.ts` (passo 2.3)
+
+```ts
+if (lastMsg.direction === "outbound") {
+  // Buscar metadados da última mensagem para distinguir humano vs automação/IA
+  const { data: lastOutFull } = await supabase
+    .from("messages")
+    .select("sender_id, sent_by, metadata")
+    .eq("conversation_id", conv.id)
+    .eq("direction", "outbound")
+    .order("sent_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // Se foi enviada por um atendente humano (sender_id preenchido com user_id),
+  // bloqueia — significa intervenção manual, não cabe follow-up automático.
+  if (lastOutFull?.sender_id) continue;
+
+  // Caso contrário (IA, automação, follow-up anterior, sistema) → segue.
+}
+```
+
+Mantemos os demais gates (resumo IA bloqueia, conversa precisa estar `open`+sem atendente, cooldown global por último follow-up, janela de inatividade calculada a partir do último inbound).
+
+### Por que isso resolve
+
+- Conversas onde a IA respondeu por último (cliente sumiu) voltam a ser elegíveis ✅
+- Conversas onde um atendente humano enviou a última mensagem continuam protegidas (não disparamos follow-up por cima do humano) ✅
+- O cooldown entre 30min/2h/24h/2d continua funcionando via `automation_followups.last_followup_at` (já corrigido antes) ✅
+
+### Verificação que vou rodar antes de declarar concluído
+
+1. Conferir o nome real da coluna que identifica "atendente humano" em `messages` (`sender_id` ou `sent_by`); se for outro nome, ajustar a query acima de acordo. Caso nenhuma coluna identifique humano de forma confiável, alternativa: comparar o `sender_id` da mensagem com a lista de `agents.user_id` da empresa.
+2. Após o deploy, simular: olhar o log da próxima execução (a cada 2min) e confirmar que a tabela `automation_followups` passa a receber inserts para conversas como a do Kleiton.
+
+### Arquivos editados
+
+- `supabase/functions/process-inactivity-followups/index.ts`
