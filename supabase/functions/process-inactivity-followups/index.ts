@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
         // 2.3 Verificar última mensagem da conversa (qualquer direção)
         const { data: lastMsg } = await supabase
           .from("messages")
-          .select("direction, sent_at")
+          .select("direction, sent_at, user_id")
           .eq("conversation_id", conv.id)
           .order("sent_at", { ascending: false })
           .limit(1)
@@ -117,21 +117,13 @@ Deno.serve(async (req) => {
 
         if (!lastMsg?.sent_at) continue;
 
-        // Se a última mensagem foi outbound, só liberar se for um follow-up anterior
+        // Se a última mensagem foi outbound, só bloqueia se foi um ATENDENTE HUMANO.
+        // Outbounds da IA, automação ou sistema (user_id que não está em `agents`) não bloqueiam.
         if (lastMsg.direction === "outbound") {
-          const sentAt = new Date(lastMsg.sent_at).getTime();
-          const { data: nearbyExec } = await supabase
-            .from("automation_executions")
-            .select("id")
-            .eq("conversation_id", conv.id)
-            .in("automation_id", inactivityAutomationIds)
-            .gte("executed_at", new Date(sentAt - 60_000).toISOString())
-            .lte("executed_at", new Date(sentAt + 60_000).toISOString())
-            .limit(1)
-            .maybeSingle();
-
-          if (!nearbyExec) continue; // outbound não é follow-up → bloqueia
-          // se for follow-up, segue para checagens abaixo
+          if (lastMsg.user_id && agentUserIds.has(lastMsg.user_id)) {
+            continue; // intervenção humana → não disparar follow-up automático
+          }
+          // outbound de IA/automação/sistema → segue para checagens abaixo
         }
 
         // 2.4 Cooldown global por conversa entre automações de follow-up:
