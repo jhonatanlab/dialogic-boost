@@ -1,96 +1,76 @@
-## Plano
+## Problema
 
-Três regras combinadas no worker `supabase/functions/process-inactivity-followups/index.ts`. Sem migration de schema — todas as checagens em tempo real, antes de cada disparo.
+Follow-ups de automações diferentes (30min, 2h, 24h, 2d) podem disparar em sequência rápida porque cada uma calcula sua janela a partir da última mensagem **inbound** do contato. Se o contato ficou inativo por muito tempo (ex.: 18h), todas as janelas já estão "vencidas" e disparam uma após a outra nas execuções seguintes do worker (a cada 2 min).
 
-### Regra 1 — Bloquear se existe Resumo IA
+No caso do Vinicius Sousa: Follow-Up 30min às 16:34 → Follow-Up 2h às 16:36 (intervalo de 90s).
 
-Antes de processar uma conversa, verificar se há registro em `contact_ai_summaries` para o `contact_id` daquela conversa (escopo da empresa). Se existir, **pular** — não dispara follow-up.
+## Solução proposta
 
-```ts
-const { data: aiSummary } = await supabase
-  .from("contact_ai_summaries")
-  .select("id")
-  .eq("contact_id", conv.contact_id)
-  .eq("company_id", companyId)
+Adicionar um **cooldown global por conversa** no worker `process-inactivity-followups`: após qualquer follow-up de inatividade ser enviado para uma conversa, **nenhuma outra automação de inatividade** pode disparar para essa mesma conversa até que se passe um tempo mínimo razoável **OU** até que o contato responda (nova mensagem inbound).
+
+### Regra exata
+
+Antes de disparar um follow-up para a conversa, verificar:
+
+1. Buscar o último registro em `automation_followups` para essa `conversation_id` (qualquer automação) com `last_followup_at` mais recente.
+2. Se existe um follow-up enviado e:
+   - **Não houve mensagem inbound após esse follow-up** (ou seja, o cliente não respondeu desde então), E
+   - O `inactivity_minutes` da automação atual sendo avaliada **é maior** que a anterior (significa que é um "próximo nível" da escada de follow-ups),
+   
+   então: **exigir que tenha passado pelo menos `inactivity_minutes` da automação atual desde o último follow-up enviado** (não desde o último inbound).
+
+Em outras palavras: a janela das automações "mais longas" (2h, 24h, 2d) passa a ser contada a partir do **último follow-up enviado**, não a partir do último inbound do contato. Isso evita o efeito cascata.
+
+### Pseudocódigo
+
+```typescript
+// Após passar nas checagens existentes (status, AI summary, last msg direction),
+// e antes de disparar:
+
+const { data: lastFollowupAny } = await supabase
+  .from("automation_followups")
+  .select("last_followup_at, automation_id")
+  .eq("conversation_id", conv.id)
+  .order("last_followup_at", { ascending: false, nullsFirst: false })
+  .limit(1)
   .maybeSingle();
 
-if (aiSummary) continue; // bloqueado por Resumo IA
-```
-
-### Regra 2 — Encerrar ao sair da fila
-
-Já existe o filtro `status = 'open'` AND `assigned_to IS NULL` na query principal de conversas, então conversas que saíram da fila (atribuídas a atendente, ou status `in_progress`/`closed`) já são naturalmente ignoradas pelo worker. **Reforço defensivo**: re-checar essas duas condições em tempo real dentro do loop, antes de disparar, para evitar condição de corrida (ex: atendente assumiu entre a query e o disparo).
-
-```ts
-const { data: convFresh } = await supabase
-  .from("conversations")
-  .select("status, assigned_to")
-  .eq("id", conv.id)
-  .single();
-
-if (!convFresh || convFresh.status !== "open" || convFresh.assigned_to !== null) continue;
-```
-
-### Regra 3 — Só dispara se a última mensagem foi do contato (com exceção para follow-up)
-
-Buscar a **última mensagem** da conversa (qualquer direção). 
-
-- Se a última for `inbound` → libera disparo (cliente foi o último a falar). ✅
-- Se a última for `outbound` E **não for um follow-up** → bloqueia (bot/atendente respondeu, cliente precisa falar de novo). ❌
-- Se a última for `outbound` E **for um follow-up anterior** → libera disparo (continua a cadência de follow-ups enquanto o cliente não responde). ✅
-
-Para identificar se uma mensagem outbound é um follow-up, marcar as mensagens enviadas por automações de inatividade com `metadata.is_followup = true` no momento do disparo. Como o worker chama `execute-automation`, basta o worker passar uma flag na chamada e a função `execute-automation` propagar para `metadata` ao inserir a mensagem (ou, mais simples e isolado: o próprio worker pode escrever um marcador em `automation_executions` e o check usa cruzamento entre `messages.sent_at` e `automation_executions.executed_at` da mesma conversa, com tolerância de poucos segundos).
-
-**Abordagem escolhida (mínima e sem alterar `execute-automation`)**: cruzar a última outbound com `automation_executions` da mesma conversa. Se existir uma execução de automação de inatividade dentro de ±60s do `sent_at` da última mensagem outbound, considerar essa outbound como um "follow-up" e liberar o próximo disparo.
-
-```ts
-const { data: lastMsg } = await supabase
-  .from("messages")
-  .select("direction, sent_at")
-  .eq("conversation_id", conv.id)
-  .order("sent_at", { ascending: false })
-  .limit(1)
-  .single();
-
-if (!lastMsg) continue;
-
-if (lastMsg.direction === "outbound") {
-  // Verifica se essa outbound foi um follow-up (execução de automação de inatividade próxima no tempo)
-  const sentAt = new Date(lastMsg.sent_at).getTime();
-  const { data: nearbyExec } = await supabase
-    .from("automation_executions")
-    .select("id, automation_id, executed_at")
+if (lastFollowupAny?.last_followup_at) {
+  const lastFollowupTs = new Date(lastFollowupAny.last_followup_at).getTime();
+  
+  // Verificar se houve inbound após o último follow-up
+  const { data: inboundAfter } = await supabase
+    .from("messages")
+    .select("id")
     .eq("conversation_id", conv.id)
-    .in("automation_id", inactivityAutomationIds) // ids das automações trigger=inactivity da empresa
-    .gte("executed_at", new Date(sentAt - 60_000).toISOString())
-    .lte("executed_at", new Date(sentAt + 60_000).toISOString())
+    .eq("direction", "inbound")
+    .gt("sent_at", lastFollowupAny.last_followup_at)
     .limit(1)
     .maybeSingle();
-
-  if (!nearbyExec) continue; // outbound não é follow-up → bloqueia
-  // se for follow-up, segue para checagens de cooldown/inactividade já existentes
+  
+  // Se NÃO houve resposta do cliente, exigir que a janela desta automação
+  // tenha decorrido desde o último follow-up (não desde o último inbound)
+  if (!inboundAfter) {
+    if (now - lastFollowupTs < threshold) continue; // bloqueia
+  }
+  // Se houve inbound após, libera (regra normal já cuida)
 }
 ```
 
-`inactivityAutomationIds` é construído no início do worker a partir do array `automations` já buscado.
+## Resultado esperado no caso Vinicius
 
-### Ordem das checagens (otimização)
+- 24/04 22:23 — cliente envia "Oi"
+- 24/04 22:24 — bot responde
+- 25/04 16:34 — Follow-Up 30min dispara (nenhum follow-up anterior, libera)
+- 25/04 16:36 — worker avalia Follow-Up 2h:
+  - última inbound foi às 22:23 (~18h atrás) → passa janela de inatividade
+  - **MAS** existe follow-up enviado às 16:34, sem inbound depois
+  - Verifica: `now - 16:34 = 2min < 120min` → **BLOQUEIA** ✅
+- Próximo disparo do Follow-Up 2h só aconteceria 2h após 16:34 = **18:34**, e só se o cliente continuar sem responder.
+- Mesma lógica para 24h e 2 dias: cada um espera sua própria janela a partir do último follow-up.
 
-Para cada conversa elegível, na seguinte ordem (mais barata primeiro):
-1. Re-check defensivo de `status` e `assigned_to` (Regra 2).
-2. Verificar última mensagem da conversa (Regra 3).
-3. Se outbound, verificar se é follow-up via `automation_executions`.
-4. Verificar Resumo IA (Regra 1).
-5. Demais checagens existentes: tempo de inatividade, `max_followups`, cooldown per-automação.
-6. Disparar `execute-automation` e gravar `automation_followups`.
+## Arquivo afetado
 
-### Arquivos envolvidos
+- `supabase/functions/process-inactivity-followups/index.ts` — adicionar bloco de checagem do "último follow-up qualquer + inbound posterior" antes da execução.
 
-- `supabase/functions/process-inactivity-followups/index.ts` — adicionar as três checagens descritas, sem alterar contratos externos.
-
-### Resultado esperado
-
-- Caso Kleber: contato com Resumo IA → **bloqueado** pela Regra 1. Mesmo sem o Resumo, como a última mensagem foi outbound do bot ("Vi que ainda não respondeu...") **sem ser um follow-up registrado em `automation_executions` próximo no tempo**, seria bloqueado pela Regra 3.
-- Conversas que recebem várias cadências de follow-up (30min → 2h → 24h) continuam funcionando: cada follow-up anterior é reconhecido como "follow-up" pela checagem de `automation_executions`, então o próximo dispara normalmente até atingir `max_followups`.
-- Assim que o atendente assume a conversa, todos os follow-ups param imediatamente (Regra 2).
-- Assim que o Resumo IA é gerado, todos os follow-ups param imediatamente (Regra 1).
+Sem mudanças de schema, sem migrations.
