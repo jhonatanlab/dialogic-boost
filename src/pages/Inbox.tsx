@@ -957,8 +957,8 @@ const Inbox = () => {
       case "mine":
         filtered = filtered.filter(c => c.assigned_to === currentUserId && c.status !== "closed");
         break;
-      case "all":
-        filtered = filtered.filter(c => c.status !== "closed");
+      case "in_service":
+        filtered = filtered.filter(c => !!c.assigned_to && c.status === "open");
         break;
       case "queue":
         filtered = filtered.filter(c => !c.assigned_to && c.status === "open");
@@ -966,6 +966,23 @@ const Inbox = () => {
       case "closed":
         filtered = filtered.filter(c => c.status === "closed");
         break;
+    }
+
+    // Filter by team
+    if (teamFilter !== "all") {
+      filtered = filtered.filter(c => c.assigned_team === teamFilter);
+    }
+
+    // Filter by agent (managers/admin only)
+    if (isManagerOrAdmin && agentFilter !== "all") {
+      filtered = filtered.filter(c =>
+        agentFilter === "unassigned" ? !c.assigned_to : c.assigned_to === agentFilter
+      );
+    }
+
+    // Filter by channel
+    if (channelFilter !== "all") {
+      filtered = filtered.filter(c => c.channel === channelFilter);
     }
 
     // Apply search
