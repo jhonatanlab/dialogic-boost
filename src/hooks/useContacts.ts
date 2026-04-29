@@ -114,17 +114,23 @@ export function useDeleteContact() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase
+      // Verifica existência/permissão antes (RLS) para distinguir "não encontrado" de erro real
+      const { data: existing, error: selErr } = await supabase
         .from("contacts")
-        .delete()
-        .eq("id", id)
         .select("id")
+        .eq("id", id)
         .maybeSingle();
 
-      if (error) throw error;
-      if (!data) throw new Error("NO_CONTACT_DELETED");
+      if (selErr) throw selErr;
+      if (!existing) throw new Error("NO_CONTACT_DELETED");
 
-      return data;
+      // Cascata: remove mensagens, conversas, automações, ai_control etc.
+      const { error } = await supabase.rpc("delete_contact_cascade", {
+        p_contact_id: id,
+      });
+
+      if (error) throw error;
+      return { id };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
