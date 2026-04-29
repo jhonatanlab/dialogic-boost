@@ -1,79 +1,52 @@
-## Causa raiz
+# Limpeza completa ao deletar contato
 
-Investiguei a empresa `8559e919-3d02-477c-890a-fcb4ebb58d6e`:
+## Problema
 
-- 4 automações de inatividade ativas (30min, 2h, 24h, 2 dias).
-- 38 conversas em `status='open'` e `assigned_to IS NULL` (todas elegíveis em tese).
-- Worker `process-inactivity-followups` rodando normalmente a cada 2 minutos.
-- A tabela `automation_followups` está **vazia** para essas conversas — nenhum follow-up foi disparado.
+Ao deletar o contato `5583988907220`, o registro correspondente em `ai_control` (telefone `558388907220`, status `paused`) permaneceu na empresa `8559e919-...`. Isso acontece porque:
 
-Caso concreto (Kleiton Gomes, conv `9bd14dd7-...`):
-- Última inbound: 11:49 UTC. Última outbound: 11:50 UTC. Agora: ~17:53 UTC → 6h de inatividade real.
-- Deveria ter disparado pelo menos o "Follow-Up 30min" e o "Follow-Up 2h".
-- Não disparou nenhum.
+1. `useDeleteContact` (`src/hooks/useContacts.ts`) executa apenas `DELETE FROM contacts WHERE id = ?`. Não há `ON DELETE CASCADE` nem trigger.
+2. `ai_control` **tem** `company_id` (text) e `telefone` (text), mas **não** tem `contact_id`. A ligação é feita pelo telefone normalizado (sem caracteres não-numéricos; o nono dígito brasileiro é removido — ex.: `5583988907220` → `558388907220`).
+3. Diversas tabelas filhas (conversations, messages, contact_tags, contact_notes, fidelity_cards, automation_followups, etc.) também ficam órfãs — algumas podem dar erro de RLS/integridade ao serem listadas depois.
 
-O bloqueio está na regra **2.3** que adicionamos antes:
+## Solução
 
-```ts
-if (lastMsg.direction === "outbound") {
-  // só libera se existir uma automation_executions perto desse outbound
-  const { data: nearbyExec } = await supabase
-    .from("automation_executions")
-    .select("id")
-    .eq("conversation_id", conv.id)
-    .in("automation_id", inactivityAutomationIds)
-    .gte("executed_at", new Date(sentAt - 60_000).toISOString())
-    .lte("executed_at", new Date(sentAt + 60_000).toISOString())
-    ...
-  if (!nearbyExec) continue; // bloqueia
-}
-```
+Centralizar a limpeza em uma **função SQL `SECURITY DEFINER`** chamada `delete_contact_cascade(p_contact_id uuid)`, invocada pelo hook `useDeleteContact` via `supabase.rpc(...)`. Isso garante atomicidade e respeita o `company_id` do contato (não toca em registros de outras empresas).
 
-A intenção era: "se a última mensagem foi outbound, só seguir se essa outbound for um follow-up nosso (não um envio manual do atendente)".
+### A função fará, na ordem:
 
-**Mas as mensagens outbound da IA / agente automático da conversa não geram registro em `automation_executions`** — só as próprias automações de follow-up por inatividade geram. Então qualquer conversa onde a IA respondeu por último é silenciosamente pulada para sempre, e o follow-up nunca dispara.
+1. Buscar o contato (`id`, `phone`, `company_id`). Se não existir → retorna.
+2. Calcular `phone_normalized = regexp_replace(phone, '\D', '', 'g')` e a variante "sem nono dígito" (BR: para números com 13 chars começando em `55`, remove o `9` da posição 5) — para casar com o formato salvo em `ai_control`.
+3. Deletar em cascata, todos restritos a `company_id` do contato:
+   - `messages WHERE contact_id = ?`
+   - `conversation_events WHERE conversation_id IN (...)` 
+   - `automation_executions / automation_followups WHERE contact_id = ?`
+   - `campaign_contacts WHERE contact_id = ?`
+   - `checkin_records WHERE contact_id = ?`
+   - `fidelity_cards WHERE contact_id = ?`
+   - `contact_ai_summaries WHERE contact_id = ?`
+   - `contact_custom_fields WHERE contact_id = ?`
+   - `contact_notes WHERE contact_id = ?`
+   - `contact_tags WHERE contact_id = ?`
+   - `activity_logs WHERE contact_id = ?`
+   - `conversations WHERE contact_id = ?`
+   - `ai_control WHERE company_id = ?::text AND telefone IN (phone_normalized, phone_sem_nono)`
+   - `contacts WHERE id = ?`
 
-Isso explica 100% do comportamento observado.
+### Permissão
 
-## Correção
+`GRANT EXECUTE ON FUNCTION public.delete_contact_cascade(uuid) TO authenticated;` — a função valida internamente que `company_id` do contato == `get_user_company_id()` antes de prosseguir, prevenindo abuso cross-tenant.
 
-Trocar o critério "outbound = bloqueia salvo se for follow-up" por "outbound = bloqueia **somente** se foi enviada por um atendente humano". Ou seja: outbounds enviadas por IA/automação/sistema não devem cancelar o follow-up — elas são parte do fluxo automatizado em que o cliente parou de responder, que é exatamente o que queremos cobrir.
+### Limpeza retroativa (one-shot)
 
-### Lógica nova em `process-inactivity-followups/index.ts` (passo 2.3)
+Após criar a função, rodar uma limpeza dos `ai_control` órfãos atuais para a empresa `8559e919-...` (e demais empresas): deletar registros cujo telefone normalizado não bate com nenhum contato existente da mesma empresa. Será feito via insert tool (DELETE).
 
-```ts
-if (lastMsg.direction === "outbound") {
-  // Buscar metadados da última mensagem para distinguir humano vs automação/IA
-  const { data: lastOutFull } = await supabase
-    .from("messages")
-    .select("sender_id, sent_by, metadata")
-    .eq("conversation_id", conv.id)
-    .eq("direction", "outbound")
-    .order("sent_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+## Arquivos alterados
 
-  // Se foi enviada por um atendente humano (sender_id preenchido com user_id),
-  // bloqueia — significa intervenção manual, não cabe follow-up automático.
-  if (lastOutFull?.sender_id) continue;
+- **Migração SQL** (nova): cria `delete_contact_cascade(uuid)` e índices auxiliares se necessários.
+- **DELETE retroativo** (insert tool): remove os `ai_control` órfãos do contato `5583988907220` e de outros contatos já apagados.
+- `src/hooks/useContacts.ts`: substituir o `.from("contacts").delete()` por `supabase.rpc("delete_contact_cascade", { p_contact_id: id })`.
 
-  // Caso contrário (IA, automação, follow-up anterior, sistema) → segue.
-}
-```
+## Observações
 
-Mantemos os demais gates (resumo IA bloqueia, conversa precisa estar `open`+sem atendente, cooldown global por último follow-up, janela de inatividade calculada a partir do último inbound).
-
-### Por que isso resolve
-
-- Conversas onde a IA respondeu por último (cliente sumiu) voltam a ser elegíveis ✅
-- Conversas onde um atendente humano enviou a última mensagem continuam protegidas (não disparamos follow-up por cima do humano) ✅
-- O cooldown entre 30min/2h/24h/2d continua funcionando via `automation_followups.last_followup_at` (já corrigido antes) ✅
-
-### Verificação que vou rodar antes de declarar concluído
-
-1. Conferir o nome real da coluna que identifica "atendente humano" em `messages` (`sender_id` ou `sent_by`); se for outro nome, ajustar a query acima de acordo. Caso nenhuma coluna identifique humano de forma confiável, alternativa: comparar o `sender_id` da mensagem com a lista de `agents.user_id` da empresa.
-2. Após o deploy, simular: olhar o log da próxima execução (a cada 2min) e confirmar que a tabela `automation_followups` passa a receber inserts para conversas como a do Kleiton.
-
-### Arquivos editados
-
-- `supabase/functions/process-inactivity-followups/index.ts`
+- Não vou adicionar trigger `BEFORE DELETE ON contacts` porque o RLS de `contacts` permite delete pelo dono — manter a lógica explícita via RPC é mais previsível e fácil de auditar.
+- A normalização "sem nono dígito" cobre o caso brasileiro observado nos dados; se houver outros formatos, expandimos depois.

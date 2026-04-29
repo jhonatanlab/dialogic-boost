@@ -1689,6 +1689,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_contact_cascade: {
+        Args: { p_contact_id: string }
+        Returns: undefined
+      }
       distribute_conversation: {
         Args: { p_conversation_id: string }
         Returns: undefined
