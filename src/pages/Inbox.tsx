@@ -459,7 +459,7 @@ const Inbox = () => {
         setCurrentUserRole(profile.role || "agent");
         setCurrentUserName(profile.full_name || "");
 
-        // Fetch company agents
+        // Fetch company agents (include current user too, for filter)
         const { data: profiles } = await supabase
           .from("profiles")
           .select("user_id, full_name")
@@ -472,6 +472,14 @@ const Inbox = () => {
           .select("id, name")
           .eq("company_id", profile.company_id);
         setCompanyTeams(teams || []);
+
+        // Fetch connected channels (currently only WhatsApp via integrations)
+        const { data: integ } = await supabase
+          .from("whatsapp_integrations")
+          .select("status")
+          .eq("company_id", profile.company_id)
+          .eq("status", "connected");
+        setConnectedChannels(integ && integ.length > 0 ? ["whatsapp"] : []);
       }
     };
     fetchUserData();
