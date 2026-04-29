@@ -386,7 +386,11 @@ const Inbox = () => {
   const queryClient = useQueryClient();
 
   // Filter & queue state
-  const [activeFilter, setActiveFilter] = useState<"mine" | "all" | "queue" | "closed">("mine");
+  const [activeFilter, setActiveFilter] = useState<"mine" | "in_service" | "queue" | "closed">("mine");
+  const [teamFilter, setTeamFilter] = useState<string>("all");
+  const [agentFilter, setAgentFilter] = useState<string>("all");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [connectedChannels, setConnectedChannels] = useState<string[]>([]);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [transferType, setTransferType] = useState<"agent" | "team">("agent");
   const [transferTargetId, setTransferTargetId] = useState("");
