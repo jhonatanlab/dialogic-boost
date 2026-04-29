@@ -1,52 +1,87 @@
-# Limpeza completa ao deletar contato
+## Mudanças no Inbox: aba "Atendimento" + filtros avançados
 
-## Problema
+### 1. Substituir aba "Todos" por "Atendimento"
 
-Ao deletar o contato `5583988907220`, o registro correspondente em `ai_control` (telefone `558388907220`, status `paused`) permaneceu na empresa `8559e919-...`. Isso acontece porque:
+Na barra de abas (linhas ~1056-1064 de `src/pages/Inbox.tsx`):
+- Renomear o botão `Todos` para `Atendimento`.
+- Trocar o valor do filtro `"all"` por `"in_service"` (no estado `activeFilter` e no `switch`).
+- Mudar a regra de filtragem: ao invés de mostrar todas as conversas com `status !== "closed"`, mostrar apenas conversas **em atendimento ativo**, ou seja:
+  - `c.assigned_to !== null` (já tem atendente)
+  - `c.status === "open"` (não está concluída nem em fila)
+- Manter visível somente para gerentes e admin (regra atual `isManagerOrAdmin` permanece).
+- Trocar o ícone `Users` por `UserCheck` para refletir "em atendimento".
 
-1. `useDeleteContact` (`src/hooks/useContacts.ts`) executa apenas `DELETE FROM contacts WHERE id = ?`. Não há `ON DELETE CASCADE` nem trigger.
-2. `ai_control` **tem** `company_id` (text) e `telefone` (text), mas **não** tem `contact_id`. A ligação é feita pelo telefone normalizado (sem caracteres não-numéricos; o nono dígito brasileiro é removido — ex.: `5583988907220` → `558388907220`).
-3. Diversas tabelas filhas (conversations, messages, contact_tags, contact_notes, fidelity_cards, automation_followups, etc.) também ficam órfãs — algumas podem dar erro de RLS/integridade ao serem listadas depois.
+### 2. Adicionar três novos filtros (dropdowns)
 
-## Solução
+Logo abaixo do campo de busca (linha ~1074), adicionar uma linha com três `Select` compactos. Cada filtro é um estado independente combinado por AND com o filtro de aba e a busca atual.
 
-Centralizar a limpeza em uma **função SQL `SECURITY DEFINER`** chamada `delete_contact_cascade(p_contact_id uuid)`, invocada pelo hook `useDeleteContact` via `supabase.rpc(...)`. Isso garante atomicidade e respeita o `company_id` do contato (não toca em registros de outras empresas).
+**Filtro por Equipe** (todos os perfis)
+- Estado novo: `teamFilter: string` ("all" por padrão).
+- Opções: "Todas as equipes" + lista de `companyTeams` (já carregada).
+- Aplicação: `c.assigned_team === teamFilter`.
 
-### A função fará, na ordem:
+**Filtro por Vendedor/Atendente** (apenas admin/manager)
+- Estado novo: `agentFilter: string` ("all" por padrão).
+- Renderizado condicionalmente com `isManagerOrAdmin`.
+- Opções: "Todos os atendentes" + "Sem atribuição" + lista de `companyAgents` (já carregada). Incluir o próprio usuário atual também (atualmente é filtrado fora — ajustar a query da linha 463 para não excluir o próprio usuário, ou criar lista separada para o filtro).
+- Aplicação: `c.assigned_to === agentFilter` (ou `=== null` para "Sem atribuição").
 
-1. Buscar o contato (`id`, `phone`, `company_id`). Se não existir → retorna.
-2. Calcular `phone_normalized = regexp_replace(phone, '\D', '', 'g')` e a variante "sem nono dígito" (BR: para números com 13 chars começando em `55`, remove o `9` da posição 5) — para casar com o formato salvo em `ai_control`.
-3. Deletar em cascata, todos restritos a `company_id` do contato:
-   - `messages WHERE contact_id = ?`
-   - `conversation_events WHERE conversation_id IN (...)` 
-   - `automation_executions / automation_followups WHERE contact_id = ?`
-   - `campaign_contacts WHERE contact_id = ?`
-   - `checkin_records WHERE contact_id = ?`
-   - `fidelity_cards WHERE contact_id = ?`
-   - `contact_ai_summaries WHERE contact_id = ?`
-   - `contact_custom_fields WHERE contact_id = ?`
-   - `contact_notes WHERE contact_id = ?`
-   - `contact_tags WHERE contact_id = ?`
-   - `activity_logs WHERE contact_id = ?`
-   - `conversations WHERE contact_id = ?`
-   - `ai_control WHERE company_id = ?::text AND telefone IN (phone_normalized, phone_sem_nono)`
-   - `contacts WHERE id = ?`
+**Filtro por Canal** (apenas canais conectados)
+- Carregar lista de canais conectados na empresa: query a `whatsapp_integrations` por `company_id` filtrando `status = 'connected'`. Para o MVP inicial, como hoje o sistema só usa `whatsapp`, mapear: se houver pelo menos uma integração WhatsApp conectada → adicionar opção "WhatsApp". Estrutura preparada para Instagram/Telegram/Messenger no futuro (já existem ícones no `ChannelIcon`).
+- Estado novo: `channelFilter: string` ("all" por padrão).
+- Opções: "Todos os canais" + cada canal conectado.
+- Aplicação: `c.channel === channelFilter`.
+- Se houver apenas um canal conectado, o filtro pode aparecer desabilitado mostrando o canal ativo (apenas informativo).
 
-### Permissão
+### 3. Atualizar a lógica `filteredConversations`
 
-`GRANT EXECUTE ON FUNCTION public.delete_contact_cascade(uuid) TO authenticated;` — a função valida internamente que `company_id` do contato == `get_user_company_id()` antes de prosseguir, prevenindo abuso cross-tenant.
+No bloco das linhas 940-968:
+```ts
+switch (activeFilter) {
+  case "mine": ...                              // inalterado
+  case "in_service":                            // novo
+    filtered = filtered.filter(c => c.assigned_to && c.status === "open");
+    break;
+  case "queue": ...                             // inalterado
+  case "closed": ...                            // inalterado
+}
 
-### Limpeza retroativa (one-shot)
+if (teamFilter !== "all")    filtered = filtered.filter(c => c.assigned_team === teamFilter);
+if (agentFilter !== "all")   filtered = filtered.filter(c =>
+  agentFilter === "unassigned" ? !c.assigned_to : c.assigned_to === agentFilter
+);
+if (channelFilter !== "all") filtered = filtered.filter(c => c.channel === channelFilter);
+```
 
-Após criar a função, rodar uma limpeza dos `ai_control` órfãos atuais para a empresa `8559e919-...` (e demais empresas): deletar registros cujo telefone normalizado não bate com nenhum contato existente da mesma empresa. Será feito via insert tool (DELETE).
+### Detalhes técnicos
 
-## Arquivos alterados
+**Arquivo único alterado:** `src/pages/Inbox.tsx`
 
-- **Migração SQL** (nova): cria `delete_contact_cascade(uuid)` e índices auxiliares se necessários.
-- **DELETE retroativo** (insert tool): remove os `ai_control` órfãos do contato `5583988907220` e de outros contatos já apagados.
-- `src/hooks/useContacts.ts`: substituir o `.from("contacts").delete()` por `supabase.rpc("delete_contact_cascade", { p_contact_id: id })`.
+**Novos estados:**
+```ts
+const [teamFilter, setTeamFilter]       = useState<string>("all");
+const [agentFilter, setAgentFilter]     = useState<string>("all");
+const [channelFilter, setChannelFilter] = useState<string>("all");
+const [connectedChannels, setConnectedChannels] = useState<string[]>([]);
+```
 
-## Observações
+**Carregamento de canais conectados** (dentro do `useEffect` existente da linha 442, após buscar teams):
+```ts
+const { data: integ } = await supabase
+  .from("whatsapp_integrations")
+  .select("status")
+  .eq("company_id", profile.company_id)
+  .eq("status", "connected");
+setConnectedChannels(integ && integ.length > 0 ? ["whatsapp"] : []);
+```
 
-- Não vou adicionar trigger `BEFORE DELETE ON contacts` porque o RLS de `contacts` permite delete pelo dono — manter a lógica explícita via RPC é mais previsível e fácil de auditar.
-- A normalização "sem nono dígito" cobre o caso brasileiro observado nos dados; se houver outros formatos, expandimos depois.
+**Visual:** três `Select` lado a lado em um `flex gap-2`, altura `h-8`, texto `text-xs`, no mesmo container do search (logo abaixo). Em telas estreitas, quebra para a próxima linha (`flex-wrap`).
+
+**Persistência:** filtros são apenas em memória (não persistidos). A aba `activeFilter` continua local.
+
+**Realtime/Performance:** filtros são aplicados client-side sobre a lista já carregada por `useConversations` — sem nova query.
+
+### Fora do escopo
+- Não mexer em RLS nem nas queries do hook `useConversations` (já carrega todas as conversas da empresa).
+- Não adicionar persistência dos filtros entre sessões.
+- Não criar entidade `channels` separada — usar `whatsapp_integrations` como fonte por enquanto.
