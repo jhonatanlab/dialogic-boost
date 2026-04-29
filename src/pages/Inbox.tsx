@@ -1083,12 +1083,12 @@ const Inbox = () => {
               Minhas
             </button>
             {isManagerOrAdmin && (
-              <button onClick={() => setActiveFilter("all")}
+              <button onClick={() => setActiveFilter("in_service")}
                 className={`flex-1 py-2 text-[11px] font-medium transition-colors border-b-2 ${
-                  activeFilter === "all" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                  activeFilter === "in_service" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}>
-                <Users className="h-3 w-3 mx-auto mb-0.5" />
-                Todos
+                <UserCheck className="h-3 w-3 mx-auto mb-0.5" />
+                Atendimento
               </button>
             )}
             <button onClick={() => setActiveFilter("closed")}
@@ -1100,12 +1100,63 @@ const Inbox = () => {
             </button>
           </div>
 
-          <div className="px-3 py-2 border-b border-border/50">
+          <div className="px-3 py-2 border-b border-border/50 space-y-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Buscar conversa..."
                 className="pl-10 h-9 bg-secondary border-0 text-sm rounded-lg"
                 value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {/* Team filter */}
+              <Select value={teamFilter} onValueChange={setTeamFilter}>
+                <SelectTrigger className="h-8 text-xs flex-1 min-w-[110px] bg-secondary border-0">
+                  <SelectValue placeholder="Equipe" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as equipes</SelectItem>
+                  {companyTeams.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Agent filter (managers/admin only) */}
+              {isManagerOrAdmin && (
+                <Select value={agentFilter} onValueChange={setAgentFilter}>
+                  <SelectTrigger className="h-8 text-xs flex-1 min-w-[110px] bg-secondary border-0">
+                    <SelectValue placeholder="Atendente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os atendentes</SelectItem>
+                    <SelectItem value="unassigned">Sem atribuição</SelectItem>
+                    {currentUserId && (
+                      <SelectItem value={currentUserId}>{currentUserName || "Eu"} (eu)</SelectItem>
+                    )}
+                    {companyAgents.map(a => (
+                      <SelectItem key={a.user_id} value={a.user_id}>{a.full_name || "Atendente"}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Channel filter (only connected channels) */}
+              {connectedChannels.length > 0 && (
+                <Select value={channelFilter} onValueChange={setChannelFilter}>
+                  <SelectTrigger className="h-8 text-xs flex-1 min-w-[110px] bg-secondary border-0">
+                    <SelectValue placeholder="Canal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os canais</SelectItem>
+                    {connectedChannels.map(ch => (
+                      <SelectItem key={ch} value={ch}>
+                        {ch.charAt(0).toUpperCase() + ch.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
