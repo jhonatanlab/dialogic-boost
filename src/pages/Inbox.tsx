@@ -960,7 +960,7 @@ const Inbox = () => {
         filtered = filtered.filter(c => c.assigned_to === currentUserId && c.status !== "closed");
         break;
       case "in_service":
-        filtered = filtered.filter(c => !!c.assigned_to && c.status === "open");
+        filtered = filtered.filter(c => !!c.assigned_to && c.status !== "closed");
         break;
       case "queue":
         filtered = filtered.filter(c => !c.assigned_to && c.status === "open");
