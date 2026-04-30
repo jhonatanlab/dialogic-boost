@@ -868,6 +868,107 @@ Deno.serve(async (req) => {
           );
         }
 
+        // ── Check-in token detection ──
+        try {
+          const tokenMatch = (messageContent || "").match(/Token:\s*([A-Z0-9]{8})/i);
+          if (tokenMatch) {
+            const detectedToken = tokenMatch[1].toUpperCase();
+            console.log("[checkin] token detected in inbound message:", detectedToken);
+
+            const { data: rpcResult, error: rpcErr } = await supabase.rpc("process_checkin_token", {
+              p_token: detectedToken,
+              p_company_id: company_id,
+              p_contact_id: contactId,
+              p_phone: normalizedPhone,
+            });
+
+            if (rpcErr) {
+              console.error("[checkin] process_checkin_token error:", rpcErr.message);
+            } else if (rpcResult?.matched) {
+              console.log("[checkin] processed:", JSON.stringify(rpcResult));
+
+              // Send congrats message if card was completed
+              if (rpcResult.completed_card && rpcResult.congratulations_message) {
+                try {
+                  const congratsText = `${rpcResult.congratulations_message}${rpcResult.reward ? `\n\n🎁 ${rpcResult.reward}` : ""}`;
+
+                  // Resolve send endpoint (same cascade as execute-automation)
+                  let sendEndpoint: string | null = null;
+                  const { data: autoEnabled } = await supabase
+                    .from("admin_settings").select("setting_value")
+                    .eq("setting_key", "n8n_automation_enabled")
+                    .eq("company_id", company_id).maybeSingle();
+                  if (autoEnabled?.setting_value === "true") {
+                    const { data: o } = await supabase.from("admin_settings")
+                      .select("setting_value").eq("setting_key", "n8n_automation_outbound")
+                      .eq("company_id", company_id).maybeSingle();
+                    if (o?.setting_value) sendEndpoint = o.setting_value;
+                  }
+                  if (!sendEndpoint) {
+                    const { data: s1 } = await supabase.from("admin_settings")
+                      .select("setting_value").eq("setting_key", "n8n_send_message")
+                      .eq("company_id", company_id).maybeSingle();
+                    if (s1?.setting_value) sendEndpoint = s1.setting_value;
+                  }
+                  if (!sendEndpoint) {
+                    const { data: s2 } = await supabase.from("admin_settings")
+                      .select("setting_value").eq("setting_key", "n8n_send_message")
+                      .eq("user_id", userId).maybeSingle();
+                    if (s2?.setting_value) sendEndpoint = s2.setting_value;
+                  }
+
+                  if (sendEndpoint) {
+                    const tempId = crypto.randomUUID();
+                    await supabase.from("messages").insert({
+                      client_message_id: tempId,
+                      conversation_id: conversationId,
+                      contact_id: contactId,
+                      user_id: userId,
+                      company_id,
+                      channel: "whatsapp",
+                      direction: "outbound",
+                      content: congratsText,
+                      message_type: "text",
+                      status: "sending",
+                      metadata: { source: "fidelity_congrats", checkin_id: rpcResult.checkin_id },
+                    });
+
+                    fetch(sendEndpoint, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        company_id,
+                        number: normalizedPhone,
+                        text: congratsText,
+                        type: "text",
+                        internal_id: tempId,
+                      }),
+                    }).then(async (r) => {
+                      await supabase.from("messages")
+                        .update({ status: r.ok ? "sent" : "failed" })
+                        .eq("client_message_id", tempId);
+                    }).catch(async (e) => {
+                      console.error("[checkin] congrats send error:", e);
+                      await supabase.from("messages")
+                        .update({ status: "failed" })
+                        .eq("client_message_id", tempId);
+                    });
+                    console.log("[checkin] congrats message dispatched");
+                  } else {
+                    console.warn("[checkin] no send endpoint to deliver congrats");
+                  }
+                } catch (congratsErr) {
+                  console.error("[checkin] congrats dispatch error:", congratsErr);
+                }
+              }
+            } else {
+              console.log("[checkin] no pending record matched for token:", detectedToken);
+            }
+          }
+        } catch (checkinErr) {
+          console.error("[checkin] handler error:", checkinErr);
+        }
+
         // ── Forward to custom automation inbound endpoint if configured ──
         try {
           const { data: autoEnabledSetting } = await supabase
