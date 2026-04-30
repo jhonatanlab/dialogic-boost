@@ -866,6 +866,7 @@ const Inbox = () => {
         action: "pause_ai",
         phone_number: selectedConversation.contact.phone || "",
         company_id: companyId,
+        contact_id: selectedConversation.contact_id,
         type: "control",
       });
     } catch { toast.error("Erro ao assumir conversa"); }
@@ -907,6 +908,7 @@ const Inbox = () => {
         action: "reactivate_ai",
         phone_number: selectedConversation.contact.phone || "",
         company_id: companyId,
+        contact_id: selectedConversation.contact_id,
         type: "control",
       });
       setSelectedConversationId(null);
@@ -1317,6 +1319,7 @@ const Inbox = () => {
                           action: "pause_ai",
                           phone_number: selectedConversation.contact.phone || "",
                           company_id: companyId,
+                          contact_id: selectedConversation.contact_id,
                           type: "control",
                         });
                       } catch (err) {
