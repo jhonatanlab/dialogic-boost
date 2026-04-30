@@ -18,20 +18,25 @@ import { Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const CheckinRecordsTable = () => {
-  const { checkinRecords, isLoading } = useCheckinRecords();
+  const { checkinRecords, isLoading, deleteCheckinRecord } = useCheckinRecords();
   const { fidelityCards } = useFidelityCards();
+  const { profile } = useCompany();
   const [searchTerm, setSearchTerm] = useState("");
 
+  const canDelete = profile?.role === "admin" || profile?.role === "manager";
+
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive"> = {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       pending: "secondary",
       identified: "default",
       completed: "default",
+      expired: "outline",
     };
     const labels: Record<string, string> = {
       pending: "Aguardando",
       identified: "Identificado",
-      completed: "Completo",
+      completed: "Concluído",
+      expired: "Expirado",
     };
     return <Badge variant={variants[status] || "default"}>{labels[status] || status}</Badge>;
   };
