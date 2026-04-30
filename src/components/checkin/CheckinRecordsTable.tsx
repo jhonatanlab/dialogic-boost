@@ -1,14 +1,21 @@
 import { useState } from "react";
 import { useCheckinRecords } from "@/hooks/useCheckinRecords";
 import { useFidelityCards } from "@/hooks/useFidelityCards";
+import { useCompany } from "@/hooks/useCompany";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
-import { Search } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export const CheckinRecordsTable = () => {
   const { checkinRecords, isLoading } = useCheckinRecords();
