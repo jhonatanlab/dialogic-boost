@@ -87,6 +87,7 @@ export const CheckinRecordsTable = () => {
               <TableHead>Token</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Fidelidade</TableHead>
+              {canDelete && <TableHead className="w-[60px]">Ações</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
