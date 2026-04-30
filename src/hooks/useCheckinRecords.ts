@@ -109,10 +109,22 @@ export const useCheckinRecords = () => {
     },
   });
 
+  const deleteCheckinRecord = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("checkin_records").delete().eq("id", id);
+      if (error) throw error;
+      return { id };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checkin-records"] });
+    },
+  });
+
   return {
     checkinRecords,
     isLoading,
     createCheckinRecord,
     identifyCheckin,
+    deleteCheckinRecord,
   };
 };
