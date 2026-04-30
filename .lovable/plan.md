@@ -1,87 +1,73 @@
-## Mudanças no Inbox: aba "Atendimento" + filtros avançados
+## Por que o check-in fica "Aguardando"
 
-### 1. Substituir aba "Todos" por "Atendimento"
+Hoje a edge function `public-checkin` cria o registro com `status=pending` e gera um token (ex: `61B99860`). O cliente é redirecionado para o WhatsApp com a mensagem `...Token: 61B99860`. Mas **nenhum webhook de entrada** (`webhook-n8n-instance`, `webhook-meta`, `webhook-zapi`) procura por esse token nas mensagens recebidas — então o registro nunca é vinculado ao contato e nunca completa a fidelidade.
 
-Na barra de abas (linhas ~1056-1064 de `src/pages/Inbox.tsx`):
-- Renomear o botão `Todos` para `Atendimento`.
-- Trocar o valor do filtro `"all"` por `"in_service"` (no estado `activeFilter` e no `switch`).
-- Mudar a regra de filtragem: ao invés de mostrar todas as conversas com `status !== "closed"`, mostrar apenas conversas **em atendimento ativo**, ou seja:
-  - `c.assigned_to !== null` (já tem atendente)
-  - `c.status === "open"` (não está concluída nem em fila)
-- Manter visível somente para gerentes e admin (regra atual `isManagerOrAdmin` permanece).
-- Trocar o ícone `Users` por `UserCheck` para refletir "em atendimento".
+## O que vou implementar
 
-### 2. Adicionar três novos filtros (dropdowns)
+### 1. Detecção automática do token nos webhooks de entrada
 
-Logo abaixo do campo de busca (linha ~1074), adicionar uma linha com três `Select` compactos. Cada filtro é um estado independente combinado por AND com o filtro de aba e a busca atual.
+Em cada um dos 3 webhooks de mensagem entrante, ao processar uma mensagem `inbound` de texto:
 
-**Filtro por Equipe** (todos os perfis)
-- Estado novo: `teamFilter: string` ("all" por padrão).
-- Opções: "Todas as equipes" + lista de `companyTeams` (já carregada).
-- Aplicação: `c.assigned_team === teamFilter`.
+- Aplicar regex `/Token:\s*([A-Z0-9]{8})/i` no conteúdo
+- Se casar e existir um `checkin_record` com aquele token, `status='pending'`, e mesmo `company_id`:
+  - Criar/encontrar o contato pelo telefone (já existe `findOrCreateContact`)
+  - Atualizar `checkin_records`: `whatsapp_user`, `contact_id`, `status='completed'`, `timestamp=now()`
+  - Disparar a lógica de fidelidade (passo 2)
+  - Registrar em `activity_logs` (action `checkin_completed`)
 
-**Filtro por Vendedor/Atendente** (apenas admin/manager)
-- Estado novo: `agentFilter: string` ("all" por padrão).
-- Renderizado condicionalmente com `isManagerOrAdmin`.
-- Opções: "Todos os atendentes" + "Sem atribuição" + lista de `companyAgents` (já carregada). Incluir o próprio usuário atual também (atualmente é filtrado fora — ajustar a query da linha 463 para não excluir o próprio usuário, ou criar lista separada para o filtro).
-- Aplicação: `c.assigned_to === agentFilter` (ou `=== null` para "Sem atribuição").
+Centralizar essa lógica numa nova RPC `process_checkin_token(p_token, p_company_id, p_contact_id, p_phone)` com `SECURITY DEFINER` para rodar tudo atomicamente e contornar RLS.
 
-**Filtro por Canal** (apenas canais conectados)
-- Carregar lista de canais conectados na empresa: query a `whatsapp_integrations` por `company_id` filtrando `status = 'connected'`. Para o MVP inicial, como hoje o sistema só usa `whatsapp`, mapear: se houver pelo menos uma integração WhatsApp conectada → adicionar opção "WhatsApp". Estrutura preparada para Instagram/Telegram/Messenger no futuro (já existem ícones no `ChannelIcon`).
-- Estado novo: `channelFilter: string` ("all" por padrão).
-- Opções: "Todos os canais" + cada canal conectado.
-- Aplicação: `c.channel === channelFilter`.
-- Se houver apenas um canal conectado, o filtro pode aparecer desabilitado mostrando o canal ativo (apenas informativo).
+### 2. Auto-completar fidelidade
 
-### 3. Atualizar a lógica `filteredConversations`
+Dentro da mesma RPC:
 
-No bloco das linhas 940-968:
-```ts
-switch (activeFilter) {
-  case "mine": ...                              // inalterado
-  case "in_service":                            // novo
-    filtered = filtered.filter(c => c.assigned_to && c.status === "open");
-    break;
-  case "queue": ...                             // inalterado
-  case "closed": ...                            // inalterado
-}
+- Buscar o `fidelity_program` ativo da empresa (`is_active=true`, `company_id`)
+- Encontrar ou criar `fidelity_cards` para `(contact_id, fidelity_program_id)` com `status='active'`
+- Incrementar `current_stamps += 1`, atualizar `last_checkin_id`
+- Se `current_stamps >= target_stamps`:
+  - Marcar cartão como `completed`
+  - Retornar a `congratulations_message` + `reward` para o webhook enviar de volta ao contato (mensagem outbound via mesmo provedor)
+  - Resetar/criar novo cartão ativo para o próximo ciclo
 
-if (teamFilter !== "all")    filtered = filtered.filter(c => c.assigned_team === teamFilter);
-if (agentFilter !== "all")   filtered = filtered.filter(c =>
-  agentFilter === "unassigned" ? !c.assigned_to : c.assigned_to === agentFilter
-);
-if (channelFilter !== "all") filtered = filtered.filter(c => c.channel === channelFilter);
-```
+A RPC retorna um JSON com `{ completed: bool, congratulations_message, reward, current_stamps, target_stamps }` para o webhook decidir o que enviar.
 
-### Detalhes técnicos
+### 3. Expirar check-ins pendentes após 30 min
 
-**Arquivo único alterado:** `src/pages/Inbox.tsx`
+- Criar a edge function `expire-pending-checkins` que faz:
+  ```sql
+  UPDATE checkin_records
+  SET status = 'expired'
+  WHERE status = 'pending'
+    AND timestamp < now() - interval '30 minutes';
+  ```
+- Agendar via `pg_cron` para rodar a cada 5 minutos
+- Adicionar badge "Expirado" (cinza) na tabela `CheckinRecordsTable.tsx`
 
-**Novos estados:**
-```ts
-const [teamFilter, setTeamFilter]       = useState<string>("all");
-const [agentFilter, setAgentFilter]     = useState<string>("all");
-const [channelFilter, setChannelFilter] = useState<string>("all");
-const [connectedChannels, setConnectedChannels] = useState<string[]>([]);
-```
+### 4. Permitir excluir check-ins manualmente (bônus pequeno)
 
-**Carregamento de canais conectados** (dentro do `useEffect` existente da linha 442, após buscar teams):
-```ts
-const { data: integ } = await supabase
-  .from("whatsapp_integrations")
-  .select("status")
-  .eq("company_id", profile.company_id)
-  .eq("status", "connected");
-setConnectedChannels(integ && integ.length > 0 ? ["whatsapp"] : []);
-```
+- Política RLS de DELETE para `checkin_records` (`auth.uid() = user_id` ou admin/manager da empresa)
+- Botão de lixeira na tabela em `CheckinRecordsTable.tsx` com confirmação
 
-**Visual:** três `Select` lado a lado em um `flex gap-2`, altura `h-8`, texto `text-xs`, no mesmo container do search (logo abaixo). Em telas estreitas, quebra para a próxima linha (`flex-wrap`).
+## Arquivos a editar / criar
 
-**Persistência:** filtros são apenas em memória (não persistidos). A aba `activeFilter` continua local.
+**SQL (migration)**
+- Criar função `process_checkin_token(...)` com lógica de identificação + fidelidade
+- Adicionar política DELETE em `checkin_records`
+- Habilitar `pg_cron` e agendar expiração
 
-**Realtime/Performance:** filtros são aplicados client-side sobre a lista já carregada por `useConversations` — sem nova query.
+**Edge Functions**
+- `supabase/functions/webhook-n8n-instance/index.ts` — chamar RPC quando casar regex
+- `supabase/functions/webhook-meta/index.ts` — idem
+- `supabase/functions/webhook-zapi/index.ts` — idem
+- `supabase/functions/expire-pending-checkins/index.ts` — novo
 
-### Fora do escopo
-- Não mexer em RLS nem nas queries do hook `useConversations` (já carrega todas as conversas da empresa).
-- Não adicionar persistência dos filtros entre sessões.
-- Não criar entidade `channels` separada — usar `whatsapp_integrations` como fonte por enquanto.
+**Frontend**
+- `src/components/checkin/CheckinRecordsTable.tsx` — badge "Expirado" + "Completo", botão excluir
+- `src/hooks/useCheckinRecords.ts` — mutation de exclusão
+
+## Detalhes técnicos importantes
+
+- O token gerado é hex de 8 chars maiúsculo — manter o regex ancorado a esse formato para evitar falsos positivos
+- Se a empresa não tiver programa de fidelidade ativo, ainda assim identifica o check-in como `completed` (sem efeito de fidelidade)
+- Mensagem de parabéns enviada apenas se `completed=true` retornar `true` — usar o mesmo provedor que recebeu (Meta/Z-API/Native)
+- Validar `company_id` da mensagem entrante == `company_id` do `checkin_record` para isolamento multi-tenant

@@ -1697,6 +1697,7 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: undefined
       }
+      expire_pending_checkins: { Args: never; Returns: number }
       get_user_company_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -1704,6 +1705,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      process_checkin_token: {
+        Args: {
+          p_company_id: string
+          p_contact_id: string
+          p_phone: string
+          p_token: string
+        }
+        Returns: Json
       }
       update_campaign_contact_status: {
         Args: {

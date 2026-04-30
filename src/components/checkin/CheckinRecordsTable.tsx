@@ -1,30 +1,42 @@
 import { useState } from "react";
 import { useCheckinRecords } from "@/hooks/useCheckinRecords";
 import { useFidelityCards } from "@/hooks/useFidelityCards";
+import { useCompany } from "@/hooks/useCompany";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
-import { Search } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export const CheckinRecordsTable = () => {
-  const { checkinRecords, isLoading } = useCheckinRecords();
+  const { checkinRecords, isLoading, deleteCheckinRecord } = useCheckinRecords();
   const { fidelityCards } = useFidelityCards();
+  const { profile } = useCompany();
   const [searchTerm, setSearchTerm] = useState("");
 
+  const canDelete = profile?.role === "admin" || profile?.role === "manager";
+
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "destructive"> = {
+    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       pending: "secondary",
       identified: "default",
       completed: "default",
+      expired: "outline",
     };
     const labels: Record<string, string> = {
       pending: "Aguardando",
       identified: "Identificado",
-      completed: "Completo",
+      completed: "Concluído",
+      expired: "Expirado",
     };
     return <Badge variant={variants[status] || "default"}>{labels[status] || status}</Badge>;
   };
@@ -75,6 +87,7 @@ export const CheckinRecordsTable = () => {
               <TableHead>Token</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Fidelidade</TableHead>
+              {canDelete && <TableHead className="w-[60px]">Ações</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -116,6 +129,40 @@ export const CheckinRecordsTable = () => {
                       <span className="text-muted-foreground text-sm">-</span>
                     )}
                   </TableCell>
+                  {canDelete && (
+                    <TableCell>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Excluir check-in?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta ação não pode ser desfeita. O registro de check-in será removido permanentemente.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={async () => {
+                                try {
+                                  await deleteCheckinRecord.mutateAsync(record.id);
+                                  toast.success("Check-in excluído");
+                                } catch (e: any) {
+                                  toast.error(e?.message || "Erro ao excluir");
+                                }
+                              }}
+                            >
+                              Excluir
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}
