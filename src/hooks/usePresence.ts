@@ -76,17 +76,10 @@ export function usePresence() {
     intervalRef.current = setInterval(heartbeat, HEARTBEAT_INTERVAL);
 
     const handleBeforeUnload = () => {
-      if (!userId || !sessionStartRef.current) return;
-      const sessionSeconds = Math.floor(
-        (Date.now() - new Date(sessionStartRef.current).getTime()) / 1000
-      );
-      // sendBeacon for reliable offline signal
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_presence?user_id=eq.${userId}`;
-      const body = JSON.stringify({
-        is_online: false,
-        last_seen_at: new Date().toISOString(),
-        session_started_at: null,
-      });
+      if (!userId) return;
+      // Public edge function with service role inside; sendBeacon can't send headers.
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/presence-offline`;
+      const body = JSON.stringify({ user_id: userId });
       navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
     };
 
