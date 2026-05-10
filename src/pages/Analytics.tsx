@@ -91,9 +91,11 @@ const Analytics = () => {
         .select("user_id, full_name")
         .in("user_id", userIds);
       const nameMap = Object.fromEntries((profiles || []).map(p => [p.user_id, p.full_name || "Usuário"]));
+      const threshold = Date.now() - 3 * 60 * 1000;
       return (data || []).map((u: any) => ({
         ...u,
         full_name: nameMap[u.user_id] || "Usuário",
+        effective_online: !!u.is_online && !!u.last_seen_at && new Date(u.last_seen_at).getTime() >= threshold,
       }));
     },
     enabled: !!companyId,
@@ -396,9 +398,9 @@ const Analytics = () => {
                       <TableRow key={u.user_id}>
                         <TableCell className="font-medium">{u.full_name}</TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center gap-1.5 text-xs ${u.is_online ? "text-green-600" : "text-muted-foreground"}`}>
-                            <span className={`h-2 w-2 rounded-full ${u.is_online ? "bg-green-500" : "bg-muted-foreground/40"}`} />
-                            {u.is_online ? "Online" : "Offline"}
+                          <span className={`inline-flex items-center gap-1.5 text-xs ${u.effective_online ? "text-green-600" : "text-muted-foreground"}`}>
+                            <span className={`h-2 w-2 rounded-full ${u.effective_online ? "bg-green-500" : "bg-muted-foreground/40"}`} />
+                            {u.effective_online ? "Online" : "Offline"}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">{timeStr}</TableCell>
