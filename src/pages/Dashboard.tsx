@@ -47,11 +47,13 @@ const Dashboard = () => {
     queryKey: ["online-users", companyId],
     queryFn: async () => {
       if (!companyId) return [];
+      const threshold = new Date(Date.now() - 3 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from("user_presence" as any)
         .select("user_id, is_online, last_seen_at")
         .eq("company_id", companyId)
-        .eq("is_online", true);
+        .eq("is_online", true)
+        .gte("last_seen_at", threshold);
       if (error) return [];
       // Get profile names
       const userIds = (data || []).map((u: any) => u.user_id);

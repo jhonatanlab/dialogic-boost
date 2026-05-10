@@ -1715,6 +1715,7 @@ export type Database = {
         }
         Returns: Json
       }
+      sweep_stale_presence: { Args: never; Returns: number }
       update_campaign_contact_status: {
         Args: {
           p_campaign_id: string

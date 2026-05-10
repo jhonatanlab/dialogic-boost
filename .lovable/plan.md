@@ -1,73 +1,75 @@
-## Por que o check-in fica "Aguardando"
+## Problema
 
-Hoje a edge function `public-checkin` cria o registro com `status=pending` e gera um token (ex: `61B99860`). O cliente é redirecionado para o WhatsApp com a mensagem `...Token: 61B99860`. Mas **nenhum webhook de entrada** (`webhook-n8n-instance`, `webhook-meta`, `webhook-zapi`) procura por esse token nas mensagens recebidas — então o registro nunca é vinculado ao contato e nunca completa a fidelidade.
+A tabela `user_presence` mostra usuários como `is_online=true` indefinidamente. Exemplos da empresa `8559e919-...`:
 
-## O que vou implementar
+- **Danilo** — online, `last_seen_at` = 27/abr (13 dias atrás)
+- **Igor** — online, `last_seen_at` = 04/mai (6 dias atrás)
+- **Maria Fernanda** — online, `last_seen_at` = 04/mai
+- **Elizangela** — online, `last_seen_at` = 08/mai
 
-### 1. Detecção automática do token nos webhooks de entrada
+E o `total_online_seconds` está inconsistente — Igor tem 52 s acumulados em semanas e Kaique tem 28 h.
 
-Em cada um dos 3 webhooks de mensagem entrante, ao processar uma mensagem `inbound` de texto:
+### Causa raiz
 
-- Aplicar regex `/Token:\s*([A-Z0-9]{8})/i` no conteúdo
-- Se casar e existir um `checkin_record` com aquele token, `status='pending'`, e mesmo `company_id`:
-  - Criar/encontrar o contato pelo telefone (já existe `findOrCreateContact`)
-  - Atualizar `checkin_records`: `whatsapp_user`, `contact_id`, `status='completed'`, `timestamp=now()`
-  - Disparar a lógica de fidelidade (passo 2)
-  - Registrar em `activity_logs` (action `checkin_completed`)
+`usePresence.ts` faz upsert com `is_online=true` e bate heartbeat de 60 s. O retorno para offline depende de:
 
-Centralizar essa lógica numa nova RPC `process_checkin_token(p_token, p_company_id, p_contact_id, p_phone)` com `SECURITY DEFINER` para rodar tudo atomicamente e contornar RLS.
+1. **`goOffline()` no unmount do React** — só roda em SPA navigation, não em fechar aba/PC.
+2. **`navigator.sendBeacon` no `beforeunload`** — chama `PATCH /rest/v1/user_presence` **sem `apikey` nem `Authorization`** (sendBeacon não permite headers). O Supabase rejeita silenciosamente, então a flag `is_online` nunca volta para `false` quando o usuário fecha o navegador, perde conexão, hiberna a máquina, etc.
+3. **`total_online_seconds` só incrementa em `goOffline()`** — sessão perdida = tempo perdido.
 
-### 2. Auto-completar fidelidade
+Resultado: dashboards mentem.
 
-Dentro da mesma RPC:
+## Plano
 
-- Buscar o `fidelity_program` ativo da empresa (`is_active=true`, `company_id`)
-- Encontrar ou criar `fidelity_cards` para `(contact_id, fidelity_program_id)` com `status='active'`
-- Incrementar `current_stamps += 1`, atualizar `last_checkin_id`
-- Se `current_stamps >= target_stamps`:
-  - Marcar cartão como `completed`
-  - Retornar a `congratulations_message` + `reward` para o webhook enviar de volta ao contato (mensagem outbound via mesmo provedor)
-  - Resetar/criar novo cartão ativo para o próximo ciclo
+### 1. Sweeper no banco (fonte da verdade)
 
-A RPC retorna um JSON com `{ completed: bool, congratulations_message, reward, current_stamps, target_stamps }` para o webhook decidir o que enviar.
+Criar função `public.sweep_stale_presence()` que:
 
-### 3. Expirar check-ins pendentes após 30 min
+- Para cada linha com `is_online = true` **E** `last_seen_at < now() - interval '3 minutes'`:
+  - `total_online_seconds = total_online_seconds + EXTRACT(EPOCH FROM (last_seen_at - session_started_at))` (só conta o que de fato esteve ativo, não o tempo até "expirar")
+  - `is_online = false`
+  - `session_started_at = NULL`
 
-- Criar a edge function `expire-pending-checkins` que faz:
-  ```sql
-  UPDATE checkin_records
-  SET status = 'expired'
-  WHERE status = 'pending'
-    AND timestamp < now() - interval '30 minutes';
-  ```
-- Agendar via `pg_cron` para rodar a cada 5 minutos
-- Adicionar badge "Expirado" (cinza) na tabela `CheckinRecordsTable.tsx`
+Agendar via `pg_cron` a cada 1 minuto (já temos `pg_cron` ativo para campanhas).
 
-### 4. Permitir excluir check-ins manualmente (bônus pequeno)
+Isso garante que mesmo sem cooperação do cliente, o estado fica correto e o tempo total reflete só atividade real (até o último heartbeat).
 
-- Política RLS de DELETE para `checkin_records` (`auth.uid() = user_id` ou admin/manager da empresa)
-- Botão de lixeira na tabela em `CheckinRecordsTable.tsx` com confirmação
+### 2. Edge Function para offline confiável
 
-## Arquivos a editar / criar
+Trocar o `sendBeacon` direto na REST por uma chamada para uma edge function `presence-offline` (sem JWT, recebe `user_id` no body), que com `service_role` faz o update e contabiliza o `total_online_seconds` corretamente. `sendBeacon` consegue chamar uma edge function pública.
 
-**SQL (migration)**
-- Criar função `process_checkin_token(...)` com lógica de identificação + fidelidade
-- Adicionar política DELETE em `checkin_records`
-- Habilitar `pg_cron` e agendar expiração
+### 3. UI: tratar como offline qualquer presença obsoleta
 
-**Edge Functions**
-- `supabase/functions/webhook-n8n-instance/index.ts` — chamar RPC quando casar regex
-- `supabase/functions/webhook-meta/index.ts` — idem
-- `supabase/functions/webhook-zapi/index.ts` — idem
-- `supabase/functions/expire-pending-checkins/index.ts` — novo
+Defesa em profundidade no caso do sweeper atrasar:
 
-**Frontend**
-- `src/components/checkin/CheckinRecordsTable.tsx` — badge "Expirado" + "Completo", botão excluir
-- `src/hooks/useCheckinRecords.ts` — mutation de exclusão
+- **Dashboard** (`src/pages/Dashboard.tsx`): mudar a query de `is_online=true` para `is_online=true AND last_seen_at >= now() - 3 min`. Como filtro temporal no PostgREST não tem `now()`, calcular o threshold no client (`new Date(Date.now() - 3*60*1000).toISOString()`).
+- **Analytics** (`src/pages/Analytics.tsx`): derivar `effectiveOnline = is_online && last_seen_at > now-3min` e usar em lugar de `u.is_online` para o badge verde.
 
-## Detalhes técnicos importantes
+### 4. Limpeza única dos dados atuais
 
-- O token gerado é hex de 8 chars maiúsculo — manter o regex ancorado a esse formato para evitar falsos positivos
-- Se a empresa não tiver programa de fidelidade ativo, ainda assim identifica o check-in como `completed` (sem efeito de fidelidade)
-- Mensagem de parabéns enviada apenas se `completed=true` retornar `true` — usar o mesmo provedor que recebeu (Meta/Z-API/Native)
-- Validar `company_id` da mensagem entrante == `company_id` do `checkin_record` para isolamento multi-tenant
+Após criar o sweeper, rodar uma vez para zerar os fantasmas existentes (Danilo, Igor, Maria Fernanda, Elizangela e qualquer outro de outras empresas).
+
+## Detalhes técnicos
+
+```text
+sweep_stale_presence()
+  └─ pg_cron: */1 * * * *
+
+beforeunload (browser fecha)
+  └─ navigator.sendBeacon → /functions/v1/presence-offline
+       └─ service_role: total += last_seen - session_start; is_online=false
+
+usePresence (mantém igual)
+  ├─ goOnline (upsert)
+  ├─ heartbeat 60s
+  └─ goOffline (unmount SPA — continua útil)
+```
+
+## Arquivos afetados
+
+- `supabase/migrations/...` — função `sweep_stale_presence` + agendamento `pg_cron`
+- `supabase/functions/presence-offline/index.ts` — nova edge function
+- `src/hooks/usePresence.ts` — `sendBeacon` aponta para a edge function
+- `src/pages/Dashboard.tsx` — filtro de online com janela de 3 min
+- `src/pages/Analytics.tsx` — badge online derivado da janela de 3 min
+- Limpeza de dados via `supabase--insert` (UPDATE) após o sweeper existir
