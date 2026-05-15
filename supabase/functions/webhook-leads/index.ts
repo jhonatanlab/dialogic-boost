@@ -14,6 +14,17 @@ const json = (body: unknown, status = 200) =>
 
 const normalizePhone = (p: string) => (p || "").toString().replace(/\D/g, "");
 
+// Ensure Brazilian country code (55) prefix for local-format numbers
+const ensureBrazilCountryCode = (digits: string): string => {
+  if (!digits) return digits;
+  // Already has 55 prefix with valid BR length (12 or 13 digits)
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
+  // BR local format: 10 (fixed) or 11 (mobile with 9) digits → prefix 55
+  if (digits.length === 10 || digits.length === 11) return "55" + digits;
+  // Other lengths: leave as-is (international numbers)
+  return digits;
+};
+
 // Pick first non-empty value from payload by alias list (case-insensitive keys)
 const pick = (obj: Record<string, any>, keys: string[]): string | null => {
   const lower: Record<string, any> = {};
@@ -71,7 +82,7 @@ Deno.serve(async (req) => {
   try {
     const nome = pick(payload, ["nome", "name", "nome_completo", "fullname", "full_name"]);
     const telefoneRaw = pick(payload, ["telefone", "phone", "whatsapp", "celular", "numero", "tel", "mobile"]);
-    const telefone = normalizePhone(telefoneRaw || "");
+    const telefone = ensureBrazilCountryCode(normalizePhone(telefoneRaw || ""));
     const email = pick(payload, ["email", "e-mail", "mail"]);
     const origem = pick(payload, ["origem", "source", "utm_source"]) || "webhook";
     const mensagem = pick(payload, ["mensagem", "message", "msg", "texto"]);
