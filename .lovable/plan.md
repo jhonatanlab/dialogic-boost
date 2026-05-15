@@ -1,30 +1,44 @@
-## Problema
+# Corrigir erro "Missing telefone" no webhook-leads
 
-O erro "Erro ao adicionar etiqueta" acontece porque as RLS policies de `tags` e `contact_tags` são **escopadas por `user_id`**, não por `company_id`. Em uma empresa multi-tenant:
+## Diagnóstico
 
-- `tags`: só o usuário que criou a etiqueta consegue lê-la / usá-la (`auth.uid() = user_id`).
-- `contact_tags` (INSERT): exige que `contacts.user_id = auth.uid()`, ou seja, só funciona se o contato foi criado pelo próprio usuário logado.
+Verifiquei os logs e a tabela `webhook_logs`. A função está rodando corretamente (testei com sucesso e retornou 200), mas as suas chamadas reais estão sendo rejeitadas com `400 - Missing telefone`.
 
-No print, Jhonatan (gerente) tenta adicionar uma etiqueta num contato que pertence a outro atendente da mesma empresa → o INSERT é bloqueado pela RLS.
+Payload que seu formulário está enviando:
+```json
+{
+  "nome": "Jhonatan",
+  "whatsapp": "(83) 98890-7220",
+  "cidade": "Petrolina PE",
+  "conta_luz": "400-600",
+  "origem": "landing-page-dls"
+}
+```
 
-Além disso, o hook `useAddTagToContact` em `src/hooks/useTags.ts` envia `company_id` no insert, mas a policy não valida por empresa, então não adianta.
+A Edge Function hoje só aceita os campos `telefone` ou `phone` — por isso o campo `whatsapp` está sendo ignorado e retorna erro.
 
-## Correção (migration)
+## Correção proposta
 
-Reescrever as policies de `tags` e `contact_tags` para serem escopadas por `company_id`, alinhadas com o padrão multi-tenant do projeto (igual `contacts`, `conversations`, etc.):
+Atualizar `supabase/functions/webhook-leads/index.ts` para:
 
-### `public.tags`
-- SELECT/INSERT/UPDATE/DELETE: `company_id = (select company_id from profiles where user_id = auth.uid())`
-- Garante backfill: `UPDATE tags SET company_id = (select company_id from profiles where user_id = tags.user_id) WHERE company_id IS NULL`
+1. **Aceitar mais aliases para o telefone** (na ordem):
+   `telefone` → `phone` → `whatsapp` → `celular` → `numero` → `tel`
 
-### `public.contact_tags`
-- SELECT/INSERT/DELETE: `company_id = (select company_id from profiles where user_id = auth.uid())`
-- Backfill `company_id` via `contacts.company_id` quando estiver nulo.
+2. **Aceitar mais aliases para o nome**:
+   `nome` → `name` → `nome_completo` → `fullname`
 
-### Frontend
-- `useAddTagToContact` já envia `company_id` corretamente — sem mudanças.
-- `useTags` (lista) continua funcionando, mas passará a retornar todas as tags da empresa (comportamento esperado).
+3. **Aceitar aliases para email**:
+   `email` → `e-mail` → `mail`
 
-## Resultado
+4. **Repassar TODO o payload extra como variáveis na welcome_message**:
+   Hoje só substitui `{nome}`, `{telefone}`, `{email}`, `{origem}`.
+   Vou expandir para substituir qualquer `{campo}` presente no payload (ex: `{cidade}`, `{conta_luz}`), assim você pode usar mensagens como:
+   > "Olá {nome}! Vi que você é de {cidade} e tem conta de {conta_luz}…"
 
-Qualquer usuário (admin, gerente, atendente) da mesma empresa consegue criar, listar e atribuir etiquetas em qualquer contato da empresa, respeitando o isolamento multi-tenant.
+5. **Salvar os campos extras no `metadata` da conversa/contato** (em `metadata.extra`) para não perder informação do lead.
+
+Nenhuma mudança em UI, banco ou outras funções — só na edge function.
+
+## Após implantar
+
+Você poderá manter o formulário exatamente como está (enviando `whatsapp`, `cidade`, `conta_luz`) e o webhook passará a aceitar e a usar essas variáveis na mensagem de boas-vindas.
