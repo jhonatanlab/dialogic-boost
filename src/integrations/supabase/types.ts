@@ -1584,6 +1584,80 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_integrations: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+          token: string
+          updated_at: string
+          user_id: string
+          welcome_message: string | null
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+          token?: string
+          updated_at?: string
+          user_id: string
+          welcome_message?: string | null
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+          welcome_message?: string | null
+        }
+        Relationships: []
+      }
+      webhook_logs: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          integration_id: string | null
+          payload: Json | null
+          status: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          integration_id?: string | null
+          payload?: Json | null
+          status?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          integration_id?: string | null
+          payload?: Json | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_logs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_instances: {
         Row: {
           company_id: string | null
