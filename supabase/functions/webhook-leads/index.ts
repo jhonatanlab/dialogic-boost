@@ -12,7 +12,18 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-const normalizePhone = (p: string) => (p || "").replace(/\D/g, "");
+const normalizePhone = (p: string) => (p || "").toString().replace(/\D/g, "");
+
+// Pick first non-empty value from payload by alias list (case-insensitive keys)
+const pick = (obj: Record<string, any>, keys: string[]): string | null => {
+  const lower: Record<string, any> = {};
+  for (const k of Object.keys(obj || {})) lower[k.toLowerCase()] = obj[k];
+  for (const k of keys) {
+    const v = lower[k.toLowerCase()];
+    if (v !== undefined && v !== null && String(v).trim() !== "") return String(v);
+  }
+  return null;
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -58,24 +69,40 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const nome = payload.nome || payload.name || null;
-    const telefone = normalizePhone(payload.telefone || payload.phone || "");
-    const email = payload.email || null;
-    const origem = payload.origem || payload.source || "webhook";
-    const mensagem = payload.mensagem || payload.message || null;
+    const nome = pick(payload, ["nome", "name", "nome_completo", "fullname", "full_name"]);
+    const telefoneRaw = pick(payload, ["telefone", "phone", "whatsapp", "celular", "numero", "tel", "mobile"]);
+    const telefone = normalizePhone(telefoneRaw || "");
+    const email = pick(payload, ["email", "e-mail", "mail"]);
+    const origem = pick(payload, ["origem", "source", "utm_source"]) || "webhook";
+    const mensagem = pick(payload, ["mensagem", "message", "msg", "texto"]);
 
     if (!telefone) {
       await supabase.from("webhook_logs").insert({
         integration_id: integration.id,
         payload,
         status: "error",
-        error_message: "Missing telefone",
+        error_message: "Missing telefone (aliases: telefone, phone, whatsapp, celular, numero, tel)",
       });
-      return json({ error: "telefone is required" }, 400);
+      return json({ error: "telefone is required (aliases accepted: telefone, phone, whatsapp, celular, numero, tel)" }, 400);
     }
 
     const company_id = integration.company_id;
     const user_id = integration.user_id;
+
+    // Build extras (everything not already mapped) for metadata + variables
+    const reservedKeys = new Set([
+      "nome","name","nome_completo","fullname","full_name",
+      "telefone","phone","whatsapp","celular","numero","tel","mobile",
+      "email","e-mail","mail",
+      "origem","source","utm_source",
+      "mensagem","message","msg","texto",
+    ]);
+    const extras: Record<string, string> = {};
+    for (const [k, v] of Object.entries(payload || {})) {
+      if (!reservedKeys.has(k.toLowerCase()) && v !== null && v !== undefined) {
+        extras[k] = typeof v === "string" ? v : JSON.stringify(v);
+      }
+    }
 
     // Upsert contact (by phone within company)
     let contactId: string | null = null;
@@ -88,7 +115,6 @@ Deno.serve(async (req) => {
 
     if (existing) {
       contactId = existing.id;
-      // Update name/email if missing
       const patch: Record<string, unknown> = {};
       if (nome) patch.name = nome;
       if (email) patch.email = email;
@@ -156,7 +182,7 @@ Deno.serve(async (req) => {
         content: mensagem,
         message_type: "text",
         status: "delivered",
-        metadata: { source: "webhook-leads", integration_id: integration.id, origem },
+        metadata: { source: "webhook-leads", integration_id: integration.id, origem, extras },
       });
     }
 
@@ -165,11 +191,20 @@ Deno.serve(async (req) => {
     const welcome = (integration.welcome_message || "").trim();
 
     if (welcome) {
-      const replaced = welcome
-        .replace(/\{nome\}/gi, nome || "")
-        .replace(/\{telefone\}/gi, telefone)
-        .replace(/\{email\}/gi, email || "")
-        .replace(/\{origem\}/gi, origem || "");
+      // Build variable map: known + all extras
+      const vars: Record<string, string> = {
+        nome: nome || "",
+        telefone,
+        email: email || "",
+        origem: origem || "",
+        ...extras,
+      };
+
+      let replaced = welcome;
+      for (const [k, v] of Object.entries(vars)) {
+        const re = new RegExp(`\\{${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}`, "gi");
+        replaced = replaced.replace(re, v ?? "");
+      }
 
       const tempMessageId = `app-${crypto.randomUUID()}`;
 
@@ -188,6 +223,7 @@ Deno.serve(async (req) => {
           source: "webhook-leads",
           integration_id: integration.id,
           integration_name: integration.name,
+          extras,
         },
       });
 
@@ -248,7 +284,6 @@ Deno.serve(async (req) => {
       } else {
         console.log(`[webhook-leads] Resolved endpoint via ${resolvedVia}: ${sendEndpoint}`);
 
-        // Same payload contract as Inbox / execute-automation
         const sendPayload: Record<string, string> = {
           company_id,
           number: telefone,
@@ -293,6 +328,7 @@ Deno.serve(async (req) => {
       contact_id: contactId,
       conversation_id: conversationId,
       welcome_message_status: messageStatus,
+      extras_received: Object.keys(extras),
     });
   } catch (e) {
     const msg = (e as Error).message;
