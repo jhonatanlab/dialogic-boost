@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import ModeloMessages from "./pages/ModeloMessages";
 import Settings from "./pages/Settings";
 import WhatsappIntegrations from "./pages/WhatsappIntegrations";
+import WebhookIntegrations from "./pages/WebhookIntegrations";
 import AdminWhatsapp from "./pages/AdminWhatsapp";
 import AdminCompanies from "./pages/AdminCompanies";
 import Users from "./pages/Users";
@@ -55,6 +56,7 @@ const App = () => (
           <Route path="/modelo-messages" element={<ModeloMessages />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/whatsapp-integrations" element={<WhatsappIntegrations />} />
+          <Route path="/settings/webhook-integrations" element={<WebhookIntegrations />} />
           <Route path="/settings/users" element={<Users />} />
           <Route path="/settings/teams" element={<Teams />} />
           <Route path="/settings/company" element={<CompanyProfile />} />
