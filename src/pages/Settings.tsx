@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle } from "lucide-react";
+import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle, Webhook } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useCompany } from "@/hooks/useCompany";
@@ -69,6 +69,14 @@ const Settings = () => {
       action: () => navigate("/settings/distribution"),
       actionLabel: "Configurar distribuição",
       color: "text-teal-500",
+    },
+    {
+      icon: Webhook,
+      title: "Integrações de Webhook",
+      description: "Receba leads externos e dispare boas-vindas automáticas.",
+      action: () => navigate("/settings/webhook-integrations"),
+      actionLabel: "Configurar webhooks",
+      color: "text-indigo-500",
     },
   ];
 
