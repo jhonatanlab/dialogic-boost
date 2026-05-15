@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
   try {
     const nome = pick(payload, ["nome", "name", "nome_completo", "fullname", "full_name"]);
     const telefoneRaw = pick(payload, ["telefone", "phone", "whatsapp", "celular", "numero", "tel", "mobile"]);
-    const telefone = normalizePhone(telefoneRaw || "");
+    const telefone = ensureBrazilCountryCode(normalizePhone(telefoneRaw || ""));
     const email = pick(payload, ["email", "e-mail", "mail"]);
     const origem = pick(payload, ["origem", "source", "utm_source"]) || "webhook";
     const mensagem = pick(payload, ["mensagem", "message", "msg", "texto"]);
