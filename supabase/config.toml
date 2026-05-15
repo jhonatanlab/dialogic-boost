@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.webhook-n8n-instance]
 verify_jwt = false
+
+[functions.webhook-leads]
+verify_jwt = false
