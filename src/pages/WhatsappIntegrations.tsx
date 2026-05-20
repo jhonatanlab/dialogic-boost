@@ -702,6 +702,31 @@ const WhatsappIntegrations = () => {
                     </div>
                   )}
 
+                  {/* Instance ID */}
+                  {automationEnabled && (
+                    <Card>
+                      <CardContent className="pt-6 space-y-4">
+                        <div className="flex items-center gap-2 text-primary">
+                          <Zap className="h-5 w-5" />
+                          <span className="font-medium">Identificação da Instância</span>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="automation-instance-id">Instance ID *</Label>
+                          <Input
+                            id="automation-instance-id"
+                            type="text"
+                            placeholder="ex: inst_minhaempresa"
+                            value={automationInstanceId}
+                            onChange={(e) => setAutomationInstanceId(e.target.value.trim())}
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            Identificador enviado pelo fluxo do n8n (campo <code>instance_id</code>) para vincular as mensagens recebidas a esta empresa. Sem isso, o webhook retorna erro 409.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   {/* Endpoints */}
                   {automationEnabled && (
                     <Card>
