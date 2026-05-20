@@ -131,13 +131,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Upsert contact (by phone within company)
+    // Upsert contact (by phone within company, matching BR 12/13-digit variants)
     let contactId: string | null = null;
+    const phoneVariants = brazilPhoneVariants(telefone);
     const { data: existing } = await supabase
       .from("contacts")
-      .select("id")
+      .select("id, phone")
       .eq("company_id", company_id)
-      .eq("phone", telefone)
+      .in("phone", phoneVariants)
       .maybeSingle();
 
     if (existing) {
@@ -145,6 +146,10 @@ Deno.serve(async (req) => {
       const patch: Record<string, unknown> = {};
       if (nome) patch.name = nome;
       if (email) patch.email = email;
+      // Canonicalize to 13-digit (with leading 9) form when we matched the 12-digit variant
+      if (existing.phone !== telefone && telefone.length === 13) {
+        patch.phone = telefone;
+      }
       if (Object.keys(patch).length) {
         await supabase.from("contacts").update(patch).eq("id", contactId);
       }
