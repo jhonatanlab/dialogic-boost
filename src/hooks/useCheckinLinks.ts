@@ -32,12 +32,19 @@ export const useCheckinLinks = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
       const urlToken = crypto.randomUUID();
 
       const { data, error } = await supabase
         .from("checkin_links")
         .insert({
           user_id: user.id,
+          company_id: profile?.company_id ?? null,
           name,
           url_token: urlToken,
           whatsapp_number: whatsappNumber.replace(/\D/g, ""),
