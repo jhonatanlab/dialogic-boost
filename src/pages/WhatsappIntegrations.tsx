@@ -29,9 +29,10 @@ const WhatsappIntegrations = () => {
   const [automationEnabled, setAutomationEnabled] = useState(false);
   const [automationInbound, setAutomationInbound] = useState("");
   const [automationOutbound, setAutomationOutbound] = useState("");
+  const [automationInstanceId, setAutomationInstanceId] = useState("");
   const [copiedCompanyId, setCopiedCompanyId] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
-  const { companyId } = useCompany();
+  const { companyId, company } = useCompany();
   const queryClient = useQueryClient();
 
   const { data: companyInstance } = useQuery({
@@ -91,6 +92,9 @@ const WhatsappIntegrations = () => {
     if (!nativeInitialized && companyInstance !== undefined) {
       setNativeEnabled(!!companyInstance);
       setNativeInitialized(true);
+    }
+    if (companyInstance?.instance_id) {
+      setAutomationInstanceId(companyInstance.instance_id);
     }
   }, [companyInstance, nativeInitialized]);
 
@@ -698,6 +702,31 @@ const WhatsappIntegrations = () => {
                     </div>
                   )}
 
+                  {/* Instance ID */}
+                  {automationEnabled && (
+                    <Card>
+                      <CardContent className="pt-6 space-y-4">
+                        <div className="flex items-center gap-2 text-primary">
+                          <Zap className="h-5 w-5" />
+                          <span className="font-medium">Identificação da Instância</span>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="automation-instance-id">Instance ID *</Label>
+                          <Input
+                            id="automation-instance-id"
+                            type="text"
+                            placeholder="ex: inst_minhaempresa"
+                            value={automationInstanceId}
+                            onChange={(e) => setAutomationInstanceId(e.target.value.trim())}
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            Identificador enviado pelo fluxo do n8n (campo <code>instance_id</code>) para vincular as mensagens recebidas a esta empresa. Sem isso, o webhook retorna erro 409.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   {/* Endpoints */}
                   {automationEnabled && (
                     <Card>
@@ -745,6 +774,11 @@ const WhatsappIntegrations = () => {
                         try {
                           const { data: userData } = await supabase.auth.getUser();
                           if (!userData.user) throw new Error("Não autenticado");
+                          if (!companyId) throw new Error("Empresa não identificada");
+                          const instanceIdTrimmed = automationInstanceId.trim();
+                          if (!instanceIdTrimmed) {
+                            throw new Error("Preencha o Instance ID antes de salvar.");
+                          }
 
                           const settings = [
                             { setting_key: "n8n_automation_enabled", setting_value: String(automationEnabled) },
@@ -764,9 +798,36 @@ const WhatsappIntegrations = () => {
                             if (error) throw error;
                           }
 
+                          // Upsert whatsapp_instances so webhook-n8n-instance can resolve the company
+                          if (companyInstance?.id) {
+                            const { error: updErr } = await supabase
+                              .from("whatsapp_instances")
+                              .update({
+                                instance_id: instanceIdTrimmed,
+                                hash: instanceIdTrimmed,
+                                status: "connected",
+                                updated_at: new Date().toISOString(),
+                              })
+                              .eq("id", companyInstance.id);
+                            if (updErr) throw updErr;
+                          } else {
+                            const { error: insErr } = await supabase
+                              .from("whatsapp_instances")
+                              .insert({
+                                company_id: companyId,
+                                user_id: userData.user.id,
+                                company_name: company?.name || null,
+                                instance_id: instanceIdTrimmed,
+                                hash: instanceIdTrimmed,
+                                status: "connected",
+                              });
+                            if (insErr) throw insErr;
+                          }
+                          queryClient.invalidateQueries({ queryKey: ["my-whatsapp-instance"] });
+
                           toast({
                             title: "Configuração salva!",
-                            description: "Os endpoints do motor de automação foram salvos com sucesso.",
+                            description: "Instance ID e endpoints do motor de automação foram salvos com sucesso.",
                           });
                         } catch (err: any) {
                           toast({

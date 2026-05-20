@@ -1,56 +1,40 @@
-## Diagnóstico
+## Objetivo
 
-O nó **Sync Inbound EloChat1** do n8n chama a edge function `webhook-n8n-instance` (ação `upsert_message`), que **resolve a empresa pelo `instance_id` registrado** na tabela `whatsapp_instances` — não confia no `company_id` do payload (proteção multi-tenant).
+Adicionar na aba **API Automação** (tela WhatsApp / Integrações) um campo para definir o **Instance ID** da empresa, salvando direto na tabela `whatsapp_instances` — para que o nó `Sync Inbound EloChat1` do n8n consiga resolver a empresa pelo identificador enviado e não dê mais 409.
 
-Log da edge function confirma:
+## Onde
 
-```
-[company-resolution] blocked: instance_id not registered
-  payloadCompanyId: 51a5410b-77e7-433a-89c0-edad31e6005f
-  instanceId: inst_raizesdosertao
-```
+Arquivo: `src/pages/WhatsappIntegrations.tsx`, dentro de `<TabsContent value="automation">` (acima do card "Webhooks de Sincronização").
 
-E a consulta ao banco mostra que a empresa **Raízes do Sertão Restaurante** não tem nenhum registro em `whatsapp_instances`. Por isso a função retorna **409 "Unable to resolve company from registered instance"**.
+## Mudanças
 
-O n8n manda `instance_id = "inst_raizesdosertao"`, mas esse identificador nunca foi gravado no banco. Provavelmente o fluxo de provisionamento (`register_instance` / QR Code do Instagram) não chegou a persistir essa linha, ou foi feito manualmente no n8n sem chamar o endpoint de registro.
+1. **Novo estado**: `automationInstanceId: string` carregado do registro atual de `whatsapp_instances` da empresa (já temos `companyInstance` no componente).
 
-## Correção (uma migration de dados, sem alterar código)
+2. **Carregamento**: no `useEffect` que sincroniza a instância, popular `automationInstanceId` com `companyInstance.instance_id` (ou string vazia).
 
-Inserir manualmente a instância para essa empresa, espelhando o padrão das outras (`instance_id` igual ao `hash`, status `connected`):
+3. **Nova UI** dentro do card de Webhooks (ou em card próprio acima dele), só visível quando `automationEnabled = true`:
 
-```sql
-INSERT INTO public.whatsapp_instances (
-  company_id, user_id, company_name, instance_id, hash, status
-)
-SELECT
-  '51a5410b-77e7-433a-89c0-edad31e6005f'::uuid,
-  p.user_id,
-  'Raízes do Sertão Restaurante',
-  'inst_raizesdosertao',
-  'inst_raizesdosertao',
-  'connected'
-FROM public.profiles p
-WHERE p.company_id = '51a5410b-77e7-433a-89c0-edad31e6005f'
-  AND p.role = 'admin'
-ORDER BY p.created_at ASC
-LIMIT 1;
-```
+   ```
+   ┌─ Identificação da Instância ────────────────────┐
+   │ Instance ID *                                   │
+   │ [ inst_raizesdosertao____________ ]             │
+   │ Identificador enviado pelo fluxo do n8n         │
+   │ (campo instance_id) para vincular esta empresa. │
+   └─────────────────────────────────────────────────┘
+   ```
 
-Após essa inserção:
-- A próxima mensagem do Instagram que passar pelo nó **Sync Inbound EloChat1** será aceita (200) e gravada na conversa correta da empresa.
-- O fluxo de envio também passa a resolver porque usa a mesma tabela.
+4. **Persistência**: na ação do botão "Salvar" (já existente), além dos `admin_settings`, fazer um upsert em `whatsapp_instances`:
+   - Se já existe registro para `company_id` → `update` apenas `instance_id`, `hash`, `status='connected'`, `updated_at`.
+   - Se não existe → `insert` com `company_id`, `user_id`, `company_name`, `instance_id`, `hash = instance_id`, `status='connected'`.
+   - Validação: bloquear salvar se `automationInstanceId` estiver vazio (toast de erro).
+   - Após salvar: `queryClient.invalidateQueries(["my-whatsapp-instance"])`.
+
+5. **Sem mudanças** em outras telas, edge functions ou schema. A tabela `whatsapp_instances` já tem as colunas necessárias (`instance_id`, `hash`, `company_id`, `user_id`, `company_name`, `status`).
 
 ## Validação
 
-1. Confirmar com `SELECT * FROM whatsapp_instances WHERE company_id = '51a5410b-...';` que a linha existe.
-2. Enviar nova mensagem no Instagram conectado.
-3. Conferir log da função `webhook-n8n-instance` — não deve mais aparecer "blocked: instance_id not registered".
-4. Mensagem deve aparecer na Inbox da empresa.
-
-## Observação importante
-
-Se você quer evitar fazer isso manualmente toda vez, o ideal é que o **fluxo do n8n que conecta a instância** (QR Code / pareamento) chame a ação `register_instance` da `webhook-n8n-instance` no momento do `connected`, gravando `instance_id`, `hash` e `company_id` automaticamente. Posso revisar essa parte do provisionamento numa próxima rodada se quiser.
-
-## Próximo passo
-
-Aprove o plano para eu criar a migration com o `INSERT` acima.
+1. Abrir Configurações → WhatsApp → aba **API Automação**, ativar o motor.
+2. Preencher Instance ID com o mesmo valor que o fluxo do n8n envia (ex.: `inst_raizesdosertao`).
+3. Clicar Salvar → toast de sucesso.
+4. Conferir no banco: `SELECT instance_id FROM whatsapp_instances WHERE company_id = …`.
+5. Enviar mensagem pelo canal — não deve mais aparecer "blocked: instance_id not registered".
