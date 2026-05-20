@@ -1,42 +1,31 @@
-## Limpeza de contatos duplicados (variante 12 vs 13 dígitos)
+## Causa raiz
 
-Hoje existem **4 pares de duplicados** no banco — o mesmo problema do "9 do celular" que já corrigi nos webhooks. Vou consolidar todos em um único passo via migration SQL.
+O token `22F6050B` ficou como "Aguardando" porque o `checkin_records.company_id` está **NULL**, e a função `process_checkin_token` exige `company_id = p_company_id` para encontrar o registro pendente. Como nunca casa, o webhook loga `no pending record matched for token` e o status nunca vira `completed`.
 
-### Regra de consolidação
+Por que está NULL? O link "Garçom Gabriel" (`checkin_links`) também tem `company_id = NULL` — em `src/hooks/useCheckinLinks.ts` o `insert` envia apenas `user_id`, `name`, `url_token` e `whatsapp_number`, sem `company_id`. Como `public-checkin` copia `checkin_link.company_id` para o registro, todo check-in gerado por esse link nasce sem empresa.
 
-Para cada par detectado `(original_13_digitos, duplicado_12_digitos)` da mesma `company_id`:
+Confirmação no banco:
+- `checkin_records 22F6050B`: status=pending, company_id=NULL, contact_id=NULL
+- `checkin_links 8d1d77e0…` ("Garçom Gabriel"): company_id=NULL
+- Webhook recebeu o token mas RPC respondeu `no_pending_record`
 
-1. **Original = contato com 13 dígitos** (com o 9) — é o canônico.
-2. **Duplicado = contato com 12 dígitos** — vai ser apagado.
-3. Migrar do duplicado → original:
-   - `messages.contact_id` e `messages.conversation_id` (apontar para a conversa do original)
-   - Se o original ainda não tem conversa, "promover" a conversa do duplicado (trocar `contact_id` para o original) em vez de criar nova.
-   - `conversation_events.conversation_id` segue junto.
-   - Demais tabelas filhas (`automation_executions`, `automation_followups`, `campaign_contacts`, `contact_notes`, `contact_tags`, `contact_ai_summaries`, `contact_custom_fields`, `activity_logs`, `fidelity_cards`, `checkin_records`) → repontar `contact_id` para o original (ignorando conflitos de unique constraint, ex.: tag já existente).
-   - `ai_control` (chaveado por `telefone`): manter só a entrada com 13 dígitos; remover a de 12.
-4. Preservar o `name` mais completo (maior length) no original.
-5. Após mover tudo, apagar o contato duplicado.
+## Plano
 
-### Caso Kaline (validação manual)
+1. **Corrigir a criação de links** (`src/hooks/useCheckinLinks.ts`):
+   - Buscar `company_id` do `profiles` do usuário logado antes do insert.
+   - Incluir `company_id` no payload do `insert` em `checkin_links`.
 
-- Original: `e6c43c72…` (`5887…1373`, com 9) — 3 msgs, 1 conversa.
-- Duplicado: `85b44478…` (`587…1373`, sem 9) — 15 msgs, 1 conversa, nome mais completo "Kaline Roberta Maria dos Santos".
+2. **Backfill via migração SQL**:
+   - `UPDATE checkin_links SET company_id = p.company_id FROM profiles p WHERE checkin_links.user_id = p.user_id AND checkin_links.company_id IS NULL`.
+   - `UPDATE checkin_records SET company_id = l.company_id FROM checkin_links l WHERE checkin_records.checkin_link_id = l.id AND checkin_records.company_id IS NULL`.
 
-Após o merge: 1 contato `e6c43c72…`, nome **"Kaline Roberta Maria dos Santos"**, telefone `5587996221373`, 18 mensagens na mesma conversa.
+3. **Recuperar o check-in `22F6050B`** (opcional — confirmar com o usuário):
+   - Após o backfill, marcar manualmente o registro pendente como `completed` vinculando ao contato que enviou a mensagem com o token (precisamos do telefone que enviou para localizar `contact_id`). Alternativa: pedir ao cliente para reenviar `22F6050B` no WhatsApp — com `company_id` preenchido, o webhook agora vai casar e completar normalmente.
 
-### Entregável
+## Detalhes técnicos
 
-Uma migration única que:
-- Cria uma CTE `dup_pairs` com os 4 pares.
-- Executa os UPDATEs/DELETEs em ordem segura (filhos → conversas → contatos).
-- Usa `ON CONFLICT DO NOTHING` onde houver unique (contact_tags, campaign_contacts).
-- Retorna no log o número de linhas movidas por tabela.
+- `process_checkin_token` permanece como está (já filtra por `upper(token)` + `company_id` + `status='pending'`).
+- O `public-checkin` já está correto — ele propaga `company_id` do link; o problema é só na origem (link sem empresa).
+- Após o backfill, todos os 2 registros pendentes/expirados existentes (`22F6050B`, `CA508127`) ficam com `company_id` correto; `22F6050B` ainda pode ser resgatado por reenvio do token pelo cliente. `CA508127` já expirou.
 
-### Riscos / fora de escopo
-
-- Não mexe em RLS nem schema.
-- Não toca em contatos sem duplicado.
-- Se algum par tiver `company_id` divergente (não deveria), é ignorado pelo JOIN.
-- Após rodar, qualquer novo cadastro já cai na lógica corrigida do `webhook-leads` / `webhook-n8n-instance`.
-
-Posso aplicar?
+Quer que eu também marque o `22F6050B` como `completed` manualmente (passo 3), ou prefere pedir ao cliente para reenviar o token após o fix?
