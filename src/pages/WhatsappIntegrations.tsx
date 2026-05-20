@@ -29,6 +29,7 @@ const WhatsappIntegrations = () => {
   const [automationEnabled, setAutomationEnabled] = useState(false);
   const [automationInbound, setAutomationInbound] = useState("");
   const [automationOutbound, setAutomationOutbound] = useState("");
+  const [automationInstanceId, setAutomationInstanceId] = useState("");
   const [copiedCompanyId, setCopiedCompanyId] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
   const { companyId } = useCompany();
