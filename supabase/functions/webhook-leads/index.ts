@@ -25,6 +25,22 @@ const ensureBrazilCountryCode = (digits: string): string => {
   return digits;
 };
 
+// Returns possible variants of a BR phone (with/without the leading 9 of mobile).
+// Handles the classic "9 do celular" duplication issue.
+const brazilPhoneVariants = (digits: string): string[] => {
+  if (!digits) return [];
+  const set = new Set<string>([digits]);
+  // 13 digits: 55 + DDD(2) + 9 + 8 digits  →  also add 12-digit variant without the 9
+  if (digits.length === 13 && digits.startsWith("55") && digits.charAt(4) === "9") {
+    set.add(digits.slice(0, 4) + digits.slice(5));
+  }
+  // 12 digits: 55 + DDD(2) + 8 digits  →  also add 13-digit variant with a 9 inserted
+  if (digits.length === 12 && digits.startsWith("55")) {
+    set.add(digits.slice(0, 4) + "9" + digits.slice(4));
+  }
+  return Array.from(set);
+};
+
 // Pick first non-empty value from payload by alias list (case-insensitive keys)
 const pick = (obj: Record<string, any>, keys: string[]): string | null => {
   const lower: Record<string, any> = {};
@@ -115,13 +131,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Upsert contact (by phone within company)
+    // Upsert contact (by phone within company, matching BR 12/13-digit variants)
     let contactId: string | null = null;
+    const phoneVariants = brazilPhoneVariants(telefone);
     const { data: existing } = await supabase
       .from("contacts")
-      .select("id")
+      .select("id, phone")
       .eq("company_id", company_id)
-      .eq("phone", telefone)
+      .in("phone", phoneVariants)
       .maybeSingle();
 
     if (existing) {
@@ -129,6 +146,10 @@ Deno.serve(async (req) => {
       const patch: Record<string, unknown> = {};
       if (nome) patch.name = nome;
       if (email) patch.email = email;
+      // Canonicalize to 13-digit (with leading 9) form when we matched the 12-digit variant
+      if (existing.phone !== telefone && telefone.length === 13) {
+        patch.phone = telefone;
+      }
       if (Object.keys(patch).length) {
         await supabase.from("contacts").update(patch).eq("id", contactId);
       }

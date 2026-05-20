@@ -47,6 +47,20 @@ const normalizePhone = (phone: string): string => {
   return basePhone.replace(/\D/g, "");
 };
 
+// Returns possible variants of a BR phone (with/without the leading 9 of mobile).
+// Handles the classic "9 do celular" duplication issue between lead webhooks and WhatsApp replies.
+const brazilPhoneVariants = (digits: string): string[] => {
+  if (!digits) return [];
+  const set = new Set<string>([digits]);
+  if (digits.length === 13 && digits.startsWith("55") && digits.charAt(4) === "9") {
+    set.add(digits.slice(0, 4) + digits.slice(5));
+  }
+  if (digits.length === 12 && digits.startsWith("55")) {
+    set.add(digits.slice(0, 4) + "9" + digits.slice(4));
+  }
+  return Array.from(set);
+};
+
 const parseCampaignInternalId = (value?: string | null) => {
   if (!value) return null;
 
@@ -165,15 +179,16 @@ Deno.serve(async (req) => {
 
     // ── Helper: find or create contact ──
     const findOrCreateContact = async (company_id: string, userId: string, normalizedPhone: string, contactName?: string) => {
+      const phoneVariants = brazilPhoneVariants(normalizedPhone);
       const { data: existing } = await supabase
         .from("contacts")
-        .select("id, name")
+        .select("id, name, phone")
         .eq("company_id", company_id)
-        .eq("phone", normalizedPhone)
+        .in("phone", phoneVariants)
         .maybeSingle();
 
       if (existing) {
-        if (contactName && contactName.trim() && existing.name === normalizedPhone) {
+        if (contactName && contactName.trim() && (existing.name === existing.phone || existing.name === normalizedPhone)) {
           await supabase.from("contacts").update({ name: contactName.trim() }).eq("id", existing.id);
         }
         return existing.id;
