@@ -25,6 +25,22 @@ const ensureBrazilCountryCode = (digits: string): string => {
   return digits;
 };
 
+// Returns possible variants of a BR phone (with/without the leading 9 of mobile).
+// Handles the classic "9 do celular" duplication issue.
+const brazilPhoneVariants = (digits: string): string[] => {
+  if (!digits) return [];
+  const set = new Set<string>([digits]);
+  // 13 digits: 55 + DDD(2) + 9 + 8 digits  →  also add 12-digit variant without the 9
+  if (digits.length === 13 && digits.startsWith("55") && digits.charAt(4) === "9") {
+    set.add(digits.slice(0, 4) + digits.slice(5));
+  }
+  // 12 digits: 55 + DDD(2) + 8 digits  →  also add 13-digit variant with a 9 inserted
+  if (digits.length === 12 && digits.startsWith("55")) {
+    set.add(digits.slice(0, 4) + "9" + digits.slice(4));
+  }
+  return Array.from(set);
+};
+
 // Pick first non-empty value from payload by alias list (case-insensitive keys)
 const pick = (obj: Record<string, any>, keys: string[]): string | null => {
   const lower: Record<string, any> = {};
