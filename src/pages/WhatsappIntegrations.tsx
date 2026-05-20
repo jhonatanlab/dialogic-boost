@@ -93,6 +93,9 @@ const WhatsappIntegrations = () => {
       setNativeEnabled(!!companyInstance);
       setNativeInitialized(true);
     }
+    if (companyInstance?.instance_id) {
+      setAutomationInstanceId(companyInstance.instance_id);
+    }
   }, [companyInstance, nativeInitialized]);
 
   // Load automation settings from DB
