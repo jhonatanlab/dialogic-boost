@@ -179,15 +179,16 @@ Deno.serve(async (req) => {
 
     // ── Helper: find or create contact ──
     const findOrCreateContact = async (company_id: string, userId: string, normalizedPhone: string, contactName?: string) => {
+      const phoneVariants = brazilPhoneVariants(normalizedPhone);
       const { data: existing } = await supabase
         .from("contacts")
-        .select("id, name")
+        .select("id, name, phone")
         .eq("company_id", company_id)
-        .eq("phone", normalizedPhone)
+        .in("phone", phoneVariants)
         .maybeSingle();
 
       if (existing) {
-        if (contactName && contactName.trim() && existing.name === normalizedPhone) {
+        if (contactName && contactName.trim() && (existing.name === existing.phone || existing.name === normalizedPhone)) {
           await supabase.from("contacts").update({ name: contactName.trim() }).eq("id", existing.id);
         }
         return existing.id;
