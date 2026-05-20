@@ -32,7 +32,7 @@ const WhatsappIntegrations = () => {
   const [automationInstanceId, setAutomationInstanceId] = useState("");
   const [copiedCompanyId, setCopiedCompanyId] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
-  const { companyId } = useCompany();
+  const { companyId, company } = useCompany();
   const queryClient = useQueryClient();
 
   const { data: companyInstance } = useQuery({
