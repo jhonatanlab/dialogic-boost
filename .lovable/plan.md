@@ -1,51 +1,42 @@
-## Causa raiz
+## Limpeza de contatos duplicados (variante 12 vs 13 dígitos)
 
-A Kaline aparece duas vezes porque os dois webhooks gravaram o telefone em formatos diferentes:
+Hoje existem **4 pares de duplicados** no banco — o mesmo problema do "9 do celular" que já corrigi nos webhooks. Vou consolidar todos em um único passo via migration SQL.
 
-- `webhook-leads` (cadastro Facebook Lead Ads) salvou `5587996221373` (13 dígitos, **com** o 9).
-- `webhook-n8n-instance` (resposta vinda do WhatsApp) recebeu `558796221373` (12 dígitos, **sem** o 9) e, como a busca por telefone é `eq` exato, não achou o contato existente → criou outro contato e outra conversa.
+### Regra de consolidação
 
-Confirmei no banco: dois `contacts` distintos para a mesma pessoa, dois `conversations` abertos. Esse é o clássico problema do "9 do celular brasileiro".
+Para cada par detectado `(original_13_digitos, duplicado_12_digitos)` da mesma `company_id`:
 
-## O que vamos mudar
+1. **Original = contato com 13 dígitos** (com o 9) — é o canônico.
+2. **Duplicado = contato com 12 dígitos** — vai ser apagado.
+3. Migrar do duplicado → original:
+   - `messages.contact_id` e `messages.conversation_id` (apontar para a conversa do original)
+   - Se o original ainda não tem conversa, "promover" a conversa do duplicado (trocar `contact_id` para o original) em vez de criar nova.
+   - `conversation_events.conversation_id` segue junto.
+   - Demais tabelas filhas (`automation_executions`, `automation_followups`, `campaign_contacts`, `contact_notes`, `contact_tags`, `contact_ai_summaries`, `contact_custom_fields`, `activity_logs`, `fidelity_cards`, `checkin_records`) → repontar `contact_id` para o original (ignorando conflitos de unique constraint, ex.: tag já existente).
+   - `ai_control` (chaveado por `telefone`): manter só a entrada com 13 dígitos; remover a de 12.
+4. Preservar o `name` mais completo (maior length) no original.
+5. Após mover tudo, apagar o contato duplicado.
 
-Apenas duas Edge Functions, sem mudança de schema, sem mexer em outras telas/fluxos.
+### Caso Kaline (validação manual)
 
-### 1. `supabase/functions/webhook-leads/index.ts`
+- Original: `e6c43c72…` (`5887…1373`, com 9) — 3 msgs, 1 conversa.
+- Duplicado: `85b44478…` (`587…1373`, sem 9) — 15 msgs, 1 conversa, nome mais completo "Kaline Roberta Maria dos Santos".
 
-- Adicionar helper `brazilPhoneVariants(digits)` que devolve as variantes possíveis do número:
-  - sempre a versão "como veio";
-  - se for BR celular 13 dígitos `55 + DDD + 9XXXXXXXX`, também a versão de 12 dígitos sem o 9;
-  - se for BR 12 dígitos `55 + DDD + XXXXXXXX` com DDD de celular, também a versão com o 9 inserido.
-- Trocar a busca do contato:
-  ```
-  .eq("phone", telefone) → .in("phone", variants)
-  ```
-- Se achar o contato pela variante alternativa, atualizar `phone` para a forma canônica (13 dígitos com 9) para estabilizar buscas futuras.
+Após o merge: 1 contato `e6c43c72…`, nome **"Kaline Roberta Maria dos Santos"**, telefone `5587996221373`, 18 mensagens na mesma conversa.
 
-### 2. `supabase/functions/webhook-n8n-instance/index.ts`
+### Entregável
 
-- Mesmo helper `brazilPhoneVariants`.
-- Em `findOrCreateContact`, substituir `.eq("phone", normalizedPhone)` por `.in("phone", variants)`.
-- Quando achar via variante, manter o `phone` já existente (não sobrescrever com a versão sem 9 que veio do WhatsApp).
+Uma migration única que:
+- Cria uma CTE `dup_pairs` com os 4 pares.
+- Executa os UPDATEs/DELETEs em ordem segura (filhos → conversas → contatos).
+- Usa `ON CONFLICT DO NOTHING` onde houver unique (contact_tags, campaign_contacts).
+- Retorna no log o número de linhas movidas por tabela.
 
-### Por que isso resolve
+### Riscos / fora de escopo
 
-- Quando o lead chega primeiro (com 9) e depois o WhatsApp responde (sem 9), o `findOrCreateContact` agora encontra o contato existente → reutiliza a mesma `conversation`.
-- Quando o WhatsApp inicia primeiro (sem 9) e depois vira lead (com 9), o `webhook-leads` também encontra o contato existente e normaliza para 13 dígitos.
+- Não mexe em RLS nem schema.
+- Não toca em contatos sem duplicado.
+- Se algum par tiver `company_id` divergente (não deveria), é ignorado pelo JOIN.
+- Após rodar, qualquer novo cadastro já cai na lógica corrigida do `webhook-leads` / `webhook-n8n-instance`.
 
-## Limpeza dos duplicados já existentes
-
-Para a Kaline (e qualquer outro caso já criado antes do fix), depois de aprovar e aplicar o plano eu posso, em um passo seguinte:
-
-1. Listar pares de contatos duplicados por variante 12/13.
-2. Migrar mensagens/conversa do duplicado mais novo para o original.
-3. Apagar o duplicado via `delete_contact_cascade`.
-
-Isso fica fora deste plano para você revisar antes de tocar em dados.
-
-## Validação
-
-1. Após deploy: enviar um lead de teste via webhook com `5587999999999` e em seguida simular uma mensagem entrando via `webhook-n8n-instance` com `558799999999` → deve cair na **mesma** conversa.
-2. Conferir no banco: 1 contato, 1 conversa.
-3. Nenhum impacto em mensagens já existentes (apenas a lookup muda).
+Posso aplicar?
