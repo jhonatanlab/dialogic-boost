@@ -35,12 +35,19 @@ export const useFidelityPrograms = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
       const { data, error } = await supabase
         .from("fidelity_programs")
         .insert({
           user_id: user.id,
+          company_id: profile?.company_id ?? null,
           ...program,
-        })
+        } as any)
         .select()
         .single();
 
