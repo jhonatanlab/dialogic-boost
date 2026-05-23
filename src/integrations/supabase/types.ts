@@ -1780,6 +1780,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      normalize_br_phone: { Args: { p_phone: string }; Returns: string }
       process_checkin_token: {
         Args: {
           p_company_id: string
