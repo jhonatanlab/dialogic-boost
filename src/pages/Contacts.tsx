@@ -25,6 +25,8 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ContactForm } from "@/components/contacts/ContactForm";
 import { ContactDetails } from "@/components/contacts/ContactDetails";
 import { TagsManager } from "@/components/contacts/TagsManager";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { describeContactSource } from "@/lib/contactSource";
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, Contact } from "@/hooks/useContacts";
 
 const Contacts = () => {
@@ -134,6 +136,7 @@ const Contacts = () => {
                 <TableHead>Telefone</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Instagram</TableHead>
+                <TableHead>Origem</TableHead>
                 <TableHead>Etiquetas</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -141,13 +144,13 @@ const Contacts = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : contacts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     {searchTerm
                       ? "Nenhum contato encontrado com esse termo"
                       : "Nenhum contato cadastrado. Clique em 'Novo Contato' para começar."}
@@ -200,6 +203,25 @@ const Contacts = () => {
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const s = describeContactSource(contact.source);
+                        return (
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className={`text-xs font-medium border ${s.className}`}>
+                                  {s.label}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs break-words">
+                                {s.full}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">

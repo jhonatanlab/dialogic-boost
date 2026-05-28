@@ -11,6 +11,7 @@ export interface Contact {
   instagram?: string;
   avatar_url?: string;
   birthday?: string;
+  source?: string;
   created_at: string;
   updated_at: string;
   tags?: Tag[];

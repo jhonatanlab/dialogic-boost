@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Contact } from "@/hooks/useContacts";
+import { describeContactSource } from "@/lib/contactSource";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/useContactNotes";
 import { useTags, useAddTagToContact, useRemoveTagFromContact } from "@/hooks/useTags";
 import { supabase } from "@/integrations/supabase/client";
@@ -180,7 +181,18 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                       </span>
                     </div>
                   )}
-                  {!contact.phone && !contact.email && !contact.instagram && !contact.birthday && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wide">Origem:</span>
+                    {(() => {
+                      const s = describeContactSource(contact.source);
+                      return (
+                        <Badge variant="outline" className={`text-xs font-medium border ${s.className}`}>
+                          {s.full}
+                        </Badge>
+                      );
+                    })()}
+                  </div>
+                  {!contact.phone && !contact.email && !contact.instagram && !contact.birthday && !contact.source && (
                     <p className="text-sm text-muted-foreground">Nenhuma informação adicional</p>
                   )}
                 </CardContent>
