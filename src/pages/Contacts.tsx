@@ -136,6 +136,7 @@ const Contacts = () => {
                 <TableHead>Telefone</TableHead>
                 <TableHead>E-mail</TableHead>
                 <TableHead>Instagram</TableHead>
+                <TableHead>Origem</TableHead>
                 <TableHead>Etiquetas</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
