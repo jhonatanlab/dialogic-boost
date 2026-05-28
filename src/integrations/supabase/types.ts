@@ -158,6 +158,68 @@ export type Database = {
         }
         Relationships: []
       }
+      appointments: {
+        Row: {
+          company_id: string
+          contact_id: string | null
+          created_at: string
+          duration_minutes: number
+          google_calendar_id: string | null
+          google_event_id: string | null
+          id: string
+          notes: string | null
+          phone: string | null
+          scheduled_at: string
+          status: string
+          title: string
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id: string
+          contact_id?: string | null
+          created_at?: string
+          duration_minutes?: number
+          google_calendar_id?: string | null
+          google_event_id?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          scheduled_at: string
+          status?: string
+          title: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          contact_id?: string | null
+          created_at?: string
+          duration_minutes?: number
+          google_calendar_id?: string | null
+          google_event_id?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          scheduled_at?: string
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_executions: {
         Row: {
           automation_id: string
@@ -1148,6 +1210,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      google_calendar_tokens: {
+        Row: {
+          access_token: string | null
+          active: boolean
+          company_id: string
+          created_at: string
+          email: string | null
+          id: string
+          is_company_calendar: boolean
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          active?: boolean
+          company_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_company_calendar?: boolean
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_company_calendar?: boolean
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       incoming_messages: {
         Row: {

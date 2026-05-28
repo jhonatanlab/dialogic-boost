@@ -8,6 +8,7 @@ import {
   QrCode,
   LayoutDashboard,
   Settings,
+  Calendar,
 } from "lucide-react";
 import { useCompany } from "@/hooks/useCompany";
 import {
@@ -28,6 +29,7 @@ const menuItems = [
   { title: "Contatos", url: "/contacts", icon: Users },
   { title: "Automações", url: "/automations", icon: Bot, requiredRoles: ["admin", "manager"] },
   { title: "Campanhas", url: "/campaigns", icon: Send, requiredRoles: ["admin", "manager"] },
+  { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Relatórios", url: "/analytics", icon: BarChart3, requiredRoles: ["admin", "manager"] },
   { title: "Check-in", url: "/checkin", icon: QrCode, requiredRoles: ["admin", "manager"] },
   { title: "Configurações", url: "/settings", icon: Settings, requiredRoles: ["admin", "manager"] },
