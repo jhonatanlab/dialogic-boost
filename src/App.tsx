@@ -15,6 +15,7 @@ import NewMessageTemplate from "./pages/NewMessageTemplate";
 import Analytics from "./pages/Analytics";
 import CheckIn from "./pages/CheckIn";
 import PublicCheckIn from "./pages/PublicCheckIn";
+import Agenda from "./pages/Agenda";
 
 
 import NotFound from "./pages/NotFound";
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/campaigns/new" element={<NewCampaign />} />
           <Route path="/message-templates/new" element={<NewMessageTemplate />} />
+          <Route path="/agenda" element={<Agenda />} />
           <Route path="/analytics" element={<Analytics />} />
             <Route path="/checkin" element={<CheckIn />} />
             <Route path="/checkin/:urlToken" element={<PublicCheckIn />} />
