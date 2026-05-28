@@ -25,6 +25,8 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { ContactForm } from "@/components/contacts/ContactForm";
 import { ContactDetails } from "@/components/contacts/ContactDetails";
 import { TagsManager } from "@/components/contacts/TagsManager";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { describeContactSource } from "@/lib/contactSource";
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, Contact } from "@/hooks/useContacts";
 
 const Contacts = () => {
