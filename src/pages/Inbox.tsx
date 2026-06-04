@@ -1941,6 +1941,13 @@ const Inbox = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Close Conversation Dialog */}
+      <CloseConversationDialog
+        open={showCloseDialog}
+        onOpenChange={setShowCloseDialog}
+        onConfirm={handleCloseConversation}
+      />
     </DashboardLayout>
   );
 };
