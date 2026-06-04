@@ -30,6 +30,7 @@ import Teams from "./pages/Teams";
 import CompanyProfile from "./pages/CompanyProfile";
 import ChatDistribution from "./pages/ChatDistribution";
 import Profile from "./pages/Profile";
+import ClosureReasons from "./pages/ClosureReasons";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,7 @@ const App = () => (
           <Route path="/settings/teams" element={<Teams />} />
           <Route path="/settings/company" element={<CompanyProfile />} />
           <Route path="/settings/distribution" element={<ChatDistribution />} />
+          <Route path="/settings/closure-reasons" element={<ClosureReasons />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
           <Route path="/admin/companies" element={<AdminCompanies />} />
           <Route path="/profile" element={<Profile />} />
