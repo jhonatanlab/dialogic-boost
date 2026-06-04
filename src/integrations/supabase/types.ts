@@ -621,6 +621,36 @@ export type Database = {
           },
         ]
       }
+      closure_reasons: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: string | null
@@ -894,6 +924,50 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_closures: {
+        Row: {
+          closed_by_name: string | null
+          closed_by_user_id: string | null
+          closure_reason_id: string | null
+          company_id: string
+          conversation_id: string
+          created_at: string
+          id: string
+          notes: string
+          reason_name: string
+        }
+        Insert: {
+          closed_by_name?: string | null
+          closed_by_user_id?: string | null
+          closure_reason_id?: string | null
+          company_id: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          notes: string
+          reason_name: string
+        }
+        Update: {
+          closed_by_name?: string | null
+          closed_by_user_id?: string | null
+          closure_reason_id?: string | null
+          company_id?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          notes?: string
+          reason_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_closures_closure_reason_id_fkey"
+            columns: ["closure_reason_id"]
+            isOneToOne: false
+            referencedRelation: "closure_reasons"
             referencedColumns: ["id"]
           },
         ]

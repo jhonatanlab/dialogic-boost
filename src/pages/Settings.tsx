@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle, Webhook } from "lucide-react";
+import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle, Webhook, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useCompany } from "@/hooks/useCompany";
@@ -77,6 +77,14 @@ const Settings = () => {
       action: () => navigate("/settings/webhook-integrations"),
       actionLabel: "Configurar webhooks",
       color: "text-indigo-500",
+    },
+    {
+      icon: CheckCircle2,
+      title: "Motivos de Conclusão",
+      description: "Cadastre os motivos exibidos ao concluir uma conversa.",
+      action: () => navigate("/settings/closure-reasons"),
+      actionLabel: "Gerenciar motivos",
+      color: "text-emerald-500",
     },
   ];
 

@@ -32,6 +32,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { NewConversationDialog } from "@/components/inbox/NewConversationDialog";
+import { CloseConversationDialog, type ClosurePayload } from "@/components/inbox/CloseConversationDialog";
 import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
 import { ForceAutomationCard } from "@/components/contacts/ForceAutomationCard";
 
@@ -392,6 +393,7 @@ const Inbox = () => {
   const [channelFilter, setChannelFilter] = useState<string>("all");
   const [connectedChannels, setConnectedChannels] = useState<string[]>([]);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [transferType, setTransferType] = useState<"agent" | "team">("agent");
   const [transferTargetId, setTransferTargetId] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -872,38 +874,60 @@ const Inbox = () => {
     } catch { toast.error("Erro ao assumir conversa"); }
   };
 
-  // Close conversation
-  const handleCloseConversation = async () => {
-    if (!selectedConversation) return;
+  // Close conversation (called by CloseConversationDialog)
+  const handleCloseConversation = async (payload: ClosurePayload) => {
+    if (!selectedConversation || !companyId) return;
     try {
+      // 1) Record closure metadata
+      const { error: closureError } = await supabase
+        .from("conversation_closures")
+        .insert({
+          company_id: companyId,
+          conversation_id: selectedConversation.id,
+          closure_reason_id: payload.reasonId,
+          reason_name: payload.reasonName,
+          notes: payload.notes,
+          closed_by_user_id: currentUserId,
+          closed_by_name: currentUserName || null,
+        } as any);
+      if (closureError) { console.error("Closure insert error:", closureError); throw closureError; }
+
+      // 2) Optional tags on contact
+      if (payload.tagIds.length > 0) {
+        for (const tagId of payload.tagIds) {
+          await supabase
+            .from("contact_tags")
+            .insert({ contact_id: selectedConversation.contact_id, tag_id: tagId } as any);
+        }
+        queryClient.invalidateQueries({ queryKey: ["contact-tags"] });
+      }
+
+      // 3) Close the conversation
       const { error } = await supabase
         .from("conversations")
         .update({ status: "closed", updated_at: new Date().toISOString(), restarted_at: new Date().toISOString() } as any)
         .eq("id", selectedConversation.id);
       if (error) { console.error("Close error:", error); throw error; }
 
-      // Fetch AI summary and save it as a conversation event, then delete it
+      // 4) Persist AI summary (if any) as event
       const contactId = selectedConversation.contact_id;
       const { data: aiSummary } = await supabase
         .from("contact_ai_summaries")
         .select("summary")
         .eq("contact_id", contactId)
         .maybeSingle();
-
       if (aiSummary?.summary) {
         await logConversationEvent(selectedConversation.id, "ai_summary", {
           details: { summary: aiSummary.summary },
         });
-        await supabase
-          .from("contact_ai_summaries")
-          .delete()
-          .eq("contact_id", contactId);
+        await supabase.from("contact_ai_summaries").delete().eq("contact_id", contactId);
       }
 
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       toast.success("Conversa concluída!");
-      logConversationEvent(selectedConversation.id, "closed");
-      // Notify automation to reactivate AI
+      logConversationEvent(selectedConversation.id, "closed", {
+        details: { reason: payload.reasonName, notes: payload.notes },
+      });
       postToOutbound({
         action: "reactivate_ai",
         phone_number: selectedConversation.contact.phone || "",
@@ -912,7 +936,11 @@ const Inbox = () => {
         type: "control",
       });
       setSelectedConversationId(null);
-    } catch { toast.error("Erro ao concluir conversa"); }
+    } catch (err) {
+      console.error("handleCloseConversation error:", err);
+      toast.error("Erro ao concluir conversa");
+      throw err;
+    }
   };
 
   // Transfer conversation
@@ -1212,7 +1240,7 @@ const Inbox = () => {
                   )}
                   {/* Close conversation button */}
                   {selectedConversation.status !== "closed" && selectedConversation.assigned_to === currentUserId && (
-                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={handleCloseConversation}>
+                    <Button size="sm" variant="outline" className="h-8 text-xs gap-1 text-destructive hover:text-destructive" onClick={() => setShowCloseDialog(true)}>
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Concluir
                     </Button>
@@ -1913,6 +1941,13 @@ const Inbox = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Close Conversation Dialog */}
+      <CloseConversationDialog
+        open={showCloseDialog}
+        onOpenChange={setShowCloseDialog}
+        onConfirm={handleCloseConversation}
+      />
     </DashboardLayout>
   );
 };
