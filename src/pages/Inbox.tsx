@@ -96,12 +96,24 @@ const MediaContent = ({ message }: { message: Message }) => {
   switch (type) {
     case "image":
       return (
-        <div className="overflow-hidden rounded-md">
+        <button
+          type="button"
+          onClick={() => requestMediaLightbox({ url: src, type: "image" })}
+          className="block overflow-hidden rounded-md cursor-zoom-in"
+        >
           <img src={src} alt="" className="w-full max-h-64 object-cover" loading="lazy" />
-        </div>
+        </button>
       );
     case "video":
-      return <video src={src} controls className="w-full max-h-64 rounded-md" />;
+      return (
+        <button
+          type="button"
+          onClick={() => requestMediaLightbox({ url: src, type: "video" })}
+          className="block w-full rounded-md overflow-hidden cursor-pointer"
+        >
+          <video src={src} className="w-full max-h-64 rounded-md pointer-events-none" />
+        </button>
+      );
     case "audio":
       return <audio src={src} controls className="w-full min-w-[220px]" />;
     case "document":
