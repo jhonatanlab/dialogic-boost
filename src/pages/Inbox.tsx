@@ -1829,10 +1829,14 @@ const Inbox = () => {
                                 {images.map(msg => {
                                   const src = resolveMediaSrc(getMediaUrl(msg)!, getMimetype(msg), "image");
                                   return (
-                                    <a key={msg.id} href={src} target="_blank" rel="noopener noreferrer"
-                                      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity">
+                                    <button
+                                      type="button"
+                                      key={msg.id}
+                                      onClick={() => requestMediaLightbox({ url: src, type: "image" })}
+                                      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity cursor-zoom-in"
+                                    >
                                       <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                    </a>
+                                    </button>
                                   );
                                 })}
                               </div>
@@ -1843,8 +1847,23 @@ const Inbox = () => {
                               <Label className="text-muted-foreground text-xs mb-2 block flex items-center gap-1">
                                 <Film className="h-3 w-3" /> Vídeos ({videos.length})
                               </Label>
-                              <div className="space-y-1.5">
-                                {videos.map(msg => <FileItem key={msg.id} msg={msg} icon={Film} fallbackLabel="Vídeo" />)}
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {videos.map(msg => {
+                                  const src = resolveMediaSrc(getMediaUrl(msg)!, getMimetype(msg), "video");
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={msg.id}
+                                      onClick={() => requestMediaLightbox({ url: src, type: "video" })}
+                                      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity cursor-pointer relative"
+                                    >
+                                      <video src={src} className="w-full h-full object-cover pointer-events-none" />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                        <PlayCircle className="h-8 w-8 text-white drop-shadow" />
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
