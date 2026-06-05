@@ -2010,6 +2010,7 @@ const Inbox = () => {
         onOpenChange={setShowCloseDialog}
         onConfirm={handleCloseConversation}
       />
+      <MediaLightbox />
     </DashboardLayout>
   );
 };
