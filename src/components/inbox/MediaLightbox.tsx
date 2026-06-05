@@ -6,10 +6,18 @@ export type LightboxItem = { url: string; type: "image" | "video" };
 type OpenPayload = { items: LightboxItem[]; index: number };
 
 const EVENT_NAME = "media-lightbox:open";
+const REQUEST_EVENT = "media-lightbox:request";
 
 export const openMediaLightbox = (payload: OpenPayload) => {
   window.dispatchEvent(new CustomEvent<OpenPayload>(EVENT_NAME, { detail: payload }));
 };
+
+/** Fired by chat bubbles; the Inbox page listens and resolves to the full media list. */
+export const requestMediaLightbox = (item: LightboxItem) => {
+  window.dispatchEvent(new CustomEvent<LightboxItem>(REQUEST_EVENT, { detail: item }));
+};
+
+export const MEDIA_LIGHTBOX_REQUEST_EVENT = REQUEST_EVENT;
 
 export const MediaLightbox: React.FC = () => {
   const [state, setState] = useState<OpenPayload | null>(null);
