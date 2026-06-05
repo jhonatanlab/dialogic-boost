@@ -1090,6 +1090,32 @@ const Inbox = () => {
     return groups;
   })();
 
+  // Lightbox: build full media list of the open conversation and resolve clicks
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<LightboxItem>).detail;
+      if (!detail?.url) return;
+      const items: LightboxItem[] = [];
+      for (const m of allMessages || []) {
+        const url = getMediaUrl(m);
+        if (!url) continue;
+        if (m.message_type === "image" || m.message_type === "video") {
+          const src = resolveMediaSrc(url, getMimetype(m), m.message_type);
+          items.push({ url: src, type: m.message_type as "image" | "video" });
+        }
+      }
+      const idx = items.findIndex(i => i.url === detail.url);
+      if (idx === -1) {
+        openMediaLightbox({ items: [detail], index: 0 });
+      } else {
+        openMediaLightbox({ items, index: idx });
+      }
+    };
+    window.addEventListener(MEDIA_LIGHTBOX_REQUEST_EVENT, handler);
+    return () => window.removeEventListener(MEDIA_LIGHTBOX_REQUEST_EVENT, handler);
+  }, [allMessages]);
+
+
   return (
     <DashboardLayout noPadding>
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
