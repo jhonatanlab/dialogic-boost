@@ -35,6 +35,7 @@ import { NewConversationDialog } from "@/components/inbox/NewConversationDialog"
 import { CloseConversationDialog, type ClosurePayload } from "@/components/inbox/CloseConversationDialog";
 import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
 import { ForceAutomationCard } from "@/components/contacts/ForceAutomationCard";
+import { MediaLightbox, openMediaLightbox, requestMediaLightbox, MEDIA_LIGHTBOX_REQUEST_EVENT, type LightboxItem } from "@/components/inbox/MediaLightbox";
 
 /* ─── Helpers ─── */
 
@@ -95,12 +96,24 @@ const MediaContent = ({ message }: { message: Message }) => {
   switch (type) {
     case "image":
       return (
-        <div className="overflow-hidden rounded-md">
+        <button
+          type="button"
+          onClick={() => requestMediaLightbox({ url: src, type: "image" })}
+          className="block overflow-hidden rounded-md cursor-zoom-in"
+        >
           <img src={src} alt="" className="w-full max-h-64 object-cover" loading="lazy" />
-        </div>
+        </button>
       );
     case "video":
-      return <video src={src} controls className="w-full max-h-64 rounded-md" />;
+      return (
+        <button
+          type="button"
+          onClick={() => requestMediaLightbox({ url: src, type: "video" })}
+          className="block w-full rounded-md overflow-hidden cursor-pointer"
+        >
+          <video src={src} className="w-full max-h-64 rounded-md pointer-events-none" />
+        </button>
+      );
     case "audio":
       return <audio src={src} controls className="w-full min-w-[220px]" />;
     case "document":
@@ -185,7 +198,11 @@ const ChatBubble = ({ message, agentName }: { message: Message; agentName?: stri
         )}
         {contentImageSrc && !imgError && (
           <div className="p-1">
-            <a href={contentImageSrc} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md">
+            <button
+              type="button"
+              onClick={() => requestMediaLightbox({ url: contentImageSrc, type: "image" })}
+              className="block overflow-hidden rounded-md cursor-zoom-in"
+            >
               <img
                 src={contentImageSrc}
                 alt="Imagem"
@@ -193,7 +210,7 @@ const ChatBubble = ({ message, agentName }: { message: Message; agentName?: stri
                 loading="lazy"
                 onError={() => setImgError(true)}
               />
-            </a>
+            </button>
           </div>
         )}
         {contentImageSrc && imgError && (
@@ -1073,6 +1090,32 @@ const Inbox = () => {
     return groups;
   })();
 
+  // Lightbox: build full media list of the open conversation and resolve clicks
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<LightboxItem>).detail;
+      if (!detail?.url) return;
+      const items: LightboxItem[] = [];
+      for (const m of allMessages || []) {
+        const url = getMediaUrl(m);
+        if (!url) continue;
+        if (m.message_type === "image" || m.message_type === "video") {
+          const src = resolveMediaSrc(url, getMimetype(m), m.message_type);
+          items.push({ url: src, type: m.message_type as "image" | "video" });
+        }
+      }
+      const idx = items.findIndex(i => i.url === detail.url);
+      if (idx === -1) {
+        openMediaLightbox({ items: [detail], index: 0 });
+      } else {
+        openMediaLightbox({ items, index: idx });
+      }
+    };
+    window.addEventListener(MEDIA_LIGHTBOX_REQUEST_EVENT, handler);
+    return () => window.removeEventListener(MEDIA_LIGHTBOX_REQUEST_EVENT, handler);
+  }, [allMessages]);
+
+
   return (
     <DashboardLayout noPadding>
       <div className="flex h-[calc(100vh-4rem)] overflow-hidden">
@@ -1786,10 +1829,14 @@ const Inbox = () => {
                                 {images.map(msg => {
                                   const src = resolveMediaSrc(getMediaUrl(msg)!, getMimetype(msg), "image");
                                   return (
-                                    <a key={msg.id} href={src} target="_blank" rel="noopener noreferrer"
-                                      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity">
+                                    <button
+                                      type="button"
+                                      key={msg.id}
+                                      onClick={() => requestMediaLightbox({ url: src, type: "image" })}
+                                      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity cursor-zoom-in"
+                                    >
                                       <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                    </a>
+                                    </button>
                                   );
                                 })}
                               </div>
@@ -1800,8 +1847,23 @@ const Inbox = () => {
                               <Label className="text-muted-foreground text-xs mb-2 block flex items-center gap-1">
                                 <Film className="h-3 w-3" /> Vídeos ({videos.length})
                               </Label>
-                              <div className="space-y-1.5">
-                                {videos.map(msg => <FileItem key={msg.id} msg={msg} icon={Film} fallbackLabel="Vídeo" />)}
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {videos.map(msg => {
+                                  const src = resolveMediaSrc(getMediaUrl(msg)!, getMimetype(msg), "video");
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={msg.id}
+                                      onClick={() => requestMediaLightbox({ url: src, type: "video" })}
+                                      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity cursor-pointer relative"
+                                    >
+                                      <video src={src} className="w-full h-full object-cover pointer-events-none" />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                        <PlayCircle className="h-8 w-8 text-white drop-shadow" />
+                                      </div>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -1948,6 +2010,7 @@ const Inbox = () => {
         onOpenChange={setShowCloseDialog}
         onConfirm={handleCloseConversation}
       />
+      <MediaLightbox />
     </DashboardLayout>
   );
 };
