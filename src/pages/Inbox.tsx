@@ -198,7 +198,11 @@ const ChatBubble = ({ message, agentName }: { message: Message; agentName?: stri
         )}
         {contentImageSrc && !imgError && (
           <div className="p-1">
-            <a href={contentImageSrc} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-md">
+            <button
+              type="button"
+              onClick={() => requestMediaLightbox({ url: contentImageSrc, type: "image" })}
+              className="block overflow-hidden rounded-md cursor-zoom-in"
+            >
               <img
                 src={contentImageSrc}
                 alt="Imagem"
@@ -206,7 +210,7 @@ const ChatBubble = ({ message, agentName }: { message: Message; agentName?: stri
                 loading="lazy"
                 onError={() => setImgError(true)}
               />
-            </a>
+            </button>
           </div>
         )}
         {contentImageSrc && imgError && (
