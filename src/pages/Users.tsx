@@ -22,6 +22,8 @@ interface CompanyUser {
   role: string;
   email: string;
   created_at: string;
+  is_blocked?: boolean;
+  blocked_at?: string | null;
 }
 
 async function callManageUsers(body: Record<string, unknown>) {
