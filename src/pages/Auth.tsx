@@ -45,10 +45,16 @@ const Auth = () => {
     const checkProfile = async () => {
       const { data: profile } = await supabase
         .from("profiles")
-        .select("id")
+        .select("id, is_blocked")
         .eq("user_id", user.id)
         .maybeSingle();
-      
+
+      if (profile?.is_blocked) {
+        await supabase.auth.signOut();
+        toast.error("Sua conta foi bloqueada. Contate o administrador.");
+        return;
+      }
+
       if (profile) {
         navigate("/dashboard");
       }
