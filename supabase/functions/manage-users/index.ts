@@ -278,9 +278,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // REMOVE user from company
-    if (action === "remove") {
+    // BLOCK / UNBLOCK user (preserves all data)
+    if (action === "block" || action === "unblock") {
       const { user_id } = body;
+      const blocking = action === "block";
 
       if (!user_id) {
         return new Response(JSON.stringify({ error: "user_id is required" }), {
@@ -290,28 +291,64 @@ Deno.serve(async (req) => {
       }
 
       if (user_id === caller.id) {
-        return new Response(JSON.stringify({ error: "Cannot remove yourself" }), {
+        return new Response(JSON.stringify({ error: "Você não pode bloquear a si mesmo" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Delete profile for this company
+      // Make sure the target belongs to the same company and is not an admin
+      const { data: targetProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id, role, company_id")
+        .eq("user_id", user_id)
+        .eq("company_id", callerProfile.company_id)
+        .maybeSingle();
+
+      if (!targetProfile) {
+        return new Response(JSON.stringify({ error: "Usuário não encontrado nesta empresa" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (targetProfile.role === "admin") {
+        return new Response(JSON.stringify({ error: "Não é possível bloquear um administrador" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
-        .delete()
+        .update({
+          is_blocked: blocking,
+          blocked_at: blocking ? new Date().toISOString() : null,
+        })
         .eq("user_id", user_id)
         .eq("company_id", callerProfile.company_id);
 
       if (profileError) throw profileError;
 
-      // Delete user_roles
-      await supabaseAdmin
-        .from("user_roles")
-        .delete()
-        .eq("user_id", user_id);
+      // Ban / unban in Auth so the user cannot sign in or refresh tokens
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(user_id, {
+          ban_duration: blocking ? "876000h" : "none",
+        });
+      } catch (e) {
+        console.error("ban_duration update failed", e);
+      }
 
-      return new Response(JSON.stringify({ message: "User removed" }), {
+      // Revoke active sessions when blocking
+      if (blocking) {
+        try {
+          await supabaseAdmin.auth.admin.signOut(user_id, "global");
+        } catch (e) {
+          console.error("signOut failed", e);
+        }
+      }
+
+      return new Response(JSON.stringify({ message: blocking ? "Usuário bloqueado" : "Usuário desbloqueado" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
