@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Users as UsersIcon, UserPlus, ArrowLeft, Trash2, Shield, Headset } from "lucide-react";
+import { Users as UsersIcon, UserPlus, ArrowLeft, Ban, CheckCircle2, Shield, Headset } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,8 @@ interface CompanyUser {
   role: string;
   email: string;
   created_at: string;
+  is_blocked?: boolean;
+  blocked_at?: string | null;
 }
 
 async function callManageUsers(body: Record<string, unknown>) {
@@ -115,12 +117,12 @@ const Users = () => {
     },
   });
 
-  const removeMutation = useMutation({
-    mutationFn: async (user_id: string) => {
-      return callManageUsers({ action: "remove", user_id });
+  const blockMutation = useMutation({
+    mutationFn: async ({ user_id, block }: { user_id: string; block: boolean }) => {
+      return callManageUsers({ action: block ? "block" : "unblock", user_id });
     },
-    onSuccess: () => {
-      toast.success("Usuário removido.");
+    onSuccess: (_d, vars) => {
+      toast.success(vars.block ? "Usuário bloqueado." : "Usuário desbloqueado.");
       queryClient.invalidateQueries({ queryKey: ["company-users"] });
     },
     onError: (err: Error) => {
@@ -251,7 +253,16 @@ const Users = () => {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                    <TableCell>{roleBadge(user.role)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {roleBadge(user.role)}
+                        {user.is_blocked && (
+                          <Badge variant="outline" className="border-destructive/40 text-destructive">
+                            Bloqueado
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right">
                       {user.role === "admin" ? (
                         <span className="text-xs text-muted-foreground">Proprietário</span>
@@ -259,6 +270,7 @@ const Users = () => {
                         <div className="flex items-center justify-end gap-2">
                           <Select
                             value={user.role}
+                            disabled={user.is_blocked}
                             onValueChange={(newRole) =>
                               updateRoleMutation.mutate({ user_id: user.user_id, role: newRole })
                             }
@@ -272,30 +284,48 @@ const Users = () => {
                             </SelectContent>
                           </Select>
 
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remover usuário?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  {user.full_name || user.email} será removido da sua empresa. Esta ação não pode ser desfeita.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => removeMutation.mutate(user.user_id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          {user.is_blocked ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-emerald-600 border-emerald-500/40 hover:bg-emerald-500/10"
+                              onClick={() => blockMutation.mutate({ user_id: user.user_id, block: false })}
+                              disabled={blockMutation.isPending}
+                            >
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                              Desbloquear
+                            </Button>
+                          ) : (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                                 >
-                                  Remover
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                                  <Ban className="h-4 w-4 mr-1" />
+                                  Bloquear
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Bloquear usuário?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {user.full_name || user.email} não poderá mais acessar o sistema. Todos os dados (conversas, tags, mensagens) serão preservados e você pode desbloquear a qualquer momento.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => blockMutation.mutate({ user_id: user.user_id, block: true })}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Bloquear
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </div>
                       )}
                     </TableCell>
