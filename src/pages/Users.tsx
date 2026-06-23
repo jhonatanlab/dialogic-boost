@@ -117,12 +117,12 @@ const Users = () => {
     },
   });
 
-  const removeMutation = useMutation({
-    mutationFn: async (user_id: string) => {
-      return callManageUsers({ action: "remove", user_id });
+  const blockMutation = useMutation({
+    mutationFn: async ({ user_id, block }: { user_id: string; block: boolean }) => {
+      return callManageUsers({ action: block ? "block" : "unblock", user_id });
     },
-    onSuccess: () => {
-      toast.success("Usuário removido.");
+    onSuccess: (_d, vars) => {
+      toast.success(vars.block ? "Usuário bloqueado." : "Usuário desbloqueado.");
       queryClient.invalidateQueries({ queryKey: ["company-users"] });
     },
     onError: (err: Error) => {
