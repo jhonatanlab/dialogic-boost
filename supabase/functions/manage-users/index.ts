@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     if (action === "list") {
       const { data: profiles, error } = await supabaseAdmin
         .from("profiles")
-        .select("id, user_id, full_name, role, created_at")
+        .select("id, user_id, full_name, role, created_at, is_blocked, blocked_at")
         .eq("company_id", callerProfile.company_id);
 
       if (error) throw error;
