@@ -86,6 +86,14 @@ const Settings = () => {
       actionLabel: "Gerenciar motivos",
       color: "text-emerald-500",
     },
+    {
+      icon: CalendarCog,
+      title: "Regras de Agendamento",
+      description: "Defina duração, intervalos, dias e limites de agendamentos.",
+      action: () => navigate("/settings/appointment-rules"),
+      actionLabel: "Configurar regras",
+      color: "text-amber-500",
+    },
   ];
 
   return (
