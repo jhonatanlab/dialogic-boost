@@ -230,6 +230,8 @@ const AppointmentRulesPage = () => {
     max_per_day: r.max_per_day,
     max_per_slot: r.max_per_slot,
     allow_repeat_same_slot: r.allow_repeat_same_slot,
+    fixed_duration_enabled: r.fixed_duration_enabled,
+    fixed_duration_minutes: r.fixed_duration_minutes,
     weekly_schedule: r.weekly_schedule,
   });
 
