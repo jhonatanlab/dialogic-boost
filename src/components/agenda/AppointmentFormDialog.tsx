@@ -63,6 +63,10 @@ export function AppointmentFormDialog({ open, onOpenChange, appointment, default
   const [contactSearch, setContactSearch] = useState("");
   const { data: contacts = [] } = useContacts(contactSearch);
   const [contactPickerOpen, setContactPickerOpen] = useState(false);
+  const { data: resolvedRules } = useResolvedAppointmentRules();
+  const fixedDurationEnabled = !!resolvedRules?.fixed_duration_enabled;
+  const fixedDurationMinutes = resolvedRules?.fixed_duration_minutes ?? 60;
+
 
   const initialValues: FormValues = useMemo(() => {
     if (appointment) {
