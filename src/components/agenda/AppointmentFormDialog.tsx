@@ -106,6 +106,12 @@ export function AppointmentFormDialog({ open, onOpenChange, appointment, default
     if (open) form.reset(initialValues);
   }, [open, initialValues]);
 
+  useEffect(() => {
+    if (open && fixedDurationEnabled) {
+      form.setValue("duration_minutes", fixedDurationMinutes);
+    }
+  }, [open, fixedDurationEnabled, fixedDurationMinutes]);
+
   const onSubmit = async (values: FormValues) => {
     const [hh, mm] = values.time.split(":").map(Number);
     const dt = new Date(values.date);
