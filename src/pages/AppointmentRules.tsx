@@ -254,6 +254,10 @@ const AppointmentRulesPage = () => {
           <TabsList>
             {isManager && <TabsTrigger value="company">Padrão da empresa</TabsTrigger>}
             <TabsTrigger value="user">Meu override</TabsTrigger>
+            <TabsTrigger value="simulator">
+              <FlaskConical className="h-4 w-4 mr-1" />
+              Simulador
+            </TabsTrigger>
           </TabsList>
 
           {isManager && (
@@ -308,9 +312,12 @@ const AppointmentRulesPage = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="simulator">
+            <AppointmentSimulator />
+          </TabsContent>
         </Tabs>
 
-        <AppointmentSimulator />
       </div>
     </DashboardLayout>
   );
