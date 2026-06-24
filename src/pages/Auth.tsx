@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Session, User } from "@supabase/supabase-js";
