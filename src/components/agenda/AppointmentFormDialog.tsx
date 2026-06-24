@@ -32,6 +32,7 @@ import {
   useUpdateAppointment,
 } from "@/hooks/useAppointments";
 import { useContacts } from "@/hooks/useContacts";
+import { useResolvedAppointmentRules } from "@/hooks/useAppointmentRules";
 
 const schema = z.object({
   title: z.string().min(1, "Nome do contato é obrigatório").max(200),
