@@ -315,8 +315,13 @@ export function AppointmentFormDialog({ open, onOpenChange, appointment, default
                   <FormItem>
                     <FormLabel>Duração (min)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={5} step={5} {...field} />
+                      <Input type="number" min={5} step={5} {...field} disabled={fixedDurationEnabled} />
                     </FormControl>
+                    {fixedDurationEnabled && (
+                      <p className="text-xs text-muted-foreground">
+                        Duração fixa definida pelas regras de agendamento ({fixedDurationMinutes} min).
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
