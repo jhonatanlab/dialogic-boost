@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, FlaskConical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
+import { useResolvedAppointmentRules } from "@/hooks/useAppointmentRules";
 import { useToast } from "@/hooks/use-toast";
 
 type Check = { label: string; ok: boolean; detail: string };
