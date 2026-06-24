@@ -23,6 +23,9 @@ type SimResult = {
 export function AppointmentSimulator() {
   const { companyId } = useCompany();
   const { toast } = useToast();
+  const { data: resolvedRules } = useResolvedAppointmentRules();
+  const fixedDurationEnabled = !!resolvedRules?.fixed_duration_enabled;
+  const fixedDurationMinutes = resolvedRules?.fixed_duration_minutes ?? 60;
   const now = new Date();
   now.setMinutes(0, 0, 0);
   now.setHours(now.getHours() + 1);
@@ -34,6 +37,10 @@ export function AppointmentSimulator() {
   const [useMyRules, setUseMyRules] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SimResult | null>(null);
+
+  useEffect(() => {
+    if (fixedDurationEnabled) setDuration(fixedDurationMinutes);
+  }, [fixedDurationEnabled, fixedDurationMinutes]);
 
   const run = async () => {
     if (!companyId) return;
