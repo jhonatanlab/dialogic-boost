@@ -120,6 +120,33 @@ function RulesForm({
         )}
       </div>
 
+      <div className="space-y-3 rounded-md border p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-base">Duração fixa para todos os agendamentos</Label>
+            <p className="text-xs text-muted-foreground">
+              Quando ativo, o campo de duração no modal de agendamento fica bloqueado com o valor definido aqui.
+            </p>
+          </div>
+          <Switch
+            checked={state.fixed_duration_enabled}
+            onCheckedChange={(v) => setState({ ...state, fixed_duration_enabled: v })}
+          />
+        </div>
+        {state.fixed_duration_enabled && (
+          <div className="space-y-2">
+            <Label>Duração fixa (minutos)</Label>
+            <Input
+              type="number"
+              min={5}
+              step={5}
+              value={state.fixed_duration_minutes}
+              onChange={(e) => setState({ ...state, fixed_duration_minutes: Number(e.target.value) })}
+            />
+          </div>
+        )}
+      </div>
+
       <Separator />
 
       <div className="space-y-3">
