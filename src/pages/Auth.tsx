@@ -94,6 +94,21 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      {blocked && (
+        <Card className="w-full max-w-md mb-4 border-destructive">
+          <CardHeader className="space-y-1 flex flex-col items-center">
+            <div className="h-12 w-12 rounded-xl bg-destructive/10 flex items-center justify-center mb-2">
+              <ShieldAlert className="h-7 w-7 text-destructive" />
+            </div>
+            <CardTitle className="text-xl font-bold">Acesso negado</CardTitle>
+            <CardDescription className="text-center">
+              Sua conta foi bloqueada. Entre em contato com o administrador da sua empresa.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+      {!blocked && (
+
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 flex flex-col items-center">
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-2">
