@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle, Webhook, CheckCircle2 } from "lucide-react";
+import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle, Webhook, CheckCircle2, CalendarCog } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useCompany } from "@/hooks/useCompany";
