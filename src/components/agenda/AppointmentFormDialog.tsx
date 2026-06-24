@@ -89,7 +89,7 @@ export function AppointmentFormDialog({ open, onOpenChange, appointment, default
       phone: "",
       date: base,
       time: format(base, "HH:mm"),
-      duration_minutes: 60,
+      duration_minutes: fixedDurationEnabled ? fixedDurationMinutes : 60,
       type: "reuniao",
       status: "pending",
       notes: "",
