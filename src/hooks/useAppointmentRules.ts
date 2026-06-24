@@ -85,6 +85,28 @@ export function useAppointmentRules(scope: "company" | "user") {
   });
 }
 
+// Resolves the effective rules for the current user (user override > company > defaults)
+export function useResolvedAppointmentRules() {
+  const { companyId } = useCompany();
+  return useQuery({
+    queryKey: ["appointment-rules-resolved", companyId],
+    enabled: !!companyId,
+    queryFn: async (): Promise<AppointmentRules> => {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id ?? null;
+      const { data, error } = await supabase
+        .from("appointment_rules" as any)
+        .select("*")
+        .eq("company_id", companyId!);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as AppointmentRules[];
+      const userRow = rows.find((r) => r.user_id === userId);
+      const companyRow = rows.find((r) => r.user_id === null);
+      return userRow ?? companyRow ?? buildDefaults(companyId!, null);
+    },
+  });
+}
+
 export function useUpsertAppointmentRules() {
   const qc = useQueryClient();
   const { companyId } = useCompany();
