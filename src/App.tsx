@@ -31,6 +31,7 @@ import CompanyProfile from "./pages/CompanyProfile";
 import ChatDistribution from "./pages/ChatDistribution";
 import Profile from "./pages/Profile";
 import ClosureReasons from "./pages/ClosureReasons";
+import AppointmentRules from "./pages/AppointmentRules";
 
 const queryClient = new QueryClient();
 
