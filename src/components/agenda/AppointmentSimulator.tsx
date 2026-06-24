@@ -89,7 +89,13 @@ export function AppointmentSimulator() {
               min={1}
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
+              disabled={fixedDurationEnabled}
             />
+            {fixedDurationEnabled && (
+              <p className="text-xs text-muted-foreground">
+                Fixa em {fixedDurationMinutes} min pelas regras.
+              </p>
+            )}
           </div>
         </div>
 
