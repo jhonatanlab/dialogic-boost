@@ -53,7 +53,8 @@ const Auth = () => {
 
       if (profile?.is_blocked) {
         await supabase.auth.signOut();
-        toast.error("Sua conta foi bloqueada. Contate o administrador.");
+        setBlocked(true);
+        toast.error("Acesso negado: sua conta foi bloqueada.");
         return;
       }
 
@@ -63,6 +64,7 @@ const Auth = () => {
     };
     checkProfile();
   }, [user, navigate]);
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
