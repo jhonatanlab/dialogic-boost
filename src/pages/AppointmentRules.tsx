@@ -309,6 +309,8 @@ const AppointmentRulesPage = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <AppointmentSimulator />
       </div>
     </DashboardLayout>
   );
