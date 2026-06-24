@@ -1,60 +1,40 @@
-## Página de Regras de Agendamento
+## Objetivo
 
-Nova página em **Configurações → Regras de Agendamento** para definir regras que controlam como agendamentos podem ser criados, com padrão por empresa e override opcional por usuário.
+Adicionar nas Regras de Agendamento a opção de **fixar a duração** dos agendamentos. Quando ativa, o campo "Duração" no modal de novo/editar agendamento fica bloqueado com o valor configurado; quando inativa, o usuário continua escolhendo livremente.
 
-### 1. Banco de dados
+## Mudanças
 
-Tabela `appointment_rules` (uma linha por empresa quando `user_id IS NULL`, ou uma linha por usuário para override):
+### 1. Banco de dados (migração)
+Adicionar 2 colunas em `appointment_rules`:
+- `fixed_duration_enabled boolean not null default false`
+- `fixed_duration_minutes integer not null default 60`
 
-- `company_id` (uuid, obrigatório)
-- `user_id` (uuid, nulo = padrão da empresa)
-- `min_duration_minutes` (int, default 15) — tempo mínimo
-- `max_duration_minutes` (int, default 240) — tempo máximo
-- `buffer_minutes` (int, default 0) — pausa obrigatória entre agendamentos
-- `max_per_day` (int, nulo = sem limite) — total de agendamentos por dia
-- `max_per_slot` (int, default 1) — quantos agendamentos simultâneos no mesmo horário (limite global)
-- `allow_repeat_same_slot` (bool, default false) — atalho para `max_per_slot > 1`
-- `weekly_schedule` (jsonb) — janelas por dia da semana, ex:
-  ```
-  { "mon": [{"start":"08:00","end":"18:00"}], "tue": [...], "sun": [] }
-  ```
-- Constraint única: `(company_id, user_id)` (com `user_id` nulo para o padrão)
-- RLS por `company_id`; GRANTs para `authenticated` e `service_role`
+Atualizar `resolve_appointment_rules` para retornar esses campos (com defaults quando não há linha).
 
-Função `public.resolve_appointment_rules(p_company_id, p_user_id)` (security definer) que devolve a linha do usuário se existir, senão a da empresa, senão defaults.
+Atualizar o trigger `validate_appointment_rules`: se `fixed_duration_enabled` estiver ativo e `NEW.duration_minutes <> fixed_duration_minutes`, lançar exceção clara ("Duração fixa de X minutos definida pelas regras").
 
-**Validação no backend** via trigger `BEFORE INSERT OR UPDATE` em `appointments` que:
-1. Resolve as regras para `company_id`/`user_id`.
-2. Calcula `end_at = scheduled_at + duration_minutes`.
-3. Valida duração mínima/máxima.
-4. Valida que o dia da semana e horário caem em alguma janela de `weekly_schedule`.
-5. Valida `max_per_day` (conta no mesmo dia, mesmo usuário, status ≠ cancelled).
-6. Valida `max_per_slot` (conta sobreposições no mesmo horário no nível da empresa).
-7. Valida `buffer_minutes` (nenhum agendamento do mesmo usuário pode terminar/começar dentro do buffer).
-8. Lança `RAISE EXCEPTION` com mensagem em português quando viola.
+Atualizar `simulate_appointment_rules` para incluir o check de duração fixa.
 
-### 2. Frontend
+### 2. Hook `useAppointmentRules.ts`
+Incluir os dois novos campos na interface `AppointmentRules` e nos defaults.
 
-**`src/pages/AppointmentRules.tsx`** (rota `/settings/appointment-rules`):
-- Card "Padrão da Empresa" (visível para admin/manager).
-- Card "Meu override" (qualquer usuário) — toggle "Usar regras da empresa" vs "Personalizar".
-- Campos:
-  - Duração mínima/máxima (minutos)
-  - Buffer entre agendamentos
-  - Total máximo por dia
-  - Máximo de agendamentos simultâneos no mesmo horário (com checkbox "Permitir repetir horário" que controla se >1)
-  - Grade de 7 dias com toggle ativo/inativo + janela `start`/`end` (botão "+ janela" para múltiplas por dia)
-- Salvar via `upsert` em `appointment_rules`.
+### 3. Página `AppointmentRules.tsx`
+Na aba de configuração (empresa e override de usuário), adicionar:
+- Switch "Duração fixa para todos os agendamentos"
+- Input numérico "Duração (minutos)" — habilitado apenas quando o switch está ativo
 
-**`src/hooks/useAppointmentRules.ts`**: hook React Query para ler/escrever (`getCompanyRules`, `getUserRules`, `upsertRules`).
+### 4. Modal `AppointmentFormDialog.tsx`
+- Ler as regras resolvidas via `simulate_appointment_rules` ou expor um novo helper no hook que devolva apenas `{ fixed_duration_enabled, fixed_duration_minutes }` para a empresa/usuário atual.
+- Se `fixed_duration_enabled` = true:
+  - Forçar `duration_minutes = fixed_duration_minutes` no `defaultValues` e no `reset`
+  - Renderizar o input com `disabled` e uma legenda "Duração definida pelas regras de agendamento"
+- Caso contrário, comportamento atual (campo livre).
 
-**`src/components/agenda/AppointmentFormDialog.tsx`**: chamar `resolve_appointment_rules` via RPC, validar no submit (mesmas regras), e exibir erros do backend retornados pelo trigger via toast.
+### 5. Simulador (`AppointmentSimulator.tsx`)
+- Quando duração fixa estiver ativa, travar o input de duração igual ao modal e exibir o aviso.
 
-**`src/pages/Settings.tsx`**: adicionar card "Regras de Agendamento" apontando para `/settings/appointment-rules` (ícone `CalendarCog`).
+## Detalhes técnicos
 
-**`src/App.tsx`**: registrar a rota.
-
-### Fora do escopo
-- Não altera a tabela `appointments` (apenas adiciona trigger).
-- Não muda regras de notificação/Google Calendar.
-- Não muda permissões existentes (admin/manager edita empresa; agent só edita o próprio override).
+- Hierarquia de regras: o override de usuário continua tendo prioridade sobre a empresa (já tratado por `resolve_appointment_rules`).
+- Validação dupla (frontend bloqueia + backend rejeita via trigger), seguindo o padrão das outras regras.
+- Sem migração de dados existentes — default `false` mantém comportamento atual.

@@ -164,6 +164,8 @@ export type Database = {
           buffer_minutes: number
           company_id: string
           created_at: string
+          fixed_duration_enabled: boolean
+          fixed_duration_minutes: number
           id: string
           max_duration_minutes: number
           max_per_day: number | null
@@ -178,6 +180,8 @@ export type Database = {
           buffer_minutes?: number
           company_id: string
           created_at?: string
+          fixed_duration_enabled?: boolean
+          fixed_duration_minutes?: number
           id?: string
           max_duration_minutes?: number
           max_per_day?: number | null
@@ -192,6 +196,8 @@ export type Database = {
           buffer_minutes?: number
           company_id?: string
           created_at?: string
+          fixed_duration_enabled?: boolean
+          fixed_duration_minutes?: number
           id?: string
           max_duration_minutes?: number
           max_per_day?: number | null
@@ -2034,6 +2040,8 @@ export type Database = {
           buffer_minutes: number
           company_id: string
           created_at: string
+          fixed_duration_enabled: boolean
+          fixed_duration_minutes: number
           id: string
           max_duration_minutes: number
           max_per_day: number | null

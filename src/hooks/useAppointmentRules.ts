@@ -17,6 +17,8 @@ export interface AppointmentRules {
   max_per_day: number | null;
   max_per_slot: number;
   allow_repeat_same_slot: boolean;
+  fixed_duration_enabled: boolean;
+  fixed_duration_minutes: number;
   weekly_schedule: WeeklySchedule;
 }
 
@@ -53,6 +55,8 @@ function buildDefaults(companyId: string, userId: string | null): AppointmentRul
     max_per_day: null,
     max_per_slot: 1,
     allow_repeat_same_slot: false,
+    fixed_duration_enabled: false,
+    fixed_duration_minutes: 60,
     weekly_schedule: DEFAULT_WEEKLY_SCHEDULE,
   };
 }
@@ -77,6 +81,28 @@ export function useAppointmentRules(scope: "company" | "user") {
       if (error) throw error;
       if (!data) return buildDefaults(companyId!, scope === "user" ? userId : null);
       return data as unknown as AppointmentRules;
+    },
+  });
+}
+
+// Resolves the effective rules for the current user (user override > company > defaults)
+export function useResolvedAppointmentRules() {
+  const { companyId } = useCompany();
+  return useQuery({
+    queryKey: ["appointment-rules-resolved", companyId],
+    enabled: !!companyId,
+    queryFn: async (): Promise<AppointmentRules> => {
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id ?? null;
+      const { data, error } = await supabase
+        .from("appointment_rules" as any)
+        .select("*")
+        .eq("company_id", companyId!);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as AppointmentRules[];
+      const userRow = rows.find((r) => r.user_id === userId);
+      const companyRow = rows.find((r) => r.user_id === null);
+      return userRow ?? companyRow ?? buildDefaults(companyId!, null);
     },
   });
 }

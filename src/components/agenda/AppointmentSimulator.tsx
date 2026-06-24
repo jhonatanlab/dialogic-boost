@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, FlaskConical } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/hooks/useCompany";
+import { useResolvedAppointmentRules } from "@/hooks/useAppointmentRules";
 import { useToast } from "@/hooks/use-toast";
 
 type Check = { label: string; ok: boolean; detail: string };
-type SimResult = { ok: boolean; checks: Check[]; resolved_scope: string };
+type SimResult = {
+  ok: boolean;
+  checks: Check[];
+  resolved_scope: string;
+  fixed_duration_enabled?: boolean;
+  fixed_duration_minutes?: number;
+};
 
 export function AppointmentSimulator() {
   const { companyId } = useCompany();
   const { toast } = useToast();
+  const { data: resolvedRules } = useResolvedAppointmentRules();
+  const fixedDurationEnabled = !!resolvedRules?.fixed_duration_enabled;
+  const fixedDurationMinutes = resolvedRules?.fixed_duration_minutes ?? 60;
   const now = new Date();
   now.setMinutes(0, 0, 0);
   now.setHours(now.getHours() + 1);
@@ -27,6 +37,10 @@ export function AppointmentSimulator() {
   const [useMyRules, setUseMyRules] = useState(true);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SimResult | null>(null);
+
+  useEffect(() => {
+    if (fixedDurationEnabled) setDuration(fixedDurationMinutes);
+  }, [fixedDurationEnabled, fixedDurationMinutes]);
 
   const run = async () => {
     if (!companyId) return;
@@ -75,7 +89,13 @@ export function AppointmentSimulator() {
               min={1}
               value={duration}
               onChange={(e) => setDuration(Number(e.target.value))}
+              disabled={fixedDurationEnabled}
             />
+            {fixedDurationEnabled && (
+              <p className="text-xs text-muted-foreground">
+                Fixa em {fixedDurationMinutes} min pelas regras.
+              </p>
+            )}
           </div>
         </div>
 

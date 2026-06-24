@@ -32,6 +32,7 @@ import {
   useUpdateAppointment,
 } from "@/hooks/useAppointments";
 import { useContacts } from "@/hooks/useContacts";
+import { useResolvedAppointmentRules } from "@/hooks/useAppointmentRules";
 
 const schema = z.object({
   title: z.string().min(1, "Nome do contato é obrigatório").max(200),
@@ -62,6 +63,10 @@ export function AppointmentFormDialog({ open, onOpenChange, appointment, default
   const [contactSearch, setContactSearch] = useState("");
   const { data: contacts = [] } = useContacts(contactSearch);
   const [contactPickerOpen, setContactPickerOpen] = useState(false);
+  const { data: resolvedRules } = useResolvedAppointmentRules();
+  const fixedDurationEnabled = !!resolvedRules?.fixed_duration_enabled;
+  const fixedDurationMinutes = resolvedRules?.fixed_duration_minutes ?? 60;
+
 
   const initialValues: FormValues = useMemo(() => {
     if (appointment) {
@@ -84,7 +89,7 @@ export function AppointmentFormDialog({ open, onOpenChange, appointment, default
       phone: "",
       date: base,
       time: format(base, "HH:mm"),
-      duration_minutes: 60,
+      duration_minutes: fixedDurationEnabled ? fixedDurationMinutes : 60,
       type: "reuniao",
       status: "pending",
       notes: "",
@@ -100,6 +105,12 @@ export function AppointmentFormDialog({ open, onOpenChange, appointment, default
   useEffect(() => {
     if (open) form.reset(initialValues);
   }, [open, initialValues]);
+
+  useEffect(() => {
+    if (open && fixedDurationEnabled) {
+      form.setValue("duration_minutes", fixedDurationMinutes);
+    }
+  }, [open, fixedDurationEnabled, fixedDurationMinutes]);
 
   const onSubmit = async (values: FormValues) => {
     const [hh, mm] = values.time.split(":").map(Number);
@@ -304,8 +315,13 @@ export function AppointmentFormDialog({ open, onOpenChange, appointment, default
                   <FormItem>
                     <FormLabel>Duração (min)</FormLabel>
                     <FormControl>
-                      <Input type="number" min={5} step={5} {...field} />
+                      <Input type="number" min={5} step={5} {...field} disabled={fixedDurationEnabled} />
                     </FormControl>
+                    {fixedDurationEnabled && (
+                      <p className="text-xs text-muted-foreground">
+                        Duração fixa definida pelas regras de agendamento ({fixedDurationMinutes} min).
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
