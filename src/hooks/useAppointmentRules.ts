@@ -17,6 +17,8 @@ export interface AppointmentRules {
   max_per_day: number | null;
   max_per_slot: number;
   allow_repeat_same_slot: boolean;
+  fixed_duration_enabled: boolean;
+  fixed_duration_minutes: number;
   weekly_schedule: WeeklySchedule;
 }
 
