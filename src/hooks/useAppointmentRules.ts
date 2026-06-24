@@ -55,6 +55,8 @@ function buildDefaults(companyId: string, userId: string | null): AppointmentRul
     max_per_day: null,
     max_per_slot: 1,
     allow_repeat_same_slot: false,
+    fixed_duration_enabled: false,
+    fixed_duration_minutes: 60,
     weekly_schedule: DEFAULT_WEEKLY_SCHEDULE,
   };
 }
