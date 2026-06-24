@@ -11,7 +11,13 @@ import { useCompany } from "@/hooks/useCompany";
 import { useToast } from "@/hooks/use-toast";
 
 type Check = { label: string; ok: boolean; detail: string };
-type SimResult = { ok: boolean; checks: Check[]; resolved_scope: string };
+type SimResult = {
+  ok: boolean;
+  checks: Check[];
+  resolved_scope: string;
+  fixed_duration_enabled?: boolean;
+  fixed_duration_minutes?: number;
+};
 
 export function AppointmentSimulator() {
   const { companyId } = useCompany();
