@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
-import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle, Webhook, CheckCircle2 } from "lucide-react";
+import { Building2, MessageCircle, Users, UsersRound, Settings as SettingsIcon, Shuffle, Webhook, CheckCircle2, CalendarCog } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useCompany } from "@/hooks/useCompany";
@@ -85,6 +85,14 @@ const Settings = () => {
       action: () => navigate("/settings/closure-reasons"),
       actionLabel: "Gerenciar motivos",
       color: "text-emerald-500",
+    },
+    {
+      icon: CalendarCog,
+      title: "Regras de Agendamento",
+      description: "Defina duração, intervalos, dias e limites de agendamentos.",
+      action: () => navigate("/settings/appointment-rules"),
+      actionLabel: "Configurar regras",
+      color: "text-amber-500",
     },
   ];
 

@@ -31,6 +31,7 @@ import CompanyProfile from "./pages/CompanyProfile";
 import ChatDistribution from "./pages/ChatDistribution";
 import Profile from "./pages/Profile";
 import ClosureReasons from "./pages/ClosureReasons";
+import AppointmentRules from "./pages/AppointmentRules";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ const App = () => (
           <Route path="/settings/company" element={<CompanyProfile />} />
           <Route path="/settings/distribution" element={<ChatDistribution />} />
           <Route path="/settings/closure-reasons" element={<ClosureReasons />} />
+          <Route path="/settings/appointment-rules" element={<AppointmentRules />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
           <Route path="/admin/companies" element={<AdminCompanies />} />
           <Route path="/profile" element={<Profile />} />

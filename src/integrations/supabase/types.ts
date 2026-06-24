@@ -158,6 +158,59 @@ export type Database = {
         }
         Relationships: []
       }
+      appointment_rules: {
+        Row: {
+          allow_repeat_same_slot: boolean
+          buffer_minutes: number
+          company_id: string
+          created_at: string
+          id: string
+          max_duration_minutes: number
+          max_per_day: number | null
+          max_per_slot: number
+          min_duration_minutes: number
+          updated_at: string
+          user_id: string | null
+          weekly_schedule: Json
+        }
+        Insert: {
+          allow_repeat_same_slot?: boolean
+          buffer_minutes?: number
+          company_id: string
+          created_at?: string
+          id?: string
+          max_duration_minutes?: number
+          max_per_day?: number | null
+          max_per_slot?: number
+          min_duration_minutes?: number
+          updated_at?: string
+          user_id?: string | null
+          weekly_schedule?: Json
+        }
+        Update: {
+          allow_repeat_same_slot?: boolean
+          buffer_minutes?: number
+          company_id?: string
+          created_at?: string
+          id?: string
+          max_duration_minutes?: number
+          max_per_day?: number | null
+          max_per_slot?: number
+          min_duration_minutes?: number
+          updated_at?: string
+          user_id?: string | null
+          weekly_schedule?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           company_id: string
@@ -1973,6 +2026,29 @@ export type Database = {
           p_token: string
         }
         Returns: Json
+      }
+      resolve_appointment_rules: {
+        Args: { p_company_id: string; p_user_id: string }
+        Returns: {
+          allow_repeat_same_slot: boolean
+          buffer_minutes: number
+          company_id: string
+          created_at: string
+          id: string
+          max_duration_minutes: number
+          max_per_day: number | null
+          max_per_slot: number
+          min_duration_minutes: number
+          updated_at: string
+          user_id: string | null
+          weekly_schedule: Json
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointment_rules"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       sweep_stale_presence: { Args: never; Returns: number }
       update_campaign_contact_status: {
