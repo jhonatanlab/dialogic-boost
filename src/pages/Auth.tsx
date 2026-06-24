@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Session, User } from "@supabase/supabase-js";
@@ -22,6 +22,8 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [blocked, setBlocked] = useState(false);
+
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -51,7 +53,8 @@ const Auth = () => {
 
       if (profile?.is_blocked) {
         await supabase.auth.signOut();
-        toast.error("Sua conta foi bloqueada. Contate o administrador.");
+        setBlocked(true);
+        toast.error("Acesso negado: sua conta foi bloqueada.");
         return;
       }
 
@@ -61,6 +64,7 @@ const Auth = () => {
     };
     checkProfile();
   }, [user, navigate]);
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +94,21 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+      {blocked && (
+        <Card className="w-full max-w-md mb-4 border-destructive">
+          <CardHeader className="space-y-1 flex flex-col items-center">
+            <div className="h-12 w-12 rounded-xl bg-destructive/10 flex items-center justify-center mb-2">
+              <ShieldAlert className="h-7 w-7 text-destructive" />
+            </div>
+            <CardTitle className="text-xl font-bold">Acesso negado</CardTitle>
+            <CardDescription className="text-center">
+              Sua conta foi bloqueada. Entre em contato com o administrador da sua empresa.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+      {!blocked && (
+
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 flex flex-col items-center">
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center mb-2">
@@ -130,7 +149,9 @@ const Auth = () => {
           </form>
         </CardContent>
       </Card>
+      )}
     </div>
+
   );
 };
 

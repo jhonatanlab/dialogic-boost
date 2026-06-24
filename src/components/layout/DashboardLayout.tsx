@@ -19,6 +19,10 @@ import { useCompany } from "@/hooks/useCompany";
 import { usePresence } from "@/hooks/usePresence";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAutoLogout } from "@/hooks/useAutoLogout";
+import { useBlockedGuard } from "@/hooks/useBlockedGuard";
+import { ShieldAlert } from "lucide-react";
+
+
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -31,6 +35,8 @@ export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
   usePresence();
   useNotifications();
   useAutoLogout();
+  const { blocked } = useBlockedGuard();
+
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -44,7 +50,24 @@ export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
 
   const userName = profile?.full_name || "Usuário";
 
+  if (blocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="max-w-md w-full rounded-xl border bg-card p-8 text-center space-y-4">
+          <div className="mx-auto h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+            <ShieldAlert className="h-6 w-6 text-destructive" />
+          </div>
+          <h1 className="text-xl font-semibold">Acesso negado</h1>
+          <p className="text-sm text-muted-foreground">
+            Sua conta foi bloqueada. Entre em contato com o administrador da sua empresa para mais informações.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
+
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
