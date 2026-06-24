@@ -22,6 +22,8 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [blocked, setBlocked] = useState(false);
+
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
