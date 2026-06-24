@@ -20,6 +20,7 @@ import {
   useDeleteUserOverride,
   useUpsertAppointmentRules,
 } from "@/hooks/useAppointmentRules";
+import { AppointmentSimulator } from "@/components/agenda/AppointmentSimulator";
 
 type Editable = Omit<RulesType, "id" | "company_id" | "user_id">;
 
@@ -308,6 +309,8 @@ const AppointmentRulesPage = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <AppointmentSimulator />
       </div>
     </DashboardLayout>
   );

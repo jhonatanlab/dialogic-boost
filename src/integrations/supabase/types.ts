@@ -2050,6 +2050,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      simulate_appointment_rules: {
+        Args: {
+          p_company_id: string
+          p_duration_minutes: number
+          p_scheduled_at: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       sweep_stale_presence: { Args: never; Returns: number }
       update_campaign_contact_status: {
         Args: {
