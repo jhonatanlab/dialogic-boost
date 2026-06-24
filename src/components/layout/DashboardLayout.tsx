@@ -35,6 +35,8 @@ export function DashboardLayout({ children, noPadding }: DashboardLayoutProps) {
   usePresence();
   useNotifications();
   useAutoLogout();
+  const { blocked } = useBlockedGuard();
+
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
