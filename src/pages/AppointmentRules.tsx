@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarCog, Plus, Trash2, ArrowLeft } from "lucide-react";
+import { CalendarCog, Plus, Trash2, ArrowLeft, FlaskConical } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/hooks/useCompany";
 import {
