@@ -19,6 +19,10 @@ import { useCompany } from "@/hooks/useCompany";
 import { usePresence } from "@/hooks/usePresence";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAutoLogout } from "@/hooks/useAutoLogout";
+import { useBlockedGuard } from "@/hooks/useBlockedGuard";
+import { ShieldAlert } from "lucide-react";
+
+
 
 interface DashboardLayoutProps {
   children: ReactNode;
