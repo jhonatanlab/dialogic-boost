@@ -1965,6 +1965,18 @@ const Inbox = () => {
                                   {ev.target_team_name && (
                                     <p className="text-[11px] text-muted-foreground">Equipe: {ev.target_team_name}</p>
                                   )}
+                                  {ev.event_type === "closed" && ev.details?.reason && (
+                                    <div className="mt-1.5">
+                                      <Badge variant="outline" className="text-[10px] h-4 py-0 border-destructive/40 text-destructive">
+                                        {ev.details.reason}
+                                      </Badge>
+                                    </div>
+                                  )}
+                                  {ev.event_type === "closed" && ev.details?.notes && (
+                                    <p className="text-[11px] text-foreground/80 whitespace-pre-line mt-1 bg-secondary/60 rounded p-2 border border-border/40">
+                                      {ev.details.notes}
+                                    </p>
+                                  )}
                                 </>
                               )}
                               <p className="text-[10px] text-muted-foreground/60 mt-1">
