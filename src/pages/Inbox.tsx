@@ -36,6 +36,7 @@ import { CloseConversationDialog, type ClosurePayload } from "@/components/inbox
 import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
 import { ForceAutomationCard } from "@/components/contacts/ForceAutomationCard";
 import { MediaLightbox, openMediaLightbox, requestMediaLightbox, MEDIA_LIGHTBOX_REQUEST_EVENT, type LightboxItem } from "@/components/inbox/MediaLightbox";
+import { useConversationClosure } from "@/hooks/useConversationClosure";
 
 /* ─── Helpers ─── */
 
