@@ -36,6 +36,7 @@ import { CloseConversationDialog, type ClosurePayload } from "@/components/inbox
 import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
 import { ForceAutomationCard } from "@/components/contacts/ForceAutomationCard";
 import { MediaLightbox, openMediaLightbox, requestMediaLightbox, MEDIA_LIGHTBOX_REQUEST_EVENT, type LightboxItem } from "@/components/inbox/MediaLightbox";
+import { useConversationClosure } from "@/hooks/useConversationClosure";
 
 /* ─── Helpers ─── */
 
@@ -364,8 +365,12 @@ const EventBubble = ({ event }: { event: any }) => {
     }
   };
   const { icon: Icon, text, color } = getEventInfo();
+  const isClosed = event.event_type === "closed";
+  const reason: string | undefined = event.details?.reason;
+  const notes: string | undefined = event.details?.notes;
+
   return (
-    <div className="flex items-center justify-center py-2 px-4">
+    <div className="flex flex-col items-center py-2 px-4">
       <div className="flex items-center gap-1.5 bg-card/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm border border-border/50">
         <Icon className={`h-3 w-3 ${color}`} />
         <span className="text-[11px] text-muted-foreground">{text}</span>
@@ -373,6 +378,23 @@ const EventBubble = ({ event }: { event: any }) => {
           {format(new Date(event.created_at), "HH:mm")}
         </span>
       </div>
+      {isClosed && (reason || notes) && (
+        <div className="mt-1.5 max-w-md w-full bg-card/90 backdrop-blur-sm border border-border/50 rounded-lg px-3 py-2 shadow-sm">
+          {reason && (
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Motivo</span>
+              <Badge variant="outline" className="text-[10px] py-0 h-4 border-destructive/40 text-destructive">
+                {reason}
+              </Badge>
+            </div>
+          )}
+          {notes && (
+            <p className="text-[11px] text-foreground/80 whitespace-pre-line leading-snug">
+              {notes}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -450,6 +472,9 @@ const Inbox = () => {
   }, [companyId]);
 
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId);
+  const { data: closureInfo } = useConversationClosure(
+    selectedConversation?.status === "closed" ? selectedConversationId : null
+  );
   const { data: notes } = useContactNotes(selectedConversation?.contact_id || "");
   const createNote = useCreateContactNote();
   const deleteNote = useDeleteContactNote();
@@ -1294,6 +1319,48 @@ const Inbox = () => {
                 </div>
               </div>
 
+              {/* Closure summary band */}
+              {selectedConversation.status === "closed" && closureInfo && (
+                <div className="px-5 py-2 bg-destructive/5 border-b border-destructive/20 shrink-0">
+                  <div className="flex items-start gap-2 flex-wrap">
+                    <XCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] text-muted-foreground">
+                          Concluída em {format(new Date(closureInfo.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          {closureInfo.closed_by_name ? ` por ${closureInfo.closed_by_name}` : ""}
+                        </span>
+                        {closureInfo.reason_name && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] h-4 py-0"
+                            style={closureInfo.reason_color ? { borderColor: closureInfo.reason_color, color: closureInfo.reason_color } : undefined}
+                          >
+                            {closureInfo.reason_name}
+                          </Badge>
+                        )}
+                        {closureInfo.notes && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] gap-1">
+                                <FileText className="h-3 w-3" /> Ver observações
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent align="start" className="w-80">
+                              <p className="text-xs font-medium mb-1">Observações da conclusão</p>
+                              <p className="text-xs text-muted-foreground whitespace-pre-line">
+                                {closureInfo.notes}
+                              </p>
+                            </PopoverContent>
+                          </Popover>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+
               {/* Messages */}
               <div ref={chatContainerRef} onScroll={handleChatScroll}
                 className="flex-1 overflow-y-auto relative"
@@ -1943,6 +2010,18 @@ const Inbox = () => {
                                   )}
                                   {ev.target_team_name && (
                                     <p className="text-[11px] text-muted-foreground">Equipe: {ev.target_team_name}</p>
+                                  )}
+                                  {ev.event_type === "closed" && ev.details?.reason && (
+                                    <div className="mt-1.5">
+                                      <Badge variant="outline" className="text-[10px] h-4 py-0 border-destructive/40 text-destructive">
+                                        {ev.details.reason}
+                                      </Badge>
+                                    </div>
+                                  )}
+                                  {ev.event_type === "closed" && ev.details?.notes && (
+                                    <p className="text-[11px] text-foreground/80 whitespace-pre-line mt-1 bg-secondary/60 rounded p-2 border border-border/40">
+                                      {ev.details.notes}
+                                    </p>
                                   )}
                                 </>
                               )}
