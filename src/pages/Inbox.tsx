@@ -364,8 +364,12 @@ const EventBubble = ({ event }: { event: any }) => {
     }
   };
   const { icon: Icon, text, color } = getEventInfo();
+  const isClosed = event.event_type === "closed";
+  const reason: string | undefined = event.details?.reason;
+  const notes: string | undefined = event.details?.notes;
+
   return (
-    <div className="flex items-center justify-center py-2 px-4">
+    <div className="flex flex-col items-center py-2 px-4">
       <div className="flex items-center gap-1.5 bg-card/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm border border-border/50">
         <Icon className={`h-3 w-3 ${color}`} />
         <span className="text-[11px] text-muted-foreground">{text}</span>
@@ -373,6 +377,23 @@ const EventBubble = ({ event }: { event: any }) => {
           {format(new Date(event.created_at), "HH:mm")}
         </span>
       </div>
+      {isClosed && (reason || notes) && (
+        <div className="mt-1.5 max-w-md w-full bg-card/90 backdrop-blur-sm border border-border/50 rounded-lg px-3 py-2 shadow-sm">
+          {reason && (
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Motivo</span>
+              <Badge variant="outline" className="text-[10px] py-0 h-4 border-destructive/40 text-destructive">
+                {reason}
+              </Badge>
+            </div>
+          )}
+          {notes && (
+            <p className="text-[11px] text-foreground/80 whitespace-pre-line leading-snug">
+              {notes}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };
