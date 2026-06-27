@@ -472,6 +472,9 @@ const Inbox = () => {
   }, [companyId]);
 
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId);
+  const { data: closureInfo } = useConversationClosure(
+    selectedConversation?.status === "closed" ? selectedConversationId : null
+  );
   const { data: notes } = useContactNotes(selectedConversation?.contact_id || "");
   const createNote = useCreateContactNote();
   const deleteNote = useDeleteContactNote();
