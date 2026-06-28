@@ -1389,8 +1389,9 @@ const Inbox = () => {
                         }
                       }
 
-                      // Add all events
+                      // Add all events (hide ai_toggled from chat timeline)
                       for (const ev of conversationEvents) {
+                        if (ev.event_type === "ai_toggled") continue;
                         timeline.push({ type: "event", data: ev, timestamp: ev.created_at });
                       }
 
