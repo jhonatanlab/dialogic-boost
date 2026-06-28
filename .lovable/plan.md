@@ -1,38 +1,42 @@
-## Objetivo
-Tornar visível, após uma conversa ser concluída, o **motivo** e as **observações** registrados no modal de conclusão.
+# Toggle de IA no painel lateral da conversa
 
-Hoje esses dados já são salvos em `conversation_closures` e também como `details` no evento `closed` em `conversation_events`, mas não são renderizados em lugar nenhum da interface.
+Adicionar um controle (Switch) no painel lateral direito do Inbox que permite ativar/desativar a IA para o contato da conversa atual, gravando em `ai_control` (chave: `telefone` + `company_id`).
 
-## Onde mostrar
+## Comportamento
 
-1. **Aba "Histórico" da conversa (painel lateral direito do Inbox)**
-   - No card do evento `closed`, exibir abaixo de "Por: <atendente>":
-     - `Motivo: <reason>` (badge com a cor padrão de motivos)
-     - `Observações: <notes>` (texto multilinha, quando houver)
-     - Tags aplicadas no encerramento, se existirem nos `details`.
+- **Localização**: painel lateral direito da conversa (`src/pages/Inbox.tsx`), em um card próprio chamado **"Atendimento por IA"**, posicionado logo abaixo do card de Resumo IA.
+- **Visual**: ícone de robô + label "IA ativa para este contato" + Switch à direita + texto auxiliar mostrando o status atual (Ativa / Pausada) e quando foi alterado pela última vez.
+- **Regra de estado**:
+  - `status = 'active'` (ou registro inexistente) → Switch ligado.
+  - `status = 'paused'` → Switch desligado.
+- **Ação ao alternar**:
+  - Ligar → `UPSERT` em `ai_control` com `status = 'active'`, `updated_at = now()`.
+  - Desligar → `UPSERT` com `status = 'paused'`.
+  - Chave do upsert: `(telefone, company_id)`.
+  - `telefone` = `contact.phone` normalizado (apenas dígitos, sem `+`), igual ao padrão já usado pelo webhook.
+- **Pré-requisito**: se o contato não tiver telefone, o card mostra mensagem "Contato sem telefone — IA não pode ser controlada" e o Switch fica desabilitado.
+- **Feedback**: toast de sucesso/erro e atualização otimista (React Query).
+- **Permissão**: visível para todos os perfis que já têm acesso ao Inbox (admin, manager, agent). Sem mudança de RLS — `ai_control` já tem políticas por `company_id`.
 
-2. **Cabeçalho da conversa quando `status === "closed"`**
-   - Adicionar uma faixa discreta logo abaixo do header com:
-     - "Concluída em <data/hora> por <atendente>"
-     - "Motivo: <reason>"
-     - Ícone de "ver observações" que abre um popover com as notas completas (evita poluir o header quando o texto é longo).
-   - Buscar o último registro de `conversation_closures` da conversa via React Query (`useClosureSummary(conversationId)`), com realtime invalidando quando um novo `closed` é registrado.
+## Eventos de auditoria
 
-3. **Lista de conversas — aba "Concluídas"**
-   - Mostrar o nome do motivo como um pequeno badge ao lado do preview da última mensagem (apenas o motivo, sem notas), para facilitar triagem visual.
+Registrar um `conversation_event` (tipo `ai_toggled`) na conversa atual a cada alteração, com metadata `{ previous_status, new_status, by_user_id }`, para aparecer na aba **Histórico** e no chat, mantendo o padrão dos outros eventos do sistema.
 
-## Implementação técnica
+## Detalhes técnicos
 
-- Novo hook `src/hooks/useConversationClosure.ts`:
-  - Query: último registro de `conversation_closures` por `conversation_id` (com join em `closure_reasons` para nome/cor).
-  - Para a lista, fazer um único fetch em batch dos motivos das conversas concluídas visíveis e mapear por `conversation_id`.
-- Renderização no `src/pages/Inbox.tsx`:
-  - Estender o bloco do evento `closed` (linhas ~1929-1953) para imprimir `details.reason` e `details.notes`.
-  - Inserir a faixa de resumo no header da conversa quando `selectedConversation.status === "closed"`.
-  - Adicionar badge de motivo no item da lista quando o filtro ativo for `closed`.
-- Sem mudanças de schema: tabelas `conversation_closures`, `closure_reasons` e `conversation_events` já contêm tudo.
-- Garantir GRANT/RLS existentes continuam suficientes (leitura por `company_id`).
+- **Novo hook** `src/hooks/useAiControl.ts`:
+  - `useAiControlStatus(phone, companyId)` → query em `ai_control` por `telefone` + `company_id` (maybeSingle); retorna `'active' | 'paused'` (default `active`).
+  - `useToggleAiControl()` → mutation que faz `upsert` em `ai_control` e insert em `conversation_events`, invalida `['ai-control', phone]`.
+- **Novo componente** `src/components/inbox/AiControlCard.tsx`:
+  - Props: `conversationId`, `contactPhone`, `contactName`.
+  - Usa Card + Switch (shadcn) seguindo tokens do design system (Ciano `#00D4D4` para estado ativo).
+- **Integração em `src/pages/Inbox.tsx`**:
+  - Importar e renderizar `<AiControlCard />` no painel lateral, dentro da aba "Detalhes" (mesma coluna do `AiSummaryCard`).
+- **Sem mudança de schema**: `ai_control` já existe com `(telefone, company_id, status, updated_at)`.
+- **Normalização de telefone**: usar helper já existente no projeto se houver, caso contrário aplicar `phone.replace(/\D/g, '')` localmente no hook.
 
-## Fora de escopo
-- Edição do motivo/observações após a conclusão.
-- Exposição em Dashboard/Relatórios (já existem como métricas separadas).
+## Fora do escopo
+
+- Não altera o fluxo da automação/n8n — ele continua lendo `ai_control` como hoje.
+- Não cria página de gestão global de IA por contato.
+- Não modifica RLS nem grants existentes.

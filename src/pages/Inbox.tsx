@@ -34,6 +34,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { NewConversationDialog } from "@/components/inbox/NewConversationDialog";
 import { CloseConversationDialog, type ClosurePayload } from "@/components/inbox/CloseConversationDialog";
 import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
+import { AiControlCard } from "@/components/inbox/AiControlCard";
 import { ForceAutomationCard } from "@/components/contacts/ForceAutomationCard";
 import { MediaLightbox, openMediaLightbox, requestMediaLightbox, MEDIA_LIGHTBOX_REQUEST_EVENT, type LightboxItem } from "@/components/inbox/MediaLightbox";
 import { useConversationClosure } from "@/hooks/useConversationClosure";
@@ -1687,6 +1688,15 @@ const Inbox = () => {
 
                     {/* Resumo IA */}
                     <AiSummaryCard contactId={selectedConversation?.contact_id} />
+
+                    <Separator />
+
+                    {/* Controle IA por contato */}
+                    <AiControlCard
+                      conversationId={selectedConversation?.id}
+                      contactPhone={selectedConversation?.contact?.phone}
+                      companyId={selectedConversation?.company_id ?? undefined}
+                    />
 
                     <Separator />
 
