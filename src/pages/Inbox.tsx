@@ -1690,6 +1690,15 @@ const Inbox = () => {
 
                     <Separator />
 
+                    {/* Controle IA por contato */}
+                    <AiControlCard
+                      conversationId={selectedConversation?.id}
+                      contactPhone={selectedConversation?.contact?.phone}
+                      companyId={selectedConversation?.company_id ?? undefined}
+                    />
+
+                    <Separator />
+
                     {/* Forçar Automação */}
                     <ForceAutomationCard
                       conversationId={selectedConversation?.id}
