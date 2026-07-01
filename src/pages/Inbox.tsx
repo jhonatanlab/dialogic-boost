@@ -1448,7 +1448,23 @@ const Inbox = () => {
                               <EventBubble event={item.data} />
                             ) : (
                               <div className="space-y-1">
-                                <ChatBubble message={item.data} agentName={agentNames[item.data.user_id]} />
+                                <ChatBubble
+                                  message={item.data}
+                                  agentName={agentNames[item.data.user_id]}
+                                  onRetry={async (m) => {
+                                    const phone = selectedConversation?.contact?.phone;
+                                    if (!phone || !companyId) {
+                                      toast.error("Não foi possível reenviar: dados do contato indisponíveis");
+                                      return;
+                                    }
+                                    try {
+                                      await retryMessage.mutateAsync({ message: m, phone, companyId });
+                                      toast.success("Mensagem reenviada");
+                                    } catch (e: any) {
+                                      toast.error(e?.message || "Falha ao reenviar mensagem");
+                                    }
+                                  }}
+                                />
                               </div>
                             )}
                           </div>
