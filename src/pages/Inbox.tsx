@@ -16,7 +16,7 @@ import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
   X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic, Square,
   ImageOff, UserCheck, CheckCircle2, ArrowRightLeft, Users, User, Inbox as InboxIcon, History, PlayCircle,
-  XCircle, ArrowRight, Clock, Brain,
+  XCircle, ArrowRight, Clock, Brain, RotateCw,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -148,7 +148,7 @@ const isImageUrl = (text: string): boolean => {
 };
 
 /* ─── Chat Bubble ─── */
-const ChatBubble = ({ message, agentName }: { message: Message; agentName?: string }) => {
+const ChatBubble = ({ message, agentName, onRetry }: { message: Message; agentName?: string; onRetry?: (m: Message) => void | Promise<void> }) => {
   const isOutbound = message.direction?.toLowerCase() === "outbound";
   const mediaUrl = getMediaUrl(message);
   const hasMedia = !!mediaUrl && message.message_type !== "text";
@@ -173,6 +173,24 @@ const ChatBubble = ({ message, agentName }: { message: Message; agentName?: stri
     : null;
 
   const [imgError, setImgError] = React.useState(false);
+  const [, forceTick] = React.useState(0);
+  const [retrying, setRetrying] = React.useState(false);
+
+  const status = (message.status || "").toLowerCase();
+  const ageMs = Date.now() - new Date(message.created_at).getTime();
+  const isStuck = isOutbound && (status === "failed" || (status === "sending" && ageMs > 60_000));
+
+  React.useEffect(() => {
+    if (!isOutbound || status !== "sending" || isStuck) return;
+    const id = setInterval(() => forceTick(t => t + 1), 15_000);
+    return () => clearInterval(id);
+  }, [isOutbound, status, isStuck]);
+
+  const handleRetry = async () => {
+    if (!onRetry || retrying) return;
+    setRetrying(true);
+    try { await onRetry(message); } finally { setRetrying(false); }
+  };
 
   // Never show auto-generated labels like "Mídia enviada", "[image]", etc.
   const autoLabels = new Set(["mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]"]);
@@ -235,8 +253,27 @@ const ChatBubble = ({ message, agentName }: { message: Message; agentName?: stri
           <span className="text-[11px] opacity-50 tabular-nums">
             {format(new Date(message.created_at), "HH:mm")}
           </span>
-          {isOutbound && <StatusTicks status={message.status} />}
+          {isOutbound && !isStuck && <StatusTicks status={message.status} />}
+          {isOutbound && isStuck && (
+            <span className="text-[10px] font-bold text-destructive leading-none">✕</span>
+          )}
         </div>
+        {isOutbound && isStuck && (
+          <div className="flex items-center justify-between gap-2 px-3 pb-2 -mt-1 border-t border-destructive/20 pt-1.5">
+            <span className="text-[11px] text-destructive font-medium">Falha ao enviar</span>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={handleRetry}
+                disabled={retrying}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-destructive hover:underline disabled:opacity-50"
+              >
+                {retrying ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCw className="h-3 w-3" />}
+                Reenviar
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -444,7 +481,7 @@ const Inbox = () => {
 
   const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
-  const { messages, isLoading: messagesLoading, sendMessage, markAsRead, agentNames } = useMessages(selectedConversationId);
+  const { messages, isLoading: messagesLoading, sendMessage, markAsRead, retryMessage, agentNames } = useMessages(selectedConversationId);
   const { quickReplies } = useQuickReplies();
 
   // Helper: POST to outbound endpoint (silent on failure or if not configured)
@@ -1411,7 +1448,23 @@ const Inbox = () => {
                               <EventBubble event={item.data} />
                             ) : (
                               <div className="space-y-1">
-                                <ChatBubble message={item.data} agentName={agentNames[item.data.user_id]} />
+                                <ChatBubble
+                                  message={item.data}
+                                  agentName={agentNames[item.data.user_id]}
+                                  onRetry={async (m) => {
+                                    const phone = selectedConversation?.contact?.phone;
+                                    if (!phone || !companyId) {
+                                      toast.error("Não foi possível reenviar: dados do contato indisponíveis");
+                                      return;
+                                    }
+                                    try {
+                                      await retryMessage.mutateAsync({ message: m, phone, companyId });
+                                      toast.success("Mensagem reenviada");
+                                    } catch (e: any) {
+                                      toast.error(e?.message || "Falha ao reenviar mensagem");
+                                    }
+                                  }}
+                                />
                               </div>
                             )}
                           </div>
