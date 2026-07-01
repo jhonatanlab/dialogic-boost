@@ -1,42 +1,44 @@
-# Toggle de IA no painel lateral da conversa
+# Botão de reenviar mensagem falhada/travada
 
-Adicionar um controle (Switch) no painel lateral direito do Inbox que permite ativar/desativar a IA para o contato da conversa atual, gravando em `ai_control` (chave: `telefone` + `company_id`).
+## Problema
+Quando o envio via API retorna erro 400 (ou fica preso em `sending` indefinidamente), a mensagem no chat mostra apenas o loader eterno, sem opção de recuperação.
 
-## Comportamento
+## Solução
 
-- **Localização**: painel lateral direito da conversa (`src/pages/Inbox.tsx`), em um card próprio chamado **"Atendimento por IA"**, posicionado logo abaixo do card de Resumo IA.
-- **Visual**: ícone de robô + label "IA ativa para este contato" + Switch à direita + texto auxiliar mostrando o status atual (Ativa / Pausada) e quando foi alterado pela última vez.
-- **Regra de estado**:
-  - `status = 'active'` (ou registro inexistente) → Switch ligado.
-  - `status = 'paused'` → Switch desligado.
-- **Ação ao alternar**:
-  - Ligar → `UPSERT` em `ai_control` com `status = 'active'`, `updated_at = now()`.
-  - Desligar → `UPSERT` com `status = 'paused'`.
-  - Chave do upsert: `(telefone, company_id)`.
-  - `telefone` = `contact.phone` normalizado (apenas dígitos, sem `+`), igual ao padrão já usado pelo webhook.
-- **Pré-requisito**: se o contato não tiver telefone, o card mostra mensagem "Contato sem telefone — IA não pode ser controlada" e o Switch fica desabilitado.
-- **Feedback**: toast de sucesso/erro e atualização otimista (React Query).
-- **Permissão**: visível para todos os perfis que já têm acesso ao Inbox (admin, manager, agent). Sem mudança de RLS — `ai_control` já tem políticas por `company_id`.
+### 1. Detectar mensagem "travada"
+No `ChatBubble` (`src/pages/Inbox.tsx`), tratar como falha quando:
+- `status === "failed"`, OU
+- `status === "sending"` **e** `created_at` tem mais de **60 segundos** (timeout considerado suficiente; o loop atual do usuário chega a 3 min, então 60s cobre com folga).
 
-## Eventos de auditoria
+Um pequeno `useEffect` com `setInterval` de 15s força o re-render para reavaliar o timeout enquanto a mensagem estiver em `sending`.
 
-Registrar um `conversation_event` (tipo `ai_toggled`) na conversa atual a cada alteração, com metadata `{ previous_status, new_status, by_user_id }`, para aparecer na aba **Histórico** e no chat, mantendo o padrão dos outros eventos do sistema.
+### 2. UI do botão
+Quando `isStuck` = true, dentro do bubble de mensagens outbound:
+- Substituir/complementar o `StatusTicks` por uma linha inferior com:
+  - Ícone/texto pequeno em `text-destructive`: "Falha ao enviar"
+  - Botão `variant="ghost" size="sm"` com ícone `RotateCw` e label **"Reenviar"**.
+- Ao clicar, dispara `retry` (loading local no botão, `disabled` enquanto envia).
 
-## Detalhes técnicos
+### 3. Lógica de reenvio
+Adicionar `retryMessage` no hook `src/hooks/useMessages.ts` (mutation nova) que:
+1. Recebe a `Message` original.
+2. Marca `status = 'sending'` novamente no DB (`update` por id).
+3. Reconstrói o mesmo payload usado em `sendMessage` (usa `metadata.media_url`, `mimetype`, `file_name`, `message_type`, `content`, reaproveitando `client_message_id` existente como `internal_id`).
+4. Resolve `phone` e `companyId` via `conversations`+`contacts` (buscar uma vez) ou receber como argumento do componente (preferência: passar `phone`/`companyId` que já estão no escopo do Inbox).
+5. Faz o mesmo dispatch atual (API Automação outbound → `fetch` direto; senão `proxy-n8n` com `n8n_send_message`).
+6. Em erro, volta status para `failed`. Em sucesso, invalida `["messages", conversationId]`.
 
-- **Novo hook** `src/hooks/useAiControl.ts`:
-  - `useAiControlStatus(phone, companyId)` → query em `ai_control` por `telefone` + `company_id` (maybeSingle); retorna `'active' | 'paused'` (default `active`).
-  - `useToggleAiControl()` → mutation que faz `upsert` em `ai_control` e insert em `conversation_events`, invalida `['ai-control', phone]`.
-- **Novo componente** `src/components/inbox/AiControlCard.tsx`:
-  - Props: `conversationId`, `contactPhone`, `contactName`.
-  - Usa Card + Switch (shadcn) seguindo tokens do design system (Ciano `#00D4D4` para estado ativo).
-- **Integração em `src/pages/Inbox.tsx`**:
-  - Importar e renderizar `<AiControlCard />` no painel lateral, dentro da aba "Detalhes" (mesma coluna do `AiSummaryCard`).
-- **Sem mudança de schema**: `ai_control` já existe com `(telefone, company_id, status, updated_at)`.
-- **Normalização de telefone**: usar helper já existente no projeto se houver, caso contrário aplicar `phone.replace(/\D/g, '')` localmente no hook.
+Assinatura sugerida:
+```ts
+retryMessage.mutate({ message, phone, companyId })
+```
+
+### 4. Integração no Inbox
+- `ChatBubble` recebe nova prop opcional `onRetry?: (message: Message) => void`.
+- Onde `ChatBubble` é renderizado (linha ~1414), passar `onRetry={handleRetryMessage}` quando `canSendMessages`.
+- `handleRetryMessage` no `Inbox.tsx` chama `retryMessage.mutate` com o `phone` do contato e `companyId` já disponíveis, exibe `toast.success`/`toast.error`.
 
 ## Fora do escopo
-
-- Não altera o fluxo da automação/n8n — ele continua lendo `ai_control` como hoje.
-- Não cria página de gestão global de IA por contato.
-- Não modifica RLS nem grants existentes.
+- Não alterar comportamento do webhook de reconciliação.
+- Não implementar retry automático (apenas manual, por clique).
+- Não mexer na lógica de status de mensagens inbound.
