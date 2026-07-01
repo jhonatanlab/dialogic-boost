@@ -148,7 +148,7 @@ const isImageUrl = (text: string): boolean => {
 };
 
 /* ─── Chat Bubble ─── */
-const ChatBubble = ({ message, agentName }: { message: Message; agentName?: string }) => {
+const ChatBubble = ({ message, agentName, onRetry }: { message: Message; agentName?: string; onRetry?: (m: Message) => void | Promise<void> }) => {
   const isOutbound = message.direction?.toLowerCase() === "outbound";
   const mediaUrl = getMediaUrl(message);
   const hasMedia = !!mediaUrl && message.message_type !== "text";
