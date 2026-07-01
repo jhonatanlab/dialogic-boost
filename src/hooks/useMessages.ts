@@ -215,6 +215,80 @@ client_message_id: tempMessageId,
     },
   });
 
+  const retryMessage = useMutation({
+    mutationFn: async ({ message, phone, companyId }: { message: Message; phone: string; companyId: string }) => {
+      const meta = (message.metadata || {}) as Record<string, any>;
+      const mediaUrl = meta.media_url as string | undefined;
+      const mimetype = meta.mimetype as string | undefined;
+      const fileName = meta.file_name as string | undefined;
+      const type = message.message_type || "text";
+      const internalId = (message as any).client_message_id || `app-${crypto.randomUUID()}`;
+
+      // Reset status to 'sending'
+      await (supabase as any)
+        .from("messages")
+        .update({ status: "sending" })
+        .eq("id", message.id);
+      queryClient.invalidateQueries({ queryKey: ["messages", message.conversation_id] });
+
+      const payload: Record<string, string> = {
+        company_id: companyId,
+        number: phone,
+        text: message.content || "",
+        type,
+        internal_id: internalId,
+      };
+      if (mediaUrl) payload.media_url = mediaUrl;
+      if (mimetype) payload.mimetype = mimetype;
+      if (fileName) payload.file_name = fileName;
+
+      const { data: allSettings } = await supabase
+        .from("admin_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", ["n8n_automation_enabled", "n8n_automation_outbound", "n8n_send_message"]);
+
+      const settingsMap: Record<string, string> = {};
+      (allSettings || []).forEach((s: any) => {
+        if (s.setting_value) settingsMap[s.setting_key] = s.setting_value;
+      });
+
+      const automationEnabled = settingsMap["n8n_automation_enabled"] === "true";
+      const automationOutbound = settingsMap["n8n_automation_outbound"];
+      const nativeSendEndpoint = settingsMap["n8n_send_message"];
+
+      const markFailed = async () => {
+        await (supabase as any).from("messages").update({ status: "failed" }).eq("id", message.id);
+      };
+
+      try {
+        if (automationEnabled && automationOutbound) {
+          const res = await fetch(automationOutbound, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error(`Erro no reenvio: ${res.status}`);
+        } else if (nativeSendEndpoint) {
+          const response = await supabase.functions.invoke("proxy-n8n", {
+            body: { endpoint: nativeSendEndpoint, payload },
+          });
+          if (response.error) throw new Error(response.error.message);
+          if (response.data?.success === false) throw new Error(response.data.error || "Erro no reenvio");
+        } else {
+          throw new Error("Nenhuma integração de envio configurada");
+        }
+      } catch (e) {
+        await markFailed();
+        throw e;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+
   // Realtime: listen INSERT + UPDATE
   useEffect(() => {
     if (!conversationId) return;
