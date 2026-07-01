@@ -253,8 +253,27 @@ const ChatBubble = ({ message, agentName, onRetry }: { message: Message; agentNa
           <span className="text-[11px] opacity-50 tabular-nums">
             {format(new Date(message.created_at), "HH:mm")}
           </span>
-          {isOutbound && <StatusTicks status={message.status} />}
+          {isOutbound && !isStuck && <StatusTicks status={message.status} />}
+          {isOutbound && isStuck && (
+            <span className="text-[10px] font-bold text-destructive leading-none">✕</span>
+          )}
         </div>
+        {isOutbound && isStuck && (
+          <div className="flex items-center justify-between gap-2 px-3 pb-2 -mt-1 border-t border-destructive/20 pt-1.5">
+            <span className="text-[11px] text-destructive font-medium">Falha ao enviar</span>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={handleRetry}
+                disabled={retrying}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-destructive hover:underline disabled:opacity-50"
+              >
+                {retrying ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCw className="h-3 w-3" />}
+                Reenviar
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
