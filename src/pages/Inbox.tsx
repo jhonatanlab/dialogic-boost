@@ -173,6 +173,24 @@ const ChatBubble = ({ message, agentName, onRetry }: { message: Message; agentNa
     : null;
 
   const [imgError, setImgError] = React.useState(false);
+  const [, forceTick] = React.useState(0);
+  const [retrying, setRetrying] = React.useState(false);
+
+  const status = (message.status || "").toLowerCase();
+  const ageMs = Date.now() - new Date(message.created_at).getTime();
+  const isStuck = isOutbound && (status === "failed" || (status === "sending" && ageMs > 60_000));
+
+  React.useEffect(() => {
+    if (!isOutbound || status !== "sending" || isStuck) return;
+    const id = setInterval(() => forceTick(t => t + 1), 15_000);
+    return () => clearInterval(id);
+  }, [isOutbound, status, isStuck]);
+
+  const handleRetry = async () => {
+    if (!onRetry || retrying) return;
+    setRetrying(true);
+    try { await onRetry(message); } finally { setRetrying(false); }
+  };
 
   // Never show auto-generated labels like "Mídia enviada", "[image]", etc.
   const autoLabels = new Set(["mídia enviada", "[mídia]", "[image]", "[video]", "[audio]", "[document]"]);
