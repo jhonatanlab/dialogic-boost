@@ -481,7 +481,7 @@ const Inbox = () => {
 
   const { companyId } = useCompany();
   const { conversations, isLoading: conversationsLoading } = useConversations();
-  const { messages, isLoading: messagesLoading, sendMessage, markAsRead, agentNames } = useMessages(selectedConversationId);
+  const { messages, isLoading: messagesLoading, sendMessage, markAsRead, retryMessage, agentNames } = useMessages(selectedConversationId);
   const { quickReplies } = useQuickReplies();
 
   // Helper: POST to outbound endpoint (silent on failure or if not configured)
