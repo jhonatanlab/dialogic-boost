@@ -224,10 +224,10 @@ client_message_id: tempMessageId,
       const type = message.message_type || "text";
       const internalId = (message as any).client_message_id || `app-${crypto.randomUUID()}`;
 
-      // Reset status to 'sending'
+      // Reset status to 'sending' and refresh sent_at so the stuck-timer restarts
       await (supabase as any)
         .from("messages")
-        .update({ status: "sending" })
+        .update({ status: "sending", sent_at: new Date().toISOString() })
         .eq("id", message.id);
       queryClient.invalidateQueries({ queryKey: ["messages", message.conversation_id] });
 
