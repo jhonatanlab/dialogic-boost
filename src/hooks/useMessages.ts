@@ -278,6 +278,11 @@ client_message_id: tempMessageId,
         } else {
           throw new Error("Nenhuma integração de envio configurada");
         }
+        // Optimistic: mark as 'sent' so the stuck UI clears; webhook later promotes to delivered/read
+        await (supabase as any)
+          .from("messages")
+          .update({ status: "sent" })
+          .eq("id", message.id);
       } catch (e) {
         await markFailed();
         throw e;
