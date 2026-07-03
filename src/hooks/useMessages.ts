@@ -291,13 +291,26 @@ client_message_id: tempMessageId,
           .from("messages")
           .update({ status: "sent" })
           .eq("id", message.id);
+
+        // Update cache immediately + force refetch
+        queryClient.setQueryData<Message[]>(["messages", message.conversation_id], (old) =>
+          (old || []).map((m: any) =>
+            m.id === message.id ? { ...m, status: "sent" } : m
+          )
+        );
       } catch (e) {
+        queryClient.setQueryData<Message[]>(["messages", message.conversation_id], (old) =>
+          (old || []).map((m: any) =>
+            m.id === message.id ? { ...m, status: "failed" } : m
+          )
+        );
         await markFailed();
         throw e;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+    onSettled: (_data, _err, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["messages", vars.message.conversation_id] });
+      queryClient.refetchQueries({ queryKey: ["messages", vars.message.conversation_id] });
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
