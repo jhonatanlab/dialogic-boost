@@ -225,11 +225,19 @@ client_message_id: tempMessageId,
       const internalId = (message as any).client_message_id || `app-${crypto.randomUUID()}`;
 
       // Reset status to 'sending' and refresh sent_at so the stuck-timer restarts
+      const newSentAt = new Date().toISOString();
       await (supabase as any)
         .from("messages")
-        .update({ status: "sending", sent_at: new Date().toISOString() })
+        .update({ status: "sending", sent_at: newSentAt })
         .eq("id", message.id);
-      queryClient.invalidateQueries({ queryKey: ["messages", message.conversation_id] });
+
+      // Optimistic cache update so the UI reflects immediately
+      queryClient.setQueryData<Message[]>(["messages", message.conversation_id], (old) =>
+        (old || []).map((m: any) =>
+          m.id === message.id ? { ...m, status: "sending", sent_at: newSentAt } : m
+        )
+      );
+      await queryClient.refetchQueries({ queryKey: ["messages", message.conversation_id] });
 
       const payload: Record<string, string> = {
         company_id: companyId,
@@ -283,13 +291,26 @@ client_message_id: tempMessageId,
           .from("messages")
           .update({ status: "sent" })
           .eq("id", message.id);
+
+        // Update cache immediately + force refetch
+        queryClient.setQueryData<Message[]>(["messages", message.conversation_id], (old) =>
+          (old || []).map((m: any) =>
+            m.id === message.id ? { ...m, status: "sent" } : m
+          )
+        );
       } catch (e) {
+        queryClient.setQueryData<Message[]>(["messages", message.conversation_id], (old) =>
+          (old || []).map((m: any) =>
+            m.id === message.id ? { ...m, status: "failed" } : m
+          )
+        );
         await markFailed();
         throw e;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+    onSettled: (_data, _err, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["messages", vars.message.conversation_id] });
+      queryClient.refetchQueries({ queryKey: ["messages", vars.message.conversation_id] });
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
