@@ -2079,6 +2079,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      user_can_view_conversation: {
+        Args: { _conversation_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "agent"
