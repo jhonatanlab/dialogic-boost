@@ -1099,6 +1099,7 @@ export type Database = {
           company_id: string | null
           contact_id: string
           created_at: string
+          current_agent: string
           id: string
           last_message_at: string
           pending_at: string | null
@@ -1118,6 +1119,7 @@ export type Database = {
           company_id?: string | null
           contact_id: string
           created_at?: string
+          current_agent?: string
           id?: string
           last_message_at?: string
           pending_at?: string | null
@@ -1137,6 +1139,7 @@ export type Database = {
           company_id?: string | null
           contact_id?: string
           created_at?: string
+          current_agent?: string
           id?: string
           last_message_at?: string
           pending_at?: string | null
