@@ -1056,6 +1056,45 @@ const Inbox = () => {
     } catch { toast.error("Erro ao transferir conversa"); }
   };
 
+  const handleQuickAssign = async (
+    field: "assigned_to" | "assigned_team",
+    value: string | null
+  ) => {
+    if (!selectedConversation) return;
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .eq("id", selectedConversation.id);
+      if (error) throw error;
+
+      if (field === "assigned_to") {
+        if (value) {
+          const agent = companyAgents.find(a => a.user_id === value);
+          await logConversationEvent(selectedConversation.id, "transferred_agent", {
+            target_user_id: value,
+            target_name: agent?.full_name || "Atendente",
+          } as any);
+        }
+      } else if (value) {
+        const team = companyTeams.find(t => t.id === value);
+        await logConversationEvent(selectedConversation.id, "transferred_team", {
+          target_team_id: value,
+          target_team_name: team?.name || "Equipe",
+        } as any);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      toast.success(
+        field === "assigned_to"
+          ? value ? "Atendente atribuído!" : "Atendente removido"
+          : value ? "Equipe atribuída!" : "Equipe removida"
+      );
+    } catch {
+      toast.error("Erro ao atribuir");
+    }
+  };
+
   // Filter conversations based on active tab
   const isManagerOrAdmin = currentUserRole === "admin" || currentUserRole === "manager";
 
