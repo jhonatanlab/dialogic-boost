@@ -1,38 +1,41 @@
-## Problema
-
-Hoje a policy `SELECT` da tabela `conversations` só filtra por `company_id`, então qualquer usuário da empresa (inclusive um atendente que não faz parte da equipe) enxerga todas as conversas — inclusive as atribuídas a uma equipe da qual ele não participa.
-
 ## Objetivo
 
-Restringir a visibilidade das conversas por equipe:
+Permitir atribuir uma equipe (e também um atendente) à conversa selecionada diretamente pelo painel lateral direito do Inbox, sem depender do botão "Transferir" e sem exigir que a conversa esteja aceita/iniciada (status `in_progress`).
 
-- **Admin** e **manager**: continuam vendo todas as conversas da empresa.
-- **Atendente (agent)**: vê apenas conversas que atendem a pelo menos uma das condições:
-  1. `assigned_team IS NULL` (conversa sem equipe), OU
-  2. `assigned_team` pertence a uma equipe em que ele é membro (`team_members.member_user_id = auth.uid()`), OU
-  3. `assigned_to = auth.uid()` (atribuída diretamente a ele).
+## Onde mexer
 
-Nada mais muda: envio/atualização de mensagens, filtros do inbox e outros papéis permanecem intactos.
+Arquivo único: `src/pages/Inbox.tsx`, seção do painel lateral entre as linhas ~1710-1727 (blocos "Atendente" e "Equipe" que hoje são apenas leitura).
 
-## Implementação
+## O que muda na UI
 
-Uma única migração no banco:
+Transformar as duas linhas atualmente estáticas em selects inline compactos:
 
-1. **Função `security definer`** `public.user_can_view_conversation(_conversation_id uuid)` que retorna `boolean` conforme a regra acima. Marcada como `stable`, `security definer`, `set search_path = public`. Usa `has_role(auth.uid(),'admin')` e `has_role(auth.uid(),'manager')` para o bypass; caso contrário verifica `assigned_team IS NULL`, `assigned_to = auth.uid()` ou existência em `team_members`.
+- **Atendente** → `Select` com opções: "Não atribuído" + lista de `companyAgents` (já disponível no componente).
+- **Equipe** → `Select` com opções: "Nenhuma" + lista de `companyTeams` (já disponível).
 
-2. **Nova policy RESTRICTIVE** `SELECT` em `public.conversations`:
-   ```
-   AS RESTRICTIVE FOR SELECT TO authenticated
-   USING (public.user_can_view_conversation(id))
-   ```
-   A policy PERMISSIVE existente (`company_id = get_user_company_id()`) permanece, garantindo o isolamento multi-tenant; a nova RESTRICTIVE aplica o AND por equipe.
+Mantém o mesmo visual do painel (altura ~28px, texto xs). Sem novo dialog.
 
-3. Aplicar a mesma regra também nas policies **UPDATE** e **DELETE** (RESTRICTIVE), para o atendente não conseguir atribuir/fechar uma conversa que ele nem enxerga. INSERT permanece igual (criação vem de webhooks/edge functions com service role).
+Regra de permissão de edição:
+- Admin/manager: sempre podem alterar.
+- Atendente: só pode alterar se a conversa é dele (`assigned_to === currentUserId`) ou está sem atribuição. Caso contrário, mostra somente leitura como hoje.
 
-## Sem mudanças de frontend
+## O que muda na lógica
 
-O dropdown "Todas as equipes / Engenharia / …" e os hooks (`useConversations`, `useMessages`, etc.) continuam iguais — como o RLS passa a filtrar no banco, o atendente simplesmente deixa de receber as conversas de equipes das quais não faz parte.
+Nova função `handleQuickAssign({ field, value })` que:
 
-## Verificação
+1. Faz `update` em `conversations` setando `assigned_to` OU `assigned_team` (valor `null` quando o usuário escolhe "Não atribuído"/"Nenhuma").
+2. **Não** altera `status` da conversa — ao contrário do fluxo atual de "aceitar", que muda para `in_progress`. Assim funciona mesmo em conversa `open` não iniciada.
+3. Registra evento em `conversation_events` (`assigned_agent` ou `transferred_team`) reaproveitando o mesmo padrão do `handleTransfer` atual (linhas ~1030-1055).
+4. Invalida `queryClient` de `conversations` e mostra `toast.success`.
 
-Após a migração, logar como o Kaique (atendente, fora da equipe Gestão) e confirmar que a conversa do Jhonatan José (atribuída à Gestão) desaparece da fila; logar como admin/manager e confirmar que ela continua visível.
+O botão/dialog "Transferir" existente continua funcionando sem alteração — passa a ser redundante para atribuição simples, mas útil como atalho.
+
+## Backend
+
+Nenhuma migração. A RLS restritiva de `conversations` já criada anteriormente permite `UPDATE` para admin/manager e para quem enxerga a conversa (sem equipe, atribuída a si, ou membro da equipe atual), o que cobre os casos acima.
+
+## Fora de escopo
+
+- Não cria coluna `team_id` em `contacts`.
+- Não altera o fluxo de "aceitar conversa".
+- Não altera o botão Transferir nem o gating de envio de mensagem.
