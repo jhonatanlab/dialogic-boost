@@ -1056,6 +1056,45 @@ const Inbox = () => {
     } catch { toast.error("Erro ao transferir conversa"); }
   };
 
+  const handleQuickAssign = async (
+    field: "assigned_to" | "assigned_team",
+    value: string | null
+  ) => {
+    if (!selectedConversation) return;
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .eq("id", selectedConversation.id);
+      if (error) throw error;
+
+      if (field === "assigned_to") {
+        if (value) {
+          const agent = companyAgents.find(a => a.user_id === value);
+          await logConversationEvent(selectedConversation.id, "transferred_agent", {
+            target_user_id: value,
+            target_name: agent?.full_name || "Atendente",
+          } as any);
+        }
+      } else if (value) {
+        const team = companyTeams.find(t => t.id === value);
+        await logConversationEvent(selectedConversation.id, "transferred_team", {
+          target_team_id: value,
+          target_team_name: team?.name || "Equipe",
+        } as any);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      toast.success(
+        field === "assigned_to"
+          ? value ? "Atendente atribuído!" : "Atendente removido"
+          : value ? "Equipe atribuída!" : "Equipe removida"
+      );
+    } catch {
+      toast.error("Erro ao atribuir");
+    }
+  };
+
   // Filter conversations based on active tab
   const isManagerOrAdmin = currentUserRole === "admin" || currentUserRole === "manager";
 
@@ -1707,24 +1746,81 @@ const Inbox = () => {
                           {selectedConversation.channel}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-muted-foreground text-xs flex items-center gap-1">
-                          <UserCheck className="h-3 w-3" /> Atendente
-                        </Label>
-                        <span className="text-xs font-medium text-foreground">
-                          {selectedConversation.assigned_to === currentUserId
-                            ? "Você"
-                            : selectedConversation.assigned_agent_name || "Não atribuído"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <Label className="text-muted-foreground text-xs flex items-center gap-1">
-                          <Users className="h-3 w-3" /> Equipe
-                        </Label>
-                        <span className="text-xs font-medium text-foreground">
-                          {selectedConversation.assigned_team_name || "Nenhuma"}
-                        </span>
-                      </div>
+                      {(() => {
+                        const canQuickAssign =
+                          isManagerOrAdmin ||
+                          !selectedConversation.assigned_to ||
+                          selectedConversation.assigned_to === currentUserId;
+                        return (
+                          <>
+                            <div className="flex items-center justify-between gap-2">
+                              <Label className="text-muted-foreground text-xs flex items-center gap-1 shrink-0">
+                                <UserCheck className="h-3 w-3" /> Atendente
+                              </Label>
+                              {canQuickAssign ? (
+                                <Select
+                                  value={selectedConversation.assigned_to ?? "none"}
+                                  onValueChange={(v) =>
+                                    handleQuickAssign("assigned_to", v === "none" ? null : v)
+                                  }
+                                >
+                                  <SelectTrigger className="h-7 text-xs w-40">
+                                    <SelectValue placeholder="Não atribuído" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">Não atribuído</SelectItem>
+                                    {currentUserId && (
+                                      <SelectItem value={currentUserId}>
+                                        {currentUserName || "Eu"} (eu)
+                                      </SelectItem>
+                                    )}
+                                    {companyAgents
+                                      .filter(a => a.user_id !== currentUserId)
+                                      .map(a => (
+                                        <SelectItem key={a.user_id} value={a.user_id}>
+                                          {a.full_name || "Atendente"}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span className="text-xs font-medium text-foreground">
+                                  {selectedConversation.assigned_to === currentUserId
+                                    ? "Você"
+                                    : selectedConversation.assigned_agent_name || "Não atribuído"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <Label className="text-muted-foreground text-xs flex items-center gap-1 shrink-0">
+                                <Users className="h-3 w-3" /> Equipe
+                              </Label>
+                              {canQuickAssign ? (
+                                <Select
+                                  value={selectedConversation.assigned_team ?? "none"}
+                                  onValueChange={(v) =>
+                                    handleQuickAssign("assigned_team", v === "none" ? null : v)
+                                  }
+                                >
+                                  <SelectTrigger className="h-7 text-xs w-40">
+                                    <SelectValue placeholder="Nenhuma" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">Nenhuma</SelectItem>
+                                    {companyTeams.map(t => (
+                                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span className="text-xs font-medium text-foreground">
+                                  {selectedConversation.assigned_team_name || "Nenhuma"}
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {isEditingContact && (
