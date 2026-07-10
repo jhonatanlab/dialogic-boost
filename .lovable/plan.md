@@ -1,41 +1,36 @@
 ## Objetivo
+Permitir configurar, por webhook, o destino padrão dos leads recebidos: uma equipe, um usuário específico ou deixar em aberto.
 
-Permitir atribuir uma equipe (e também um atendente) à conversa selecionada diretamente pelo painel lateral direito do Inbox, sem depender do botão "Transferir" e sem exigir que a conversa esteja aceita/iniciada (status `in_progress`).
+## Mudanças
 
-## Onde mexer
+### 1. Banco de dados (migração)
+Adicionar duas colunas em `webhook_integrations`:
+- `default_team_id uuid` (FK → `teams.id`, nullable, `ON DELETE SET NULL`)
+- `default_assigned_to uuid` (FK → `auth.users.id`, nullable, `ON DELETE SET NULL`)
 
-Arquivo único: `src/pages/Inbox.tsx`, seção do painel lateral entre as linhas ~1710-1727 (blocos "Atendente" e "Equipe" que hoje são apenas leitura).
+Regra: podem ser ambas nulas (= deixar em aberto), uma delas preenchida, ou as duas (equipe + atendente).
 
-## O que muda na UI
+### 2. UI — `src/pages/WebhookIntegrations.tsx`
+No diálogo de criar/editar webhook, adicionar dois selects abaixo da mensagem de boas-vindas:
+- **Equipe padrão** — lista `teams` da empresa + opção "Nenhuma (deixar em aberto)"
+- **Atendente padrão** — lista de atendentes da empresa + opção "Nenhum"
 
-Transformar as duas linhas atualmente estáticas em selects inline compactos:
+Mostrar também na listagem de cada webhook um badge/linha com "Equipe: X · Atendente: Y" quando definidos.
 
-- **Atendente** → `Select` com opções: "Não atribuído" + lista de `companyAgents` (já disponível no componente).
-- **Equipe** → `Select` com opções: "Nenhuma" + lista de `companyTeams` (já disponível).
+### 3. Hook — `src/hooks/useWebhookIntegrations.ts`
+Incluir os dois novos campos no tipo `WebhookIntegration` e nas mutações `create`/`update`.
 
-Mantém o mesmo visual do painel (altura ~28px, texto xs). Sem novo dialog.
+### 4. Edge function — `supabase/functions/webhook-leads/index.ts`
+Ao criar uma nova conversa (bloco `else` na linha ~189), incluir:
+```ts
+assigned_team: integration.default_team_id ?? null,
+assigned_to: integration.default_assigned_to ?? null,
+status: integration.default_assigned_to ? "in_progress" : "open",
+```
+Para conversas já existentes, **não sobrescrever** atribuição atual (respeita o trabalho do atendente).
 
-Regra de permissão de edição:
-- Admin/manager: sempre podem alterar.
-- Atendente: só pode alterar se a conversa é dele (`assigned_to === currentUserId`) ou está sem atribuição. Caso contrário, mostra somente leitura como hoje.
-
-## O que muda na lógica
-
-Nova função `handleQuickAssign({ field, value })` que:
-
-1. Faz `update` em `conversations` setando `assigned_to` OU `assigned_team` (valor `null` quando o usuário escolhe "Não atribuído"/"Nenhuma").
-2. **Não** altera `status` da conversa — ao contrário do fluxo atual de "aceitar", que muda para `in_progress`. Assim funciona mesmo em conversa `open` não iniciada.
-3. Registra evento em `conversation_events` (`assigned_agent` ou `transferred_team`) reaproveitando o mesmo padrão do `handleTransfer` atual (linhas ~1030-1055).
-4. Invalida `queryClient` de `conversations` e mostra `toast.success`.
-
-O botão/dialog "Transferir" existente continua funcionando sem alteração — passa a ser redundante para atribuição simples, mas útil como atalho.
-
-## Backend
-
-Nenhuma migração. A RLS restritiva de `conversations` já criada anteriormente permite `UPDATE` para admin/manager e para quem enxerga a conversa (sem equipe, atribuída a si, ou membro da equipe atual), o que cobre os casos acima.
+Também registrar um evento em `conversation_events` (`transferred_team` / `transferred_agent`) quando a atribuição inicial vier do webhook, para manter a auditoria consistente.
 
 ## Fora de escopo
-
-- Não cria coluna `team_id` em `contacts`.
-- Não altera o fluxo de "aceitar conversa".
-- Não altera o botão Transferir nem o gating de envio de mensagem.
+- Não altera lógica de distribuição automática (ACD) — se `default_assigned_to` estiver definido no webhook, ele tem prioridade; senão o trigger `distribute_conversation` existente pode agir normalmente quando `status='open'` e `assigned_to IS NULL`.
+- Não altera contatos existentes retroativamente.
