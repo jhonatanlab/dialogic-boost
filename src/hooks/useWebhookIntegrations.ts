@@ -11,6 +11,8 @@ export interface WebhookIntegration {
   token: string;
   welcome_message: string | null;
   active: boolean;
+  default_team_id: string | null;
+  default_assigned_to: string | null;
   created_at: string;
   updated_at: string;
 }
