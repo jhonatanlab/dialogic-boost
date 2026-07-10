@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import {
@@ -16,12 +19,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  ArrowLeft, Webhook, FileText, MessageSquare, Send, Copy, Pencil, Trash2, Plus, BookOpen,
+  ArrowLeft, Webhook, FileText, MessageSquare, Send, Copy, Pencil, Trash2, Plus, BookOpen, Users, User,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useWebhookIntegrations, buildWebhookUrl, type WebhookIntegration,
 } from "@/hooks/useWebhookIntegrations";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/hooks/useCompany";
 
 const PAYLOAD_EXAMPLE = `{
   "nome": "João Silva",
@@ -31,24 +36,52 @@ const PAYLOAD_EXAMPLE = `{
   "mensagem": "Tenho interesse em energia solar"
 }`;
 
+const NONE = "__none__";
+
 export default function WebhookIntegrations() {
   const navigate = useNavigate();
+  const { companyId } = useCompany();
   const { data: webhooks = [], isLoading, create, update, remove } = useWebhookIntegrations();
+
+  const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
+  const [agents, setAgents] = useState<{ user_id: string; full_name: string }[]>([]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    (async () => {
+      const [{ data: t }, { data: p }] = await Promise.all([
+        supabase.from("teams").select("id, name").eq("company_id", companyId).order("name"),
+        supabase.from("profiles").select("user_id, full_name").eq("company_id", companyId).order("full_name"),
+      ]);
+      setTeams(t || []);
+      setAgents((p || []) as any);
+    })();
+  }, [companyId]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<WebhookIntegration | null>(null);
-  const [form, setForm] = useState({ name: "", welcome_message: "" });
+  const [form, setForm] = useState<{ name: string; welcome_message: string; default_team_id: string | null; default_assigned_to: string | null }>({
+    name: "",
+    welcome_message: "",
+    default_team_id: null,
+    default_assigned_to: null,
+  });
 
   const openCreate = () => {
-    setForm({ name: "", welcome_message: "" });
+    setForm({ name: "", welcome_message: "", default_team_id: null, default_assigned_to: null });
     setEditTarget(null);
     setCreateOpen(true);
   };
 
   const openEdit = (wh: WebhookIntegration) => {
     setEditTarget(wh);
-    setForm({ name: wh.name, welcome_message: wh.welcome_message ?? "" });
+    setForm({
+      name: wh.name,
+      welcome_message: wh.welcome_message ?? "",
+      default_team_id: wh.default_team_id ?? null,
+      default_assigned_to: wh.default_assigned_to ?? null,
+    });
     setCreateOpen(true);
   };
 
@@ -57,10 +90,16 @@ export default function WebhookIntegrations() {
       toast.error("Informe um nome para a integração");
       return;
     }
+    const payload = {
+      name: form.name,
+      welcome_message: form.welcome_message,
+      default_team_id: form.default_team_id,
+      default_assigned_to: form.default_assigned_to,
+    };
     if (editTarget) {
-      await update.mutateAsync({ id: editTarget.id, name: form.name, welcome_message: form.welcome_message });
+      await update.mutateAsync({ id: editTarget.id, ...payload });
     } else {
-      await create.mutateAsync({ name: form.name, welcome_message: form.welcome_message });
+      await create.mutateAsync(payload);
     }
     setCreateOpen(false);
   };
@@ -69,6 +108,9 @@ export default function WebhookIntegrations() {
     navigator.clipboard.writeText(buildWebhookUrl(token));
     toast.success("URL copiada");
   };
+
+  const teamName = (id: string | null) => teams.find(t => t.id === id)?.name;
+  const agentName = (id: string | null) => agents.find(a => a.user_id === id)?.full_name;
 
   const infoCards = [
     { icon: FileText, title: "Formulários externos", description: "Receba leads de qualquer formulário ou landing page." },
@@ -132,11 +174,24 @@ export default function WebhookIntegrations() {
               <Card key={wh.id} className="p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0 space-y-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold">{wh.name}</h3>
                       <Badge variant={wh.active ? "default" : "secondary"}>
                         {wh.active ? "Ativo" : "Inativo"}
                       </Badge>
+                      {wh.default_team_id && (
+                        <Badge variant="outline" className="gap-1">
+                          <Users className="h-3 w-3" /> {teamName(wh.default_team_id) || "Equipe"}
+                        </Badge>
+                      )}
+                      {wh.default_assigned_to && (
+                        <Badge variant="outline" className="gap-1">
+                          <User className="h-3 w-3" /> {agentName(wh.default_assigned_to) || "Atendente"}
+                        </Badge>
+                      )}
+                      {!wh.default_team_id && !wh.default_assigned_to && (
+                        <Badge variant="outline" className="text-muted-foreground">Em aberto</Badge>
+                      )}
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">URL do Webhook</Label>
@@ -192,7 +247,7 @@ export default function WebhookIntegrations() {
           <DialogHeader>
             <DialogTitle>{editTarget ? "Editar webhook" : "Novo webhook"}</DialogTitle>
             <DialogDescription>
-              Configure o nome e a mensagem de boas-vindas enviada ao lead.
+              Configure o nome, a mensagem de boas-vindas e o destino padrão dos leads.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -213,6 +268,41 @@ export default function WebhookIntegrations() {
                 onChange={(e) => setForm({ ...form, welcome_message: e.target.value })}
               />
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <Label>Equipe padrão</Label>
+                <Select
+                  value={form.default_team_id ?? NONE}
+                  onValueChange={(v) => setForm({ ...form, default_team_id: v === NONE ? null : v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Nenhuma (em aberto)</SelectItem>
+                    {teams.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Atendente padrão</Label>
+                <Select
+                  value={form.default_assigned_to ?? NONE}
+                  onValueChange={(v) => setForm({ ...form, default_assigned_to: v === NONE ? null : v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Nenhum (em aberto)</SelectItem>
+                    {agents.map(a => (
+                      <SelectItem key={a.user_id} value={a.user_id}>{a.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Se um atendente for definido, a conversa já entra como "em atendimento" com ele. Sem atendente e sem equipe, a conversa fica em aberto para distribuição normal.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
