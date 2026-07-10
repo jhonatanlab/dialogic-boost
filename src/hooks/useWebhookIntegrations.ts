@@ -43,7 +43,7 @@ export function useWebhookIntegrations() {
   });
 
   const create = useMutation({
-    mutationFn: async (input: { name: string; welcome_message?: string }) => {
+    mutationFn: async (input: { name: string; welcome_message?: string; default_team_id?: string | null; default_assigned_to?: string | null }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !companyId) throw new Error("Sessão inválida");
       const { data, error } = await supabase
@@ -51,6 +51,8 @@ export function useWebhookIntegrations() {
         .insert([{
           name: input.name,
           welcome_message: input.welcome_message ?? null,
+          default_team_id: input.default_team_id ?? null,
+          default_assigned_to: input.default_assigned_to ?? null,
           company_id: companyId,
           user_id: user.id,
         }])
