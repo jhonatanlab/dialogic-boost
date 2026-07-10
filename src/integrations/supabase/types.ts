@@ -1835,6 +1835,8 @@ export type Database = {
           active: boolean
           company_id: string
           created_at: string
+          default_assigned_to: string | null
+          default_team_id: string | null
           id: string
           name: string
           token: string
@@ -1846,6 +1848,8 @@ export type Database = {
           active?: boolean
           company_id: string
           created_at?: string
+          default_assigned_to?: string | null
+          default_team_id?: string | null
           id?: string
           name: string
           token?: string
@@ -1857,6 +1861,8 @@ export type Database = {
           active?: boolean
           company_id?: string
           created_at?: string
+          default_assigned_to?: string | null
+          default_team_id?: string | null
           id?: string
           name?: string
           token?: string
@@ -1864,7 +1870,15 @@ export type Database = {
           user_id?: string
           welcome_message?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "webhook_integrations_default_team_id_fkey"
+            columns: ["default_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       webhook_logs: {
         Row: {

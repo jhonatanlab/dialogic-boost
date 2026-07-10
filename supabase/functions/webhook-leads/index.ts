@@ -187,6 +187,8 @@ Deno.serve(async (req) => {
         .update({ status: "open", last_message_at: new Date().toISOString() })
         .eq("id", conversationId);
     } else {
+      const defaultAssignedTo: string | null = integration.default_assigned_to ?? null;
+      const defaultTeamId: string | null = integration.default_team_id ?? null;
       const { data: newConv, error: convErr } = await supabase
         .from("conversations")
         .insert({
@@ -194,12 +196,34 @@ Deno.serve(async (req) => {
           user_id,
           contact_id: contactId,
           channel: "whatsapp",
-          status: "open",
+          status: defaultAssignedTo ? "in_progress" : "open",
+          assigned_to: defaultAssignedTo,
+          assigned_team: defaultTeamId,
         })
         .select("id")
         .single();
       if (convErr) throw convErr;
       conversationId = newConv.id;
+
+      // Audit events for initial assignment coming from the webhook
+      if (defaultTeamId) {
+        await supabase.from("conversation_events").insert({
+          conversation_id: conversationId,
+          company_id,
+          event_type: "transferred_team",
+          to_team_id: defaultTeamId,
+          note: `Atribuída via webhook: ${integration.name}`,
+        });
+      }
+      if (defaultAssignedTo) {
+        await supabase.from("conversation_events").insert({
+          conversation_id: conversationId,
+          company_id,
+          event_type: "transferred_agent",
+          to_user_id: defaultAssignedTo,
+          note: `Atribuída via webhook: ${integration.name}`,
+        });
+      }
     }
 
     // If client sent a message, save it as inbound
