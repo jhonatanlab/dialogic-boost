@@ -75,7 +75,7 @@ const AgentAI = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("id, agent_name, llm_provider, llm_model, system_prompt, debounce_seconds, ai_enabled, llm_api_key_encrypted")
+        .select("id, agent_name, llm_provider, llm_model, system_prompt, debounce_seconds, ai_enabled, ai_pipeline_enabled, llm_api_key_encrypted")
         .eq("id", companyId!)
         .maybeSingle();
       if (error) throw error;
