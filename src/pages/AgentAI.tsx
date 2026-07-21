@@ -75,7 +75,7 @@ const AgentAI = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("id, agent_name, llm_provider, llm_model, system_prompt, debounce_seconds, ai_enabled, llm_api_key_encrypted")
+        .select("id, agent_name, llm_provider, llm_model, system_prompt, debounce_seconds, ai_enabled, ai_pipeline_enabled, llm_api_key_encrypted")
         .eq("id", companyId!)
         .maybeSingle();
       if (error) throw error;
@@ -93,6 +93,7 @@ const AgentAI = () => {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [debounce, setDebounce] = useState<number>(5);
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiPipelineEnabled, setAiPipelineEnabled] = useState(false);
   const hasKeyConfigured = !!company?.llm_api_key_encrypted;
 
   useEffect(() => {
@@ -119,6 +120,7 @@ const AgentAI = () => {
     setSystemPrompt(company.system_prompt || "");
     setDebounce(Number(company.debounce_seconds ?? 5));
     setAiEnabled(!!company.ai_enabled);
+    setAiPipelineEnabled(!!company.ai_pipeline_enabled);
     setApiKey("");
   }, [company]);
 
@@ -137,6 +139,7 @@ const AgentAI = () => {
           system_prompt: systemPrompt,
           debounce_seconds: debounce,
           ai_enabled: aiEnabled,
+          ai_pipeline_enabled: aiPipelineEnabled,
         } as any)
         .eq("id", companyId);
       if (error) throw error;
@@ -374,6 +377,21 @@ const AgentAI = () => {
                     </p>
                   </div>
                   <Switch checked={aiEnabled} onCheckedChange={setAiEnabled} />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Pipeline nativo</p>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide bg-primary/15 text-primary px-1.5 py-0.5 rounded">
+                        beta
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Ativa o processamento de IA direto pelo Lovable Cloud (sem N8N). Padrão desligado.
+                    </p>
+                  </div>
+                  <Switch checked={aiPipelineEnabled} onCheckedChange={setAiPipelineEnabled} />
                 </div>
 
                 <div className="flex flex-wrap gap-3 pt-2">

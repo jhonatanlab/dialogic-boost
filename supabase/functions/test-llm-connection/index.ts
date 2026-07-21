@@ -1,63 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { complete, type LlmMessage } from "../_shared/llm.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-const TIMEOUT_MS = 15000;
-
-function withTimeout(promise: Promise<Response>, ms: number): Promise<Response> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`Timeout após ${ms}ms`)), ms);
-    promise.then((v) => { clearTimeout(t); resolve(v); })
-           .catch((e) => { clearTimeout(t); reject(e); });
-  });
-}
-
-async function callOpenAI(apiKey: string, model: string, messages: any[]) {
-  const res = await withTimeout(fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, max_tokens: 512 }),
-  }), TIMEOUT_MS);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `OpenAI HTTP ${res.status}`);
-  return data?.choices?.[0]?.message?.content ?? "";
-}
-
-async function callAnthropic(apiKey: string, model: string, system: string | undefined, userMessage: string) {
-  const body: any = {
-    model,
-    max_tokens: 512,
-    messages: [{ role: "user", content: userMessage }],
-  };
-  if (system) body.system = system;
-  const res = await withTimeout(fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  }), TIMEOUT_MS);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `Anthropic HTTP ${res.status}`);
-  const parts = data?.content ?? [];
-  return parts.map((p: any) => p?.text ?? "").join("");
-}
-
-async function callGroq(apiKey: string, model: string, messages: any[]) {
-  const res = await withTimeout(fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, max_tokens: 512 }),
-  }), TIMEOUT_MS);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || `Groq HTTP ${res.status}`);
-  return data?.choices?.[0]?.message?.content ?? "";
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -135,45 +82,28 @@ Deno.serve(async (req) => {
     }
 
     const started = Date.now();
-    let response = "";
     try {
-      if (provider === "openai") {
-        const msgs = mode === "preview"
-          ? [
-              ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-              { role: "user", content: userMessage },
-            ]
-          : [{ role: "user", content: "ping" }];
-        response = await callOpenAI(cred.api_key, model, msgs);
-      } else if (provider === "anthropic") {
-        response = await callAnthropic(
-          cred.api_key,
-          model,
-          mode === "preview" ? (systemPrompt || undefined) : undefined,
-          mode === "preview" ? userMessage : "ping",
-        );
-      } else if (provider === "groq") {
-        const msgs = mode === "preview"
-          ? [
-              ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-              { role: "user", content: userMessage },
-            ]
-          : [{ role: "user", content: "ping" }];
-        response = await callGroq(cred.api_key, model, msgs);
-      } else {
-        return new Response(JSON.stringify({ ok: false, error: `Provider desconhecido: ${provider}` }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const messages: LlmMessage[] = mode === "preview"
+        ? [{ role: "user", content: userMessage }]
+        : [{ role: "user", content: "ping" }];
+      const { text, latency_ms } = await complete({
+        provider,
+        model,
+        apiKey: cred.api_key,
+        systemPrompt: mode === "preview" ? (systemPrompt || undefined) : undefined,
+        messages,
+        maxTokens: mode === "preview" ? 512 : 5,
+        timeoutMs: 15_000,
+      });
+      return new Response(JSON.stringify({
+        ok: true,
+        latency_ms,
+        response: mode === "preview" ? text : undefined,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (e: any) {
       return new Response(JSON.stringify({ ok: false, error: e?.message || String(e), latency_ms: Date.now() - started }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    return new Response(JSON.stringify({
-      ok: true,
-      latency_ms: Date.now() - started,
-      response: mode === "preview" ? response : undefined,
-    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     return new Response(JSON.stringify({ ok: false, error: err?.message || String(err) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });

@@ -715,6 +715,7 @@ export type Database = {
           address: string | null
           agent_name: string | null
           ai_enabled: boolean
+          ai_pipeline_enabled: boolean
           cnpj: string | null
           created_at: string
           debounce_seconds: number
@@ -733,6 +734,7 @@ export type Database = {
           address?: string | null
           agent_name?: string | null
           ai_enabled?: boolean
+          ai_pipeline_enabled?: boolean
           cnpj?: string | null
           created_at?: string
           debounce_seconds?: number
@@ -751,6 +753,7 @@ export type Database = {
           address?: string | null
           agent_name?: string | null
           ai_enabled?: boolean
+          ai_pipeline_enabled?: boolean
           cnpj?: string | null
           created_at?: string
           debounce_seconds?: number
