@@ -79,17 +79,24 @@ export async function complete(input: CompleteInput): Promise<CompleteOutput> {
   const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT;
   const started = Date.now();
 
+  // Sanitize apiKey: must be ASCII/ByteString-safe for HTTP headers.
+  // Vault/user paste can leave newlines, NBSPs or accidental unicode.
+  const rawKey = (input.apiKey || "").replace(/[\r\n\t]/g, "").trim();
+  // eslint-disable-next-line no-control-regex
+  const apiKey = rawKey.replace(/[^\x20-\x7E]/g, "");
+  if (!apiKey) throw new Error("Chave de API inválida ou vazia");
+
   const msgs: LlmMessage[] = input.systemPrompt && provider !== "anthropic"
     ? [{ role: "system", content: input.systemPrompt }, ...input.messages]
     : [...input.messages];
 
   let text = "";
   if (provider === "openai") {
-    text = await callOpenAI(input.apiKey, input.model, msgs, maxTokens, timeoutMs);
+    text = await callOpenAI(apiKey, input.model, msgs, maxTokens, timeoutMs);
   } else if (provider === "anthropic") {
-    text = await callAnthropic(input.apiKey, input.model, input.systemPrompt, input.messages, maxTokens, timeoutMs);
+    text = await callAnthropic(apiKey, input.model, input.systemPrompt, input.messages, maxTokens, timeoutMs);
   } else if (provider === "groq") {
-    text = await callGroq(input.apiKey, input.model, msgs, maxTokens, timeoutMs);
+    text = await callGroq(apiKey, input.model, msgs, maxTokens, timeoutMs);
   } else {
     throw new Error(`Provider desconhecido: ${provider}`);
   }
