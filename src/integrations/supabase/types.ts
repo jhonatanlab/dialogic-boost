@@ -2135,15 +2135,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      debug_llm_key_info: {
-        Args: { p_company_id: string }
-        Returns: {
-          has_whitespace: boolean
-          key_head: string
-          key_len: number
-          key_tail: string
-        }[]
-      }
       delete_contact_cascade: {
         Args: { p_contact_id: string }
         Returns: undefined
