@@ -21,10 +21,39 @@ import { toast } from "sonner";
 
 type Provider = "openai" | "anthropic" | "groq";
 
-const MODEL_PLACEHOLDERS: Record<Provider, string> = {
-  openai: "gpt-4o-mini",
-  anthropic: "claude-sonnet-4-6",
-  groq: "llama-3.3-70b-versatile",
+type ModelOption = { value: string; label: string };
+
+const MODEL_OPTIONS: Record<Provider, { value: string; label: string; description?: string }[]> = {
+  openai: [
+    { value: "gpt-4o-mini", label: "gpt-4o-mini", description: "rápido e barato" },
+    { value: "gpt-4o", label: "gpt-4o", description: "mais capaz" },
+    { value: "gpt-4.1", label: "gpt-4.1" },
+    { value: "gpt-4.1-mini", label: "gpt-4.1-mini" },
+    { value: "o3-mini", label: "o3-mini", description: "raciocínio" },
+  ],
+  anthropic: [
+    { value: "claude-haiku-4-5", label: "claude-haiku-4-5", description: "rápido e barato" },
+    { value: "claude-sonnet-4-6", label: "claude-sonnet-4-6", description: "equilibrado" },
+    { value: "claude-opus-4-7", label: "claude-opus-4-7", description: "mais capaz" },
+  ],
+  groq: [
+    { value: "llama-3.3-70b-versatile", label: "llama-3.3-70b-versatile" },
+    { value: "llama-3.1-8b-instant", label: "llama-3.1-8b-instant" },
+    { value: "mixtral-8x7b-32768", label: "mixtral-8x7b-32768" },
+  ],
+};
+
+const getModelOptions = (provider: Provider, currentModel: string): ModelOption[] => {
+  const options = MODEL_OPTIONS[provider].map((o) => ({
+    value: o.value,
+    label: o.description ? `${o.value} — ${o.description}` : o.value,
+  }));
+  const isInPredefined = MODEL_OPTIONS[provider].some((o) => o.value === currentModel);
+  if (!isInPredefined && currentModel && currentModel !== "___other___") {
+    options.push({ value: currentModel, label: `Custom: ${currentModel}` });
+  }
+  options.push({ value: "___other___", label: "Outro (digitar manualmente)" });
+  return options;
 };
 
 const AgentAI = () => {
@@ -69,7 +98,22 @@ const AgentAI = () => {
     setAgentName(company.agent_name || "");
     const p = (company.llm_provider as Provider) || "openai";
     setProvider(p);
-    setModel(company.llm_model || "");
+    const savedModel = company.llm_model || "";
+    const defaultModel = MODEL_OPTIONS[p][0].value;
+    const isInPredefined = MODEL_OPTIONS[p].some((o) => o.value === savedModel);
+    if (savedModel === "") {
+      setModel(defaultModel);
+      setSelectModel(defaultModel);
+      setCustomModel(defaultModel);
+    } else if (isInPredefined) {
+      setModel(savedModel);
+      setSelectModel(savedModel);
+      setCustomModel(savedModel);
+    } else {
+      setModel(savedModel);
+      setSelectModel("___other___");
+      setCustomModel(savedModel);
+    }
     setSystemPrompt(company.system_prompt || "");
     setDebounce(Number(company.debounce_seconds ?? 5));
     setAiEnabled(!!company.ai_enabled);
@@ -194,7 +238,17 @@ const AgentAI = () => {
 
                   <div className="space-y-2">
                     <Label>Provedor</Label>
-                    <Select value={provider} onValueChange={(v) => setProvider(v as Provider)}>
+                    <Select
+                      value={provider}
+                      onValueChange={(v) => {
+                        const p = v as Provider;
+                        setProvider(p);
+                        const defaultModel = MODEL_OPTIONS[p][0].value;
+                        setModel(defaultModel);
+                        setSelectModel(defaultModel);
+                        setCustomModel(defaultModel);
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -207,13 +261,44 @@ const AgentAI = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="model">Modelo</Label>
-                    <Input
-                      id="model"
-                      value={model}
-                      onChange={(e) => setModel(e.target.value)}
-                      placeholder={MODEL_PLACEHOLDERS[provider]}
-                    />
+                    <Label>Modelo</Label>
+                    <div className="flex gap-2">
+                      <Select
+                        value={selectModel}
+                        onValueChange={(v) => {
+                          if (v === "___other___") {
+                            setSelectModel("___other___");
+                            setModel(customModel);
+                          } else {
+                            setSelectModel(v);
+                            setModel(v);
+                            setCustomModel(v);
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione um modelo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getModelOptions(provider, model).map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectModel === "___other___" && (
+                        <Input
+                          value={customModel}
+                          onChange={(e) => {
+                            setCustomModel(e.target.value);
+                            setModel(e.target.value);
+                          }}
+                          placeholder="modelo personalizado"
+                          className="min-w-[160px]"
+                        />
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
