@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       return await fail(admin, buffer.id, buffer.attempts, "no_company_user");
     }
 
-    const { error: insErr } = await admin.from("messages").insert({
+    const { data: inserted, error: insErr } = await admin.from("messages").insert({
       conversation_id: buffer.conversation_id,
       contact_id: buffer.contact_id,
       company_id: buffer.company_id,
@@ -146,13 +146,47 @@ Deno.serve(async (req) => {
       status: "pending",
       metadata: { source: "ai", model, latency_ms: latency, agent_name: (company as any)?.agent_name || null },
       sent_at: new Date().toISOString(),
-    });
+    }).select("id").single();
     if (insErr) {
       return await fail(admin, buffer.id, buffer.attempts, `insert_failed: ${insErr.message}`);
     }
 
+    // Resolve contact phone and dispatch via send-message (internal)
+    let sendError: string | null = null;
+    try {
+      const { data: contact } = await admin
+        .from("contacts")
+        .select("phone")
+        .eq("id", buffer.contact_id)
+        .maybeSingle();
+      const phone = (contact as any)?.phone;
+      if (!phone) throw new Error("contact phone missing");
+
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-internal-secret": SERVICE_ROLE,
+        },
+        body: JSON.stringify({ phone, message: text, company_id: buffer.company_id }),
+      });
+      const payload = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(payload?.error || `send failed (${resp.status})`);
+    } catch (e: any) {
+      sendError = e?.message || String(e);
+    }
+
+    if (sendError) {
+      await admin.from("messages").update({
+        status: "failed",
+        metadata: { source: "ai", model, latency_ms: latency, agent_name: (company as any)?.agent_name || null, send_error: sendError },
+      }).eq("id", (inserted as any).id);
+    } else {
+      await admin.from("messages").update({ status: "sent" }).eq("id", (inserted as any).id);
+    }
+
     await admin.from("message_buffer").update({ status: "done", locked_at: null, last_error: null }).eq("id", buffer.id);
-    return json({ ok: true, latency_ms: latency });
+    return json({ ok: true, latency_ms: latency, sent: !sendError, send_error: sendError });
   } catch (err: any) {
     if (bufferId) {
       try {
