@@ -93,6 +93,7 @@ const AgentAI = () => {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [debounce, setDebounce] = useState<number>(5);
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiPipelineEnabled, setAiPipelineEnabled] = useState(false);
   const hasKeyConfigured = !!company?.llm_api_key_encrypted;
 
   useEffect(() => {
