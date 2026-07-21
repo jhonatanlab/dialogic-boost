@@ -32,6 +32,7 @@ const menuItems = [
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Relatórios", url: "/analytics", icon: BarChart3, requiredRoles: ["admin", "manager"] },
   { title: "Check-in", url: "/checkin", icon: QrCode, requiredRoles: ["admin", "manager"] },
+  { title: "Agente IA", url: "/agent-ai", icon: Bot, requiredRoles: ["admin", "owner"] },
   { title: "Configurações", url: "/settings", icon: Settings, requiredRoles: ["admin", "manager"] },
 ];
 
