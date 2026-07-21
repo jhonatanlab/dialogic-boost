@@ -976,6 +976,7 @@ const Inbox = () => {
         phone_number: selectedConversation.contact.phone || "",
         company_id: companyId,
         contact_id: selectedConversation.contact_id,
+        conversation_id: selectedConversation.id,
         type: "control",
       });
     } catch { toast.error("Erro ao assumir conversa"); }
