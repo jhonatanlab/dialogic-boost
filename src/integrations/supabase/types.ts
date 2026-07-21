@@ -2197,6 +2197,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_company_llm_api_key: {
+        Args: { p_api_key: string; p_company_id: string }
+        Returns: undefined
+      }
       simulate_appointment_rules: {
         Args: {
           p_company_id: string
