@@ -485,9 +485,36 @@ const Inbox = () => {
   const { quickReplies } = useQuickReplies();
 
   // Helper: POST to outbound endpoint (silent on failure or if not configured)
-  const postToOutbound = useCallback(async (payload: Record<string, unknown>) => {
+  // If company has ai_pipeline_enabled=true, dispatches via wa-action edge function instead of N8N.
+  const postToOutbound = useCallback(async (payload: Record<string, unknown> & { conversation_id?: string }) => {
     try {
       if (!companyId) return;
+
+      // Check native pipeline flag
+      const { data: company } = await supabase
+        .from("companies")
+        .select("ai_pipeline_enabled")
+        .eq("id", companyId)
+        .maybeSingle();
+
+      if ((company as any)?.ai_pipeline_enabled === true) {
+        const action = payload.action as string | undefined;
+        const conversationId = (payload.conversation_id as string | undefined) ?? selectedConversationId ?? undefined;
+        if (action && conversationId && (action === "pause_ai" || action === "reactivate_ai" || action === "send_message")) {
+          const { error } = await supabase.functions.invoke("wa-action", {
+            body: {
+              action,
+              conversation_id: conversationId,
+              phone: payload.phone_number,
+              message: payload.message,
+            },
+          });
+          if (error) console.error("[wa-action] error:", error);
+          return;
+        }
+      }
+
+      // Fallback: legacy N8N automation outbound webhook
       const { data: settings } = await supabase
         .from("admin_settings")
         .select("setting_key, setting_value")
@@ -507,7 +534,7 @@ const Inbox = () => {
     } catch (err) {
       console.error("[postToOutbound] silent error:", err);
     }
-  }, [companyId]);
+  }, [companyId, selectedConversationId]);
 
   const selectedConversation = conversations?.find(c => c.id === selectedConversationId);
   const { data: closureInfo } = useConversationClosure(
