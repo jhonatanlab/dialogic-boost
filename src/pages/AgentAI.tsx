@@ -379,6 +379,21 @@ const AgentAI = () => {
                   <Switch checked={aiEnabled} onCheckedChange={setAiEnabled} />
                 </div>
 
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Pipeline nativo</p>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide bg-primary/15 text-primary px-1.5 py-0.5 rounded">
+                        beta
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Ativa o processamento de IA direto pelo Lovable Cloud (sem N8N). Padrão desligado.
+                    </p>
+                  </div>
+                  <Switch checked={aiPipelineEnabled} onCheckedChange={setAiPipelineEnabled} />
+                </div>
+
                 <div className="flex flex-wrap gap-3 pt-2">
                   <Button
                     onClick={() => saveMutation.mutate()}
