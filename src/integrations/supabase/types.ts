@@ -713,35 +713,56 @@ export type Database = {
       companies: {
         Row: {
           address: string | null
+          agent_name: string | null
+          ai_enabled: boolean
           cnpj: string | null
           created_at: string
+          debounce_seconds: number
           id: string
           is_active: boolean
+          llm_api_key_encrypted: string | null
+          llm_model: string | null
+          llm_provider: string
           name: string
           phone: string | null
           plan: string
+          system_prompt: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          agent_name?: string | null
+          ai_enabled?: boolean
           cnpj?: string | null
           created_at?: string
+          debounce_seconds?: number
           id?: string
           is_active?: boolean
+          llm_api_key_encrypted?: string | null
+          llm_model?: string | null
+          llm_provider?: string
           name: string
           phone?: string | null
           plan?: string
+          system_prompt?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          agent_name?: string | null
+          ai_enabled?: boolean
           cnpj?: string | null
           created_at?: string
+          debounce_seconds?: number
           id?: string
           is_active?: boolean
+          llm_api_key_encrypted?: string | null
+          llm_model?: string | null
+          llm_provider?: string
           name?: string
           phone?: string | null
           plan?: string
+          system_prompt?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1433,6 +1454,73 @@ export type Database = {
           },
         ]
       }
+      message_buffer: {
+        Row: {
+          attempts: number
+          company_id: string
+          contact_id: string
+          conversation_id: string
+          created_at: string
+          flush_at: string
+          id: string
+          last_error: string | null
+          last_message_at: string
+          locked_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          company_id: string
+          contact_id: string
+          conversation_id: string
+          created_at?: string
+          flush_at: string
+          id?: string
+          last_error?: string | null
+          last_message_at: string
+          locked_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          company_id?: string
+          contact_id?: string
+          conversation_id?: string
+          created_at?: string
+          flush_at?: string
+          id?: string
+          last_error?: string | null
+          last_message_at?: string
+          locked_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_buffer_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_buffer_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_buffer_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           attachment_url: string | null
@@ -1920,40 +2008,58 @@ export type Database = {
       }
       whatsapp_instances: {
         Row: {
+          cloud_api_phone_number_id: string | null
+          cloud_api_token_encrypted: string | null
           company_id: string | null
           company_name: string
           created_at: string
+          evolution_api_key_encrypted: string | null
+          evolution_base_url: string | null
           hash: string | null
           id: string
           instance_id: string | null
           instance_token: string | null
+          provider: string
           status: string
           updated_at: string
           user_id: string
+          webhook_secret: string | null
         }
         Insert: {
+          cloud_api_phone_number_id?: string | null
+          cloud_api_token_encrypted?: string | null
           company_id?: string | null
           company_name: string
           created_at?: string
+          evolution_api_key_encrypted?: string | null
+          evolution_base_url?: string | null
           hash?: string | null
           id?: string
           instance_id?: string | null
           instance_token?: string | null
+          provider?: string
           status?: string
           updated_at?: string
           user_id: string
+          webhook_secret?: string | null
         }
         Update: {
+          cloud_api_phone_number_id?: string | null
+          cloud_api_token_encrypted?: string | null
           company_id?: string | null
           company_name?: string
           created_at?: string
+          evolution_api_key_encrypted?: string | null
+          evolution_base_url?: string | null
           hash?: string | null
           id?: string
           instance_id?: string | null
           instance_token?: string | null
+          provider?: string
           status?: string
           updated_at?: string
           user_id?: string
+          webhook_secret?: string | null
         }
         Relationships: [
           {
@@ -2032,6 +2138,22 @@ export type Database = {
         Returns: undefined
       }
       expire_pending_checkins: { Args: never; Returns: number }
+      get_company_llm_credentials: {
+        Args: { p_company_id: string }
+        Returns: {
+          api_key: string
+          model: string
+          provider: string
+        }[]
+      }
+      get_instance_evolution_credentials: {
+        Args: { p_instance_id: string }
+        Returns: {
+          api_key: string
+          base_url: string
+          webhook_secret: string
+        }[]
+      }
       get_user_company_id: { Args: never; Returns: string }
       has_role: {
         Args: {
