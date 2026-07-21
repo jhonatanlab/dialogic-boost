@@ -120,6 +120,7 @@ const AgentAI = () => {
     setSystemPrompt(company.system_prompt || "");
     setDebounce(Number(company.debounce_seconds ?? 5));
     setAiEnabled(!!company.ai_enabled);
+    setAiPipelineEnabled(!!company.ai_pipeline_enabled);
     setApiKey("");
   }, [company]);
 
