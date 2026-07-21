@@ -722,6 +722,7 @@ export type Database = {
           id: string
           is_active: boolean
           llm_api_key_encrypted: string | null
+          llm_api_key_secret_id: string | null
           llm_model: string | null
           llm_provider: string
           name: string
@@ -741,6 +742,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           llm_api_key_encrypted?: string | null
+          llm_api_key_secret_id?: string | null
           llm_model?: string | null
           llm_provider?: string
           name: string
@@ -760,6 +762,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           llm_api_key_encrypted?: string | null
+          llm_api_key_secret_id?: string | null
           llm_model?: string | null
           llm_provider?: string
           name?: string

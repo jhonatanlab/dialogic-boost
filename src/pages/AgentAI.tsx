@@ -75,7 +75,7 @@ const AgentAI = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("companies")
-        .select("id, agent_name, llm_provider, llm_model, system_prompt, debounce_seconds, ai_enabled, ai_pipeline_enabled, llm_api_key_encrypted")
+        .select("id, agent_name, llm_provider, llm_model, system_prompt, debounce_seconds, ai_enabled, ai_pipeline_enabled, llm_api_key_encrypted, llm_api_key_secret_id")
         .eq("id", companyId!)
         .maybeSingle();
       if (error) throw error;
@@ -94,7 +94,7 @@ const AgentAI = () => {
   const [debounce, setDebounce] = useState<number>(5);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiPipelineEnabled, setAiPipelineEnabled] = useState(false);
-  const hasKeyConfigured = !!company?.llm_api_key_encrypted;
+  const hasKeyConfigured = !!(company?.llm_api_key_secret_id || company?.llm_api_key_encrypted);
 
   useEffect(() => {
     if (!company) return;
