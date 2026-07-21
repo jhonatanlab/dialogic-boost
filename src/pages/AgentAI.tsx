@@ -86,6 +86,8 @@ const AgentAI = () => {
   const [agentName, setAgentName] = useState("");
   const [provider, setProvider] = useState<Provider>("openai");
   const [model, setModel] = useState("");
+  const [selectModel, setSelectModel] = useState("");
+  const [customModel, setCustomModel] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
