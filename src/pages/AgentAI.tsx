@@ -139,6 +139,7 @@ const AgentAI = () => {
           system_prompt: systemPrompt,
           debounce_seconds: debounce,
           ai_enabled: aiEnabled,
+          ai_pipeline_enabled: aiPipelineEnabled,
         } as any)
         .eq("id", companyId);
       if (error) throw error;
