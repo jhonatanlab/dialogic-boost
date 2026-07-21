@@ -53,32 +53,50 @@ Deno.serve(async (req) => {
     const mode = body?.mode === "preview" ? "preview" : "ping";
     const userMessage: string = typeof body?.message === "string" && body.message.trim().length > 0
       ? body.message : "ping";
+    const overrideProvider: string | undefined = typeof body?.provider === "string" && body.provider.trim() ? body.provider.trim() : undefined;
+    const overrideModel: string | undefined = typeof body?.model === "string" && body.model.trim() ? body.model.trim() : undefined;
+    const overrideApiKey: string | undefined = typeof body?.api_key === "string" && body.api_key.trim() ? body.api_key.trim() : undefined;
 
-    // Load credentials + settings
-    const { data: credRows, error: credErr } = await admin
-      .rpc("get_company_llm_credentials", { p_company_id: profile.company_id });
-    if (credErr) throw credErr;
-    const cred = Array.isArray(credRows) ? credRows[0] : credRows;
-    if (!cred?.api_key) {
-      return new Response(JSON.stringify({ ok: false, error: "Chave de API não configurada" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Load saved credentials (best effort; may be empty)
+    let savedProvider = "";
+    let savedModel = "";
+    let savedApiKey = "";
+    try {
+      const { data: credRows, error: credErr } = await admin
+        .rpc("get_company_llm_credentials", { p_company_id: profile.company_id });
+      if (!credErr) {
+        const cred = Array.isArray(credRows) ? credRows[0] : credRows;
+        savedProvider = cred?.provider || "";
+        savedModel = cred?.model || "";
+        savedApiKey = cred?.api_key || "";
+      }
+    } catch (_) { /* ignore, will rely on overrides */ }
+
+    const provider = (overrideProvider || savedProvider || "").toLowerCase();
+    const model = overrideModel || savedModel || "";
+    const apiKey = overrideApiKey || savedApiKey;
+
+    if (!apiKey) {
+      return new Response(JSON.stringify({ ok: false, error: "Informe a chave de API (ou salve antes de testar)" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (!provider || !model) {
+      return new Response(JSON.stringify({ ok: false, error: "Provider/modelo não configurado" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     let systemPrompt = "";
     if (mode === "preview") {
-      const { data: company } = await admin
-        .from("companies")
-        .select("system_prompt")
-        .eq("id", profile.company_id)
-        .maybeSingle();
-      systemPrompt = (company as any)?.system_prompt || "";
-    }
-
-    const provider = (cred.provider || "").toLowerCase();
-    const model = cred.model || "";
-    if (!provider || !model) {
-      return new Response(JSON.stringify({ ok: false, error: "Provider/modelo não configurado" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (typeof body?.system_prompt === "string" && body.system_prompt.trim()) {
+        systemPrompt = body.system_prompt;
+      } else {
+        const { data: company } = await admin
+          .from("companies")
+          .select("system_prompt")
+          .eq("id", profile.company_id)
+          .maybeSingle();
+        systemPrompt = (company as any)?.system_prompt || "";
+      }
     }
 
     const started = Date.now();
@@ -89,7 +107,7 @@ Deno.serve(async (req) => {
       const { text, latency_ms } = await complete({
         provider,
         model,
-        apiKey: cred.api_key,
+        apiKey,
         systemPrompt: mode === "preview" ? (systemPrompt || undefined) : undefined,
         messages,
         maxTokens: mode === "preview" ? 512 : 5,
