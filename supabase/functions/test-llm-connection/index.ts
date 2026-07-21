@@ -82,45 +82,28 @@ Deno.serve(async (req) => {
     }
 
     const started = Date.now();
-    let response = "";
     try {
-      if (provider === "openai") {
-        const msgs = mode === "preview"
-          ? [
-              ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-              { role: "user", content: userMessage },
-            ]
-          : [{ role: "user", content: "ping" }];
-        response = await callOpenAI(cred.api_key, model, msgs);
-      } else if (provider === "anthropic") {
-        response = await callAnthropic(
-          cred.api_key,
-          model,
-          mode === "preview" ? (systemPrompt || undefined) : undefined,
-          mode === "preview" ? userMessage : "ping",
-        );
-      } else if (provider === "groq") {
-        const msgs = mode === "preview"
-          ? [
-              ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-              { role: "user", content: userMessage },
-            ]
-          : [{ role: "user", content: "ping" }];
-        response = await callGroq(cred.api_key, model, msgs);
-      } else {
-        return new Response(JSON.stringify({ ok: false, error: `Provider desconhecido: ${provider}` }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      const messages: LlmMessage[] = mode === "preview"
+        ? [{ role: "user", content: userMessage }]
+        : [{ role: "user", content: "ping" }];
+      const { text, latency_ms } = await complete({
+        provider,
+        model,
+        apiKey: cred.api_key,
+        systemPrompt: mode === "preview" ? (systemPrompt || undefined) : undefined,
+        messages,
+        maxTokens: mode === "preview" ? 512 : 5,
+        timeoutMs: 15_000,
+      });
+      return new Response(JSON.stringify({
+        ok: true,
+        latency_ms,
+        response: mode === "preview" ? text : undefined,
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     } catch (e: any) {
       return new Response(JSON.stringify({ ok: false, error: e?.message || String(e), latency_ms: Date.now() - started }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    return new Response(JSON.stringify({
-      ok: true,
-      latency_ms: Date.now() - started,
-      response: mode === "preview" ? response : undefined,
-    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err: any) {
     return new Response(JSON.stringify({ ok: false, error: err?.message || String(err) }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
