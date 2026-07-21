@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.webhook-leads]
 verify_jwt = false
+
+[functions.test-llm-connection]
+verify_jwt = true
