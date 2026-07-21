@@ -163,7 +163,12 @@ const AgentAI = () => {
   const testKeyMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("test-llm-connection", {
-        body: { mode: "ping" },
+        body: {
+          mode: "ping",
+          provider,
+          model: model.trim() || undefined,
+          api_key: apiKey.trim() || undefined,
+        },
       });
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error || "Falha ao testar chave");
@@ -182,7 +187,14 @@ const AgentAI = () => {
   const previewMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("test-llm-connection", {
-        body: { mode: "preview", message: previewInput },
+        body: {
+          mode: "preview",
+          message: previewInput,
+          provider,
+          model: model.trim() || undefined,
+          api_key: apiKey.trim() || undefined,
+          system_prompt: systemPrompt || undefined,
+        },
       });
       if (error) throw error;
       if (!data?.ok) throw new Error(data?.error || "Falha na resposta");
