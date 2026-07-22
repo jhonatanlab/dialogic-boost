@@ -2207,6 +2207,10 @@ export type Database = {
         Args: { p_api_key: string; p_company_id: string }
         Returns: undefined
       }
+      set_instance_evolution_api_key: {
+        Args: { p_api_key: string; p_instance_id: string }
+        Returns: undefined
+      }
       simulate_appointment_rules: {
         Args: {
           p_company_id: string
