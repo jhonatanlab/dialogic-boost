@@ -38,6 +38,164 @@ import {
 import { useAdminSettings, useWhatsappInstances } from "@/hooks/useAdminSettings";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+interface EvolutionSectionProps {
+  instance: {
+    id: string;
+    evolution_base_url: string | null;
+    evolution_api_key_encrypted: unknown | null;
+    webhook_secret: string | null;
+  };
+}
+
+function EvolutionSection({ instance }: EvolutionSectionProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [baseUrl, setBaseUrl] = useState(instance.evolution_base_url ?? "");
+  const [apiKey, setApiKey] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState(instance.webhook_secret ?? "");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<null | { ok: boolean; msg: string }>(null);
+  const hasSavedKey = !!instance.evolution_api_key_encrypted;
+
+  useEffect(() => {
+    setBaseUrl(instance.evolution_base_url ?? "");
+    setWebhookSecret(instance.webhook_secret ?? "");
+    setApiKey("");
+    setTestResult(null);
+  }, [instance.id]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("whatsapp_instances")
+        .update({
+          evolution_base_url: baseUrl.trim() || null,
+          webhook_secret: webhookSecret.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", instance.id);
+      if (error) throw error;
+
+      if (apiKey.trim().length > 0) {
+        const { error: rpcErr } = await supabase.rpc("set_instance_evolution_api_key", {
+          p_instance_id: instance.id,
+          p_api_key: apiKey.trim(),
+        });
+        if (rpcErr) throw rpcErr;
+      }
+
+      setApiKey("");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+      toast({ title: "Configuração Evolution salva!" });
+    } catch (e: any) {
+      toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleGenerateSecret = () => {
+    setWebhookSecret(crypto.randomUUID());
+  };
+
+  const handleCopySecret = async () => {
+    if (!webhookSecret) return;
+    await navigator.clipboard.writeText(webhookSecret);
+    toast({ title: "Copiado!" });
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-evolution-connection", {
+        body: { instance_id: instance.id },
+      });
+      if (error) throw error;
+      if (data?.ok) {
+        setTestResult({ ok: true, msg: `Conectado (${data.latency_ms}ms)` });
+        toast({ title: "Conexão Evolution OK", description: `Latência ${data.latency_ms}ms` });
+      } else {
+        const msg = data?.error || "Falha desconhecida";
+        setTestResult({ ok: false, msg });
+        toast({ title: "Falha na conexão", description: msg, variant: "destructive" });
+      }
+    } catch (e: any) {
+      setTestResult({ ok: false, msg: e.message });
+      toast({ title: "Erro no teste", description: e.message, variant: "destructive" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="border-t pt-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-semibold">Evolution API</h4>
+        {testResult && (
+          <Badge
+            className={
+              testResult.ok
+                ? "bg-green-500/20 text-green-400 border-green-500/30"
+                : "bg-red-500/20 text-red-400 border-red-500/30"
+            }
+          >
+            {testResult.ok ? "OK" : "Erro"}
+          </Badge>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label>Base URL</Label>
+        <Input
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+          placeholder="https://evolution.seudominio.com"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>API Key {hasSavedKey && <span className="text-xs text-muted-foreground">(salva — deixe vazio para manter)</span>}</Label>
+        <Input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder={hasSavedKey ? "••••••••" : "cole a apikey da Evolution"}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Webhook Secret</Label>
+        <div className="flex gap-2">
+          <Input value={webhookSecret} readOnly placeholder="Clique em Gerar novo" className="font-mono text-xs" />
+          <Button type="button" variant="outline" onClick={handleGenerateSecret}>Gerar novo</Button>
+          <Button type="button" variant="outline" onClick={handleCopySecret} disabled={!webhookSecret}>Copiar</Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Cole este valor no header <code>x-webhook-secret</code> do webhook configurado na Evolution.
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        <Button onClick={handleSave} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? "Salvando..." : "Salvar"}
+        </Button>
+        <Button onClick={handleTest} disabled={testing} variant="outline">
+          {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wifi className="h-4 w-4 mr-2" />}
+          Testar conexão
+        </Button>
+      </div>
+
+      {testResult && (
+        <p className={`text-xs ${testResult.ok ? "text-green-400" : "text-red-400"}`}>{testResult.msg}</p>
+      )}
+    </div>
+  );
+}
+
 const AdminWhatsapp = () => {
   const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
   const { instances, isLoading: instancesLoading, createInstance, deleteInstance } = useWhatsappInstances();
