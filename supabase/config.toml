@@ -18,6 +18,9 @@ verify_jwt = false
 [functions.test-llm-connection]
 verify_jwt = true
 
+[functions.test-evolution-connection]
+verify_jwt = true
+
 [functions.wa-process-buffer]
 verify_jwt = false
 
