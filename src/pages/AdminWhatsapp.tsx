@@ -417,6 +417,10 @@ const AdminWhatsapp = () => {
                           </Button>
                         )}
                       </div>
+
+                      {companyInstance && (companyInstance as any).provider === "evolution" && (
+                        <EvolutionSection instance={companyInstance as any} />
+                      )}
                     </div>
                   );
                 })()}
