@@ -68,23 +68,13 @@ function EvolutionSection({ instance }: EvolutionSectionProps) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("whatsapp_instances")
-        .update({
-          evolution_base_url: baseUrl.trim() || null,
-          webhook_secret: webhookSecret.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", instance.id);
+      const { error } = await supabase.rpc("save_instance_evolution_config", {
+        p_instance_id: instance.id,
+        p_base_url: baseUrl.trim() || null,
+        p_webhook_secret: webhookSecret.trim() || null,
+        p_api_key: apiKey.trim() || null,
+      });
       if (error) throw error;
-
-      if (apiKey.trim().length > 0) {
-        const { error: rpcErr } = await supabase.rpc("set_instance_evolution_api_key", {
-          p_instance_id: instance.id,
-          p_api_key: apiKey.trim(),
-        });
-        if (rpcErr) throw rpcErr;
-      }
 
       setApiKey("");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
