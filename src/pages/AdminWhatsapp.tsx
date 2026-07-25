@@ -42,7 +42,8 @@ interface EvolutionSectionProps {
   instance: {
     id: string;
     evolution_base_url: string | null;
-    evolution_api_key_encrypted: unknown | null;
+    evolution_api_key_encrypted?: unknown | null;
+    evolution_api_key_secret_id?: string | null;
     webhook_secret: string | null;
   };
 }
@@ -56,7 +57,7 @@ function EvolutionSection({ instance }: EvolutionSectionProps) {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<null | { ok: boolean; msg: string }>(null);
-  const hasSavedKey = !!instance.evolution_api_key_encrypted;
+  const hasSavedKey = !!instance.evolution_api_key_secret_id || !!instance.evolution_api_key_encrypted;
 
   useEffect(() => {
     setBaseUrl(instance.evolution_base_url ?? "");
@@ -68,23 +69,13 @@ function EvolutionSection({ instance }: EvolutionSectionProps) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("whatsapp_instances")
-        .update({
-          evolution_base_url: baseUrl.trim() || null,
-          webhook_secret: webhookSecret.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", instance.id);
+      const { error } = await supabase.rpc("save_instance_evolution_config", {
+        p_instance_id: instance.id,
+        p_base_url: baseUrl.trim() || null,
+        p_webhook_secret: webhookSecret.trim() || null,
+        p_api_key: apiKey.trim() || null,
+      });
       if (error) throw error;
-
-      if (apiKey.trim().length > 0) {
-        const { error: rpcErr } = await supabase.rpc("set_instance_evolution_api_key", {
-          p_instance_id: instance.id,
-          p_api_key: apiKey.trim(),
-        });
-        if (rpcErr) throw rpcErr;
-      }
 
       setApiKey("");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
