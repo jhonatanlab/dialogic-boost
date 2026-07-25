@@ -2020,6 +2020,7 @@ export type Database = {
           company_name: string
           created_at: string
           evolution_api_key_encrypted: string | null
+          evolution_api_key_secret_id: string | null
           evolution_base_url: string | null
           hash: string | null
           id: string
@@ -2038,6 +2039,7 @@ export type Database = {
           company_name: string
           created_at?: string
           evolution_api_key_encrypted?: string | null
+          evolution_api_key_secret_id?: string | null
           evolution_base_url?: string | null
           hash?: string | null
           id?: string
@@ -2056,6 +2058,7 @@ export type Database = {
           company_name?: string
           created_at?: string
           evolution_api_key_encrypted?: string | null
+          evolution_api_key_secret_id?: string | null
           evolution_base_url?: string | null
           hash?: string | null
           id?: string
@@ -2157,7 +2160,6 @@ export type Database = {
         Returns: {
           api_key: string
           base_url: string
-          webhook_secret: string
         }[]
       }
       get_user_company_id: { Args: never; Returns: string }
@@ -2202,6 +2204,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      save_instance_evolution_config: {
+        Args: {
+          p_api_key: string
+          p_base_url: string
+          p_instance_id: string
+          p_webhook_secret: string
+        }
+        Returns: undefined
       }
       set_company_llm_api_key: {
         Args: { p_api_key: string; p_company_id: string }
