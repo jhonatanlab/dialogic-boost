@@ -42,7 +42,8 @@ interface EvolutionSectionProps {
   instance: {
     id: string;
     evolution_base_url: string | null;
-    evolution_api_key_encrypted: unknown | null;
+    evolution_api_key_encrypted?: unknown | null;
+    evolution_api_key_secret_id?: string | null;
     webhook_secret: string | null;
   };
 }
@@ -56,7 +57,7 @@ function EvolutionSection({ instance }: EvolutionSectionProps) {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<null | { ok: boolean; msg: string }>(null);
-  const hasSavedKey = !!instance.evolution_api_key_encrypted;
+  const hasSavedKey = !!instance.evolution_api_key_secret_id || !!instance.evolution_api_key_encrypted;
 
   useEffect(() => {
     setBaseUrl(instance.evolution_base_url ?? "");
