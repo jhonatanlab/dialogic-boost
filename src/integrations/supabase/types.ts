@@ -2160,6 +2160,7 @@ export type Database = {
         Returns: {
           api_key: string
           base_url: string
+          webhook_secret: string
         }[]
       }
       get_user_company_id: { Args: never; Returns: string }
