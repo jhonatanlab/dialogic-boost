@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.ai-process]
 verify_jwt = false
+
+[functions.evolution-qr]
+verify_jwt = true

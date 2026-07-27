@@ -332,16 +332,32 @@ const AdminWhatsapp = () => {
   };
 
   const handleGenerateQr = async (inst: { id: string; instance_id: string | null; instance_token: string | null; company_id: string | null }) => {
-    if (!qrEndpoint) {
-      toast({ title: "Endpoint não configurado", description: "Configure o Generate QR Code Endpoint primeiro.", variant: "destructive" });
-      return;
-    }
     if (!inst.instance_id) {
       toast({ title: "Sem instance_id", description: "Esta instância não possui instance_id.", variant: "destructive" });
       return;
     }
     setGeneratingQr(inst.id);
     try {
+      // Try Evolution direct first
+      const evoResp = await supabase.functions.invoke("evolution-qr", {
+        body: { instance_id: inst.id },
+      });
+      const evo = evoResp.data as any;
+      if (evo?.ok && (evo.qr || evo.pairingCode)) {
+        setQrCodeData(evo.qr || evo.pairingCode);
+        setQrDialogOpen(true);
+        return;
+      }
+      // Fallback to n8n if Evolution not configured
+      if (evo?.error && evo.error !== 'missing evolution credentials') {
+        toast({ title: "Erro Evolution", description: String(evo.error).slice(0, 200), variant: "destructive" });
+        return;
+      }
+
+      if (!qrEndpoint) {
+        toast({ title: "Endpoint não configurado", description: "Configure a Evolution API ou o Generate QR Code Endpoint do n8n.", variant: "destructive" });
+        return;
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Não autenticado");
 
@@ -361,13 +377,11 @@ const AdminWhatsapp = () => {
       const result = response.data;
       console.log("QR Code response from n8n:", JSON.stringify(result));
 
-      // Try multiple possible response formats from n8n
       const qrValue = result?.qr_code || result?.qrcode || result?.base64 || result?.code || result?.pairingCode || result?.raw;
       if (qrValue) {
         setQrCodeData(qrValue);
         setQrDialogOpen(true);
       } else {
-        // If the result itself is a string, use it directly
         if (typeof result === "string" && result.length > 10) {
           setQrCodeData(result);
           setQrDialogOpen(true);
@@ -382,6 +396,7 @@ const AdminWhatsapp = () => {
       setGeneratingQr(null);
     }
   };
+
 
   const isConnected = n8nBaseUrl.trim().length > 0;
 
