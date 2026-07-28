@@ -156,17 +156,36 @@ const WhatsappIntegrations = () => {
   };
 
   const handleGenerateQrCode = async () => {
-    const qrEndpoint = getSettingValue("n8n_generate_qr");
-    if (!qrEndpoint) {
-      toast({ title: "Endpoint não configurado", description: "O endpoint de QR Code não está configurado.", variant: "destructive" });
-      return;
-    }
     if (!companyInstance?.instance_id) {
       toast({ title: "Sem instância", description: "Nenhuma instância ativa encontrada para sua empresa.", variant: "destructive" });
       return;
     }
     setGeneratingQr(true);
     try {
+      // Prefer native Evolution API when configured on the instance
+      if (companyInstance.evolution_base_url) {
+        const { data, error } = await supabase.functions.invoke("evolution-qr", {
+          body: { instance_id: companyInstance.id },
+        });
+        if (error) throw new Error(error.message);
+        if (data?.ok) {
+          const qrValue = data.qr || data.pairingCode;
+          if (qrValue) {
+            setQrCodeData(qrValue);
+            setQrDialogOpen(true);
+            return;
+          }
+          throw new Error("Evolution não retornou QR Code.");
+        }
+        throw new Error(data?.error || "Falha ao gerar QR Code via Evolution.");
+      }
+
+      // Fallback: legacy n8n flow
+      const qrEndpoint = getSettingValue("n8n_generate_qr");
+      if (!qrEndpoint) {
+        toast({ title: "Endpoint não configurado", description: "Configure a Evolution API em Admin → WhatsApp ou o endpoint n8n de QR Code.", variant: "destructive" });
+        return;
+      }
       const webhookSecret = getSettingValue("n8n_webhook_secret");
       const response = await supabase.functions.invoke("proxy-n8n", {
         body: {
@@ -181,7 +200,6 @@ const WhatsappIntegrations = () => {
       });
       if (response.error) throw new Error(response.error.message);
       const result = response.data;
-      console.log("QR Code response:", JSON.stringify(result));
       const qrValue = result?.qr_code || result?.qrcode || result?.base64 || result?.code || result?.pairingCode || result?.raw;
       if (qrValue) {
         setQrCodeData(qrValue);
