@@ -48,6 +48,9 @@ const WhatsappIntegrations = () => {
       return data;
     },
     enabled: !!companyId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
