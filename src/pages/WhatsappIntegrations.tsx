@@ -553,36 +553,64 @@ const WhatsappIntegrations = () => {
                         <CardContent className="pt-6 space-y-4">
                           <div className="flex items-center gap-2 text-primary">
                             <Zap className="h-5 w-5" />
-                            <span className="font-medium">Endpoints Configurados</span>
+                            <span className="font-medium">Configuração da Instância</span>
                           </div>
 
-                          <div className="space-y-3">
-                            {[
-                              { label: "Enviar Mensagem", key: "n8n_send_message" as const },
-                              { label: "Criar Instância", key: "n8n_create_instance" as const },
-                              { label: "Gerar QR Code", key: "n8n_generate_qr" as const },
-                              { label: "Deletar Instância", key: "n8n_delete_instance" as const },
-                            ].map((ep) => {
-                              const value = getSettingValue(ep.key);
-                              return (
-                                <div key={ep.key} className="flex items-center justify-between text-sm">
-                                  <span className="text-muted-foreground">{ep.label}</span>
-                                  {value ? (
-                                    <Badge variant="outline" className="font-mono text-xs max-w-[300px] truncate">
-                                      {value}
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="destructive" className="text-xs">
-                                      Não configurado
-                                    </Badge>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                          {(companyInstance as any)?.evolution_base_url ? (
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Provedor</span>
+                                <Badge variant="outline" className="font-mono text-xs">Evolution API</Badge>
+                              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Base URL</span>
+                                <Badge variant="outline" className="font-mono text-xs max-w-[320px] truncate">
+                                  {(companyInstance as any).evolution_base_url}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">API Key</span>
+                                <Badge variant="default" className="text-xs">Configurada</Badge>
+                              </div>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Status</span>
+                                <Badge
+                                  variant={companyInstance?.status === "connected" ? "default" : "secondary"}
+                                  className="text-xs"
+                                >
+                                  {companyInstance?.status || "desconhecido"}
+                                </Badge>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {[
+                                { label: "Enviar Mensagem", key: "n8n_send_message" as const },
+                                { label: "Criar Instância", key: "n8n_create_instance" as const },
+                                { label: "Gerar QR Code", key: "n8n_generate_qr" as const },
+                                { label: "Deletar Instância", key: "n8n_delete_instance" as const },
+                              ].map((ep) => {
+                                const value = getSettingValue(ep.key);
+                                return (
+                                  <div key={ep.key} className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">{ep.label}</span>
+                                    {value ? (
+                                      <Badge variant="outline" className="font-mono text-xs max-w-[300px] truncate">
+                                        {value}
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="destructive" className="text-xs">
+                                        Não configurado
+                                      </Badge>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
 
                           <p className="text-xs text-muted-foreground border-t pt-3">
-                            Os endpoints são gerenciados pelo administrador do sistema.
+                            A configuração da instância é gerenciada pelo administrador do sistema.
                           </p>
                         </CardContent>
                       </Card>
@@ -590,19 +618,23 @@ const WhatsappIntegrations = () => {
                       {companyInstance?.instance_id && (
                         <Button
                           onClick={handleGenerateQrCode}
-                          disabled={generatingQr}
+                          disabled={generatingQr || companyInstance?.status === "connected"}
                           className="w-full"
+                          title={companyInstance?.status === "connected" ? "Instância já conectada. Desconecte no Admin para gerar novo QR." : ""}
                         >
                           {generatingQr ? (
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           ) : (
                             <QrCode className="h-4 w-4 mr-2" />
                           )}
-                          {generatingQr ? "Gerando QR Code..." : "Gerar QR Code"}
+                          {companyInstance?.status === "connected"
+                            ? "Instância já conectada"
+                            : generatingQr ? "Gerando QR Code..." : "Gerar QR Code"}
                         </Button>
                       )}
                     </div>
                   )}
+
                 </div>
               </TabsContent>
 
