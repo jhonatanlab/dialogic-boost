@@ -128,6 +128,14 @@ client_message_id: tempMessageId,
       if (fileName) payload.file_name = fileName;
       if (ptt) payload.ptt = "true";
 
+      // Check if company uses native pipeline (Evolution API)
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("ai_pipeline_enabled")
+        .eq("id", companyId)
+        .maybeSingle();
+      const nativePipeline = (companyRow as any)?.ai_pipeline_enabled === true;
+
       // Fetch all relevant settings for this company
       const { data: allSettings } = await supabase
         .from("admin_settings")
@@ -146,7 +154,25 @@ client_message_id: tempMessageId,
 
       let result: any;
 
-      if (automationEnabled && automationOutbound) {
+      if (nativePipeline) {
+        // API Nativa (Evolution): route via wa-action → send-message
+        const { data, error } = await supabase.functions.invoke("wa-action", {
+          body: {
+            action: "send_message",
+            conversation_id: conversationId,
+            phone,
+            message: messageContent,
+          },
+        });
+        if (error || (data && data.ok === false)) {
+          await (supabase as any)
+            .from("messages")
+            .update({ status: "failed" })
+            .eq("client_message_id", tempMessageId);
+          throw new Error(error?.message || data?.error || "Erro no envio via API Nativa");
+        }
+        result = data;
+      } else if (automationEnabled && automationOutbound) {
         // API Automação: POST direto para o endpoint outbound
         const res = await fetch(automationOutbound, {
           method: "POST",
@@ -162,7 +188,7 @@ client_message_id: tempMessageId,
         }
         result = await res.json().catch(() => ({ success: true }));
       } else if (nativeSendEndpoint) {
-        // API Nativa: POST via proxy-n8n
+        // Legacy: POST via proxy-n8n
         const response = await supabase.functions.invoke("proxy-n8n", {
           body: { endpoint: nativeSendEndpoint, payload },
         });
@@ -181,6 +207,7 @@ client_message_id: tempMessageId,
           .eq("client_message_id", tempMessageId);
         throw new Error("Nenhuma integração de envio configurada");
       }
+
       if (result?.success === false) {
         await (supabase as any)
           .from("messages")
