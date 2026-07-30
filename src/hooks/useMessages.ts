@@ -172,7 +172,19 @@ client_message_id: tempMessageId,
           throw new Error(error?.message || data?.error || "Erro no envio via API Nativa");
         }
         result = data;
+
+        // Reconcile: Evolution returns the WhatsApp message key immediately.
+        const waId =
+          data?.result?.result?.key?.id ??
+          data?.result?.result?.messages?.[0]?.id ??
+          null;
+        await (supabase as any)
+          .from("messages")
+          .update({ status: "sent", ...(waId ? { message_id: waId } : {}) })
+          .eq("client_message_id", tempMessageId);
+        queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
       } else if (automationEnabled && automationOutbound) {
+
         // API Automação: POST direto para o endpoint outbound
         const res = await fetch(automationOutbound, {
           method: "POST",
