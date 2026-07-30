@@ -308,18 +308,42 @@ client_message_id: tempMessageId,
       const automationOutbound = settingsMap["n8n_automation_outbound"];
       const nativeSendEndpoint = settingsMap["n8n_send_message"];
 
+      const { data: companyRow } = await supabase
+        .from("companies")
+        .select("ai_pipeline_enabled")
+        .eq("id", companyId)
+        .maybeSingle();
+      const nativePipeline = (companyRow as any)?.ai_pipeline_enabled === true;
+
       const markFailed = async () => {
         await (supabase as any).from("messages").update({ status: "failed" }).eq("id", message.id);
       };
 
       try {
-        if (automationEnabled && automationOutbound) {
+        if (nativePipeline) {
+          const { data, error } = await supabase.functions.invoke("wa-action", {
+            body: {
+              action: "send_message",
+              conversation_id: message.conversation_id,
+              phone,
+              message: message.content || "",
+            },
+          });
+          if (error || (data && data.ok === false)) {
+            throw new Error(error?.message || data?.error || "Erro no reenvio via API Nativa");
+          }
+          const waId = data?.result?.result?.key?.id ?? null;
+          if (waId) {
+            await (supabase as any).from("messages").update({ message_id: waId }).eq("id", message.id);
+          }
+        } else if (automationEnabled && automationOutbound) {
           const res = await fetch(automationOutbound, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
           if (!res.ok) throw new Error(`Erro no reenvio: ${res.status}`);
+
         } else if (nativeSendEndpoint) {
           const response = await supabase.functions.invoke("proxy-n8n", {
             body: { endpoint: nativeSendEndpoint, payload },
