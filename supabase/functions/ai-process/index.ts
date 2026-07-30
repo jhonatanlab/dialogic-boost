@@ -166,6 +166,9 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          // send-message tem verify_jwt=true no gateway: precisa de Authorization
+          Authorization: `Bearer ${SERVICE_ROLE}`,
+          apikey: SERVICE_ROLE,
           "x-internal-secret": SERVICE_ROLE,
         },
         body: JSON.stringify({ phone, message: text, company_id: buffer.company_id }),
