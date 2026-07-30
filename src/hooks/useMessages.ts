@@ -237,8 +237,10 @@ client_message_id: tempMessageId,
     },
     onError: (error: Error) => {
       console.error("Error sending message:", error);
+      toast.error(error.message || "Erro ao enviar mensagem");
       queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
     },
+
   });
 
   const markAsRead = useMutation({
