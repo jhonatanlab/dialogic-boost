@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
       content: text,
       message_type: "text",
       status: "pending",
-      metadata: { source: "ai", model, latency_ms: latency, agent_name: (company as any)?.agent_name || null },
+      metadata: { source: "ai", model, latency_ms: latency, agent_name: (company as any)?.agent_name || null, detected_name: detectedName || null },
       sent_at: new Date().toISOString(),
     }).select("id").single();
     if (insErr) {
