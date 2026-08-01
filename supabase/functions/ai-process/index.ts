@@ -122,39 +122,13 @@ Deno.serve(async (req) => {
     }
 
     // Marcação de nome real: ##NOME_REAL:Jhonatan##
-    // Extrai o nome, remove a marcação do texto e atualiza contacts.name.
-    const detected = extractRealName(text);
+    // Extrai o nome e remove a marcação do texto antes de gravar/enviar.
+    const detectedName = extractRealName(text);
     text = stripNameMarker(text);
     if (!text) {
       return await fail(admin, buffer.id, buffer.attempts, "empty_after_marker_strip");
     }
 
-    if (detected) {
-      try {
-        const { data: currentContact } = await admin
-          .from("contacts")
-          .select("name")
-          .eq("id", buffer.contact_id)
-          .maybeSingle();
-        const currentName = ((currentContact as any)?.name || "").trim();
-        if (currentName.toLowerCase() !== detected.toLowerCase()) {
-          await admin
-            .from("contacts")
-            .update({ name: detected, updated_at: new Date().toISOString() })
-            .eq("id", buffer.contact_id);
-          await admin.from("activity_logs").insert({
-            user_id: null,
-            company_id: buffer.company_id,
-            contact_id: buffer.contact_id,
-            conversation_id: buffer.conversation_id,
-            action: "contact_name_ai_updated",
-            details: { previous_name: currentName || null, new_name: detected, source: "ai_marker" },
-          });
-        }
-      } catch (e) {
-        console.warn("[ai-process] falha ao atualizar nome do contato", e);
-      }
-    }
 
 
     // Resolve a user_id (messages.user_id is NOT NULL). Prefer an admin/owner of the company.
