@@ -144,6 +144,34 @@ Deno.serve(async (req) => {
       return await fail(admin, buffer.id, buffer.attempts, "no_company_user");
     }
 
+    // Aplica o nome real detectado no contato (Detalhes)
+    if (detectedName) {
+      try {
+        const { data: currentContact } = await admin
+          .from("contacts")
+          .select("name")
+          .eq("id", buffer.contact_id)
+          .maybeSingle();
+        const currentName = ((currentContact as any)?.name || "").trim();
+        if (currentName.toLowerCase() !== detectedName.toLowerCase()) {
+          await admin
+            .from("contacts")
+            .update({ name: detectedName, updated_at: new Date().toISOString() })
+            .eq("id", buffer.contact_id);
+          await admin.from("activity_logs").insert({
+            user_id: userId,
+            company_id: buffer.company_id,
+            contact_id: buffer.contact_id,
+            conversation_id: buffer.conversation_id,
+            action: "contact_name_ai_updated",
+            details: { previous_name: currentName || null, new_name: detectedName, source: "ai_marker" },
+          });
+        }
+      } catch (e) {
+        console.warn("[ai-process] falha ao atualizar nome do contato", e);
+      }
+    }
+
     const { data: inserted, error: insErr } = await admin.from("messages").insert({
       conversation_id: buffer.conversation_id,
       contact_id: buffer.contact_id,
