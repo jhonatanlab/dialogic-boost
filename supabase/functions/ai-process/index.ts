@@ -121,6 +121,16 @@ Deno.serve(async (req) => {
       return await fail(admin, buffer.id, buffer.attempts, "empty_llm_response");
     }
 
+    // Marcação de nome real: ##NOME_REAL:Jhonatan##
+    // Extrai o nome e remove a marcação do texto antes de gravar/enviar.
+    const detectedName = extractRealName(text);
+    text = stripNameMarker(text);
+    if (!text) {
+      return await fail(admin, buffer.id, buffer.attempts, "empty_after_marker_strip");
+    }
+
+
+
     // Resolve a user_id (messages.user_id is NOT NULL). Prefer an admin/owner of the company.
     const { data: ownerRow } = await admin
       .from("profiles")
@@ -134,6 +144,34 @@ Deno.serve(async (req) => {
       return await fail(admin, buffer.id, buffer.attempts, "no_company_user");
     }
 
+    // Aplica o nome real detectado no contato (Detalhes)
+    if (detectedName) {
+      try {
+        const { data: currentContact } = await admin
+          .from("contacts")
+          .select("name")
+          .eq("id", buffer.contact_id)
+          .maybeSingle();
+        const currentName = ((currentContact as any)?.name || "").trim();
+        if (currentName.toLowerCase() !== detectedName.toLowerCase()) {
+          await admin
+            .from("contacts")
+            .update({ name: detectedName, updated_at: new Date().toISOString() })
+            .eq("id", buffer.contact_id);
+          await admin.from("activity_logs").insert({
+            user_id: userId,
+            company_id: buffer.company_id,
+            contact_id: buffer.contact_id,
+            conversation_id: buffer.conversation_id,
+            action: "contact_name_ai_updated",
+            details: { previous_name: currentName || null, new_name: detectedName, source: "ai_marker" },
+          });
+        }
+      } catch (e) {
+        console.warn("[ai-process] falha ao atualizar nome do contato", e);
+      }
+    }
+
     const { data: inserted, error: insErr } = await admin.from("messages").insert({
       conversation_id: buffer.conversation_id,
       contact_id: buffer.contact_id,
@@ -144,7 +182,7 @@ Deno.serve(async (req) => {
       content: text,
       message_type: "text",
       status: "pending",
-      metadata: { source: "ai", model, latency_ms: latency, agent_name: (company as any)?.agent_name || null },
+      metadata: { source: "ai", model, latency_ms: latency, agent_name: (company as any)?.agent_name || null, detected_name: detectedName || null },
       sent_at: new Date().toISOString(),
     }).select("id").single();
     if (insErr) {
@@ -223,7 +261,37 @@ async function fail(admin: any, bufferId: string, attempts: number, message: str
   return json({ ok: false, error: message, attempts: nextAttempts });
 }
 
+const NAME_MARKER_RE = /##\s*NOME_REAL\s*:\s*([^#]{1,60})##/i;
+const NAME_MARKER_STRIP_RE = /##\s*NOME_REAL\s*:[^#]{0,60}##/gi;
+const NAME_PLACEHOLDERS = new Set([
+  "cliente", "lead", "contato", "desconhecido", "nao informado", "não informado",
+  "n/a", "na", "none", "null", "sem nome", "usuario", "usuário",
+]);
+
+function extractRealName(text: string): string | null {
+  const m = NAME_MARKER_RE.exec(text || "");
+  if (!m) return null;
+  const raw = (m[1] || "").replace(/\s+/g, " ").trim();
+  if (raw.length < 2 || raw.length > 60) return null;
+  if (!/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’\-. ]{1,59}$/.test(raw)) return null;
+  if (NAME_PLACEHOLDERS.has(raw.toLowerCase())) return null;
+  return raw
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function stripNameMarker(text: string): string {
+  return (text || "")
+    .replace(NAME_MARKER_STRIP_RE, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function json(body: unknown, status = 200) {
+
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },

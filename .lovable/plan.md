@@ -1,36 +1,48 @@
 ## Objetivo
-Permitir configurar, por webhook, o destino padrão dos leads recebidos: uma equipe, um usuário específico ou deixar em aberto.
 
-## Mudanças
+Quando a IA identificar o nome real do lead e devolver `##NOME_REAL:Jhonatan##` no meio da resposta:
+1. O nome do contato é atualizado em Detalhes (tabela `contacts`).
+2. A marcação é removida antes de enviar ao WhatsApp e antes de gravar em `messages`.
 
-### 1. Banco de dados (migração)
-Adicionar duas colunas em `webhook_integrations`:
-- `default_team_id uuid` (FK → `teams.id`, nullable, `ON DELETE SET NULL`)
-- `default_assigned_to uuid` (FK → `auth.users.id`, nullable, `ON DELETE SET NULL`)
+## Abordagem recomendada
 
-Regra: podem ser ambas nulas (= deixar em aberto), uma delas preenchida, ou as duas (equipe + atendente).
+Manter a marcação inline (é simples e já é o que o seu prompt faz), mas tratá-la em **duas camadas**, para funcionar tanto no pipeline nativo quanto no fluxo n8n:
 
-### 2. UI — `src/pages/WebhookIntegrations.tsx`
-No diálogo de criar/editar webhook, adicionar dois selects abaixo da mensagem de boas-vindas:
-- **Equipe padrão** — lista `teams` da empresa + opção "Nenhuma (deixar em aberto)"
-- **Atendente padrão** — lista de atendentes da empresa + opção "Nenhum"
+**Camada 1 — Pipeline nativo (`supabase/functions/ai-process/index.ts`)**
+- Após receber o texto do LLM, aplicar um parser: regex `/##\s*NOME_REAL\s*:\s*([^#]{1,60})##/i`.
+- Extrair o nome, limpar o texto (remover a marcação e espaços duplos resultantes).
+- Persistir em `messages` e enviar via `send-message` **somente o texto limpo**.
+- Se um nome foi capturado e passar na validação, atualizar `contacts.name` daquele `contact_id`, registrar em `activity_logs` (`action: 'contact_name_ai_updated'`, detalhes com nome antigo/novo) e guardar em `messages.metadata.detected_name`.
 
-Mostrar também na listagem de cada webhook um badge/linha com "Equipe: X · Atendente: Y" quando definidos.
+**Camada 2 — Rede de segurança no banco (cobre n8n e qualquer outro caminho)**
+- Trigger `BEFORE INSERT` em `public.messages` (security definer) para mensagens `outbound`:
+  - se o `content` contiver a marcação, remove a marcação do `content` gravado e atualiza `contacts.name` do contato da mensagem.
+- Assim, mesmo que a resposta venha pelo n8n (que insere direto em `messages`), o nome é atualizado e a marcação nunca fica visível no histórico.
+- Observação: o trigger não impede o envio da marcação pelo n8n (o n8n envia o texto ao WhatsApp fora do Supabase). Se você usa n8n em produção para essas empresas, o ideal é também remover a marcação lá no fluxo; posso documentar o regex a usar.
 
-### 3. Hook — `src/hooks/useWebhookIntegrations.ts`
-Incluir os dois novos campos no tipo `WebhookIntegration` e nas mutações `create`/`update`.
+**Camada 3 — Fallback de renderização**
+- Sanitizar no `ChatBubble` (Inbox) removendo qualquer `##...##` residual, para garantir que nada apareça na tela em conversas antigas.
 
-### 4. Edge function — `supabase/functions/webhook-leads/index.ts`
-Ao criar uma nova conversa (bloco `else` na linha ~189), incluir:
-```ts
-assigned_team: integration.default_team_id ?? null,
-assigned_to: integration.default_assigned_to ?? null,
-status: integration.default_assigned_to ? "in_progress" : "open",
+## Regras de validação do nome (para não sobrescrever com lixo)
+
+Só atualiza `contacts.name` quando:
+- tem 2 a 60 caracteres, só letras/acentos/espaços/hífen/apóstrofo;
+- não é igual ao nome atual (case-insensitive);
+- não é um placeholder (`cliente`, `lead`, `desconhecido`, `não informado`, número de telefone).
+Capitaliza cada palavra (`jhonatan silva` → `Jhonatan Silva`).
+
+## Ajuda ao prompt do agente
+
+Na página **Agente IA**, adicionar um bloco informativo com a instrução pronta para colar no system prompt, ex.:
+
+```text
+Quando o cliente informar o nome dele, inclua na sua resposta a marcação
+##NOME_REAL:Nome## exatamente uma vez. A marcação é removida
+automaticamente e nunca é vista pelo cliente.
 ```
-Para conversas já existentes, **não sobrescrever** atribuição atual (respeita o trabalho do atendente).
 
-Também registrar um evento em `conversation_events` (`transferred_team` / `transferred_agent`) quando a atribuição inicial vier do webhook, para manter a auditoria consistente.
+Sem mudança de schema além do trigger/função.
 
-## Fora de escopo
-- Não altera lógica de distribuição automática (ACD) — se `default_assigned_to` estiver definido no webhook, ele tem prioridade; senão o trigger `distribute_conversation` existente pode agir normalmente quando `status='open'` e `assigned_to IS NULL`.
-- Não altera contatos existentes retroativamente.
+## Alternativa (se preferir mais robusto no futuro)
+
+Usar tool calling / structured output no LLM em vez de marcação em texto (o modelo devolve `{"reply": "...", "detected_name": "..."}`). É mais confiável, mas exige mudar o cliente LLM compartilhado e cada provedor (OpenAI/Anthropic/Groq). Recomendo começar com a marcação inline, que já está funcionando no seu prompt, e migrar depois se necessário.

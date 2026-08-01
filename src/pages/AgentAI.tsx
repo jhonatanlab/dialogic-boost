@@ -19,7 +19,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+const NAME_MARKER_INSTRUCTION = `Sempre que o cliente informar o nome dele, inclua na sua resposta a marcação ##NOME_REAL:Nome## exatamente uma vez, usando o nome informado. Exemplo: "Prazer, Jhonatan! ##NOME_REAL:Jhonatan## Como posso te ajudar?". A marcação é removida automaticamente e nunca é vista pelo cliente. Não use a marcação se o cliente não informar o nome.`;
+
 type Provider = "openai" | "anthropic" | "groq";
+
 
 type ModelOption = { value: string; label: string };
 
@@ -380,6 +383,29 @@ const AgentAI = () => {
                     placeholder="Descreva o comportamento do agente..."
                   />
                 </div>
+
+                <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                  <p className="font-medium text-sm">Detecção automática do nome real</p>
+                  <p className="text-sm text-muted-foreground">
+                    Quando a resposta do agente contém a marcação{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-xs">##NOME_REAL:Nome##</code>, o
+                    sistema atualiza o nome do contato em Detalhes e remove a marcação antes de enviar
+                    ao cliente. Cole a instrução abaixo no system prompt:
+                  </p>
+                  <pre className="whitespace-pre-wrap rounded-md bg-muted p-3 text-xs font-mono">{NAME_MARKER_INSTRUCTION}</pre>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(NAME_MARKER_INSTRUCTION);
+                      toast.success("Instrução copiada");
+                    }}
+                  >
+                    Copiar instrução
+                  </Button>
+                </div>
+
 
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div>

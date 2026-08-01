@@ -2147,6 +2147,7 @@ export type Database = {
         Returns: undefined
       }
       expire_pending_checkins: { Args: never; Returns: number }
+      extract_ai_real_name: { Args: { p_text: string }; Returns: string }
       get_company_llm_credentials: {
         Args: { p_company_id: string }
         Returns: {
@@ -2232,6 +2233,7 @@ export type Database = {
         }
         Returns: Json
       }
+      strip_ai_name_marker: { Args: { p_text: string }; Returns: string }
       sweep_stale_presence: { Args: never; Returns: number }
       update_campaign_contact_status: {
         Args: {

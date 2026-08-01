@@ -152,7 +152,12 @@ const ChatBubble = ({ message, agentName, onRetry }: { message: Message; agentNa
   const isOutbound = message.direction?.toLowerCase() === "outbound";
   const mediaUrl = getMediaUrl(message);
   const hasMedia = !!mediaUrl && message.message_type !== "text";
-  const rawContent = message.content?.trim() ?? "";
+  // Remove marcações internas do agente (ex.: ##NOME_REAL:Jhonatan##) que nunca devem aparecer
+  const rawContent = (message.content ?? "")
+    .replace(/##\s*NOME_REAL\s*:[^#]{0,60}##/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+
 
   // Detect if content is an image: data URI, URL, or raw Base64
   const looksLikeBase64 = rawContent.length > 100 && /^[A-Za-z0-9+/=\s]+$/.test(rawContent.slice(0, 200));
