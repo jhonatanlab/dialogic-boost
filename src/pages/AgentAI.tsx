@@ -19,7 +19,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+const NAME_MARKER_INSTRUCTION = `Sempre que o cliente informar o nome dele, inclua na sua resposta a marcação ##NOME_REAL:Nome## exatamente uma vez, usando o nome informado. Exemplo: "Prazer, Jhonatan! ##NOME_REAL:Jhonatan## Como posso te ajudar?". A marcação é removida automaticamente e nunca é vista pelo cliente. Não use a marcação se o cliente não informar o nome.`;
+
 type Provider = "openai" | "anthropic" | "groq";
+
 
 type ModelOption = { value: string; label: string };
 
