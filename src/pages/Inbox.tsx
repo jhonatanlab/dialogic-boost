@@ -2068,27 +2068,10 @@ const Inbox = () => {
                         return fallback;
                       };
 
-                      const FileItem = ({ msg, icon: Icon, fallbackLabel }: { msg: Message; icon: any; fallbackLabel: string }) => {
-                        const url = getMediaUrl(msg)!;
-                        const mimetype = getMimetype(msg);
-                        const src = resolveMediaSrc(url, mimetype, msg.message_type);
-                        const label = resolveFileName(msg, fallbackLabel);
-                        return (
-                          <a href={src} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors group">
-                            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                              <Icon className="h-4 w-4 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-foreground truncate">{label}</p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {format(new Date(msg.created_at), "dd/MM/yy HH:mm")} · {msg.direction === "outbound" ? "Enviado" : "Recebido"}
-                              </p>
-                            </div>
-                            <Download className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </a>
-                        );
-                      };
+                      const FileItem = ({ msg, icon: Icon, fallbackLabel }: { msg: Message; icon: any; fallbackLabel: string }) => (
+                        <FileRow msg={msg} icon={Icon} label={resolveFileName(msg, fallbackLabel)} />
+                      );
+
 
                       return (
                         <div className="space-y-4">
