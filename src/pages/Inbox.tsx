@@ -90,8 +90,16 @@ const MediaContent = ({ message }: { message: Message }) => {
   const mediaUrl = getMediaUrl(message);
   const mimetype = getMimetype(message);
   const type = message.message_type;
+  const src = useMediaSrc(mediaUrl, mimetype, type);
   if (!mediaUrl || type === "text") return null;
-  const src = resolveMediaSrc(mediaUrl, mimetype, type);
+  if (!src) {
+    return (
+      <div className="p-3 flex items-center gap-2 text-muted-foreground text-xs">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Carregando mídia…</span>
+      </div>
+    );
+  }
 
   switch (type) {
     case "image":
@@ -118,7 +126,7 @@ const MediaContent = ({ message }: { message: Message }) => {
       return <audio src={src} controls className="w-full min-w-[220px]" />;
     case "document":
       return (
-        <a href={src} target="_blank" rel="noopener noreferrer"
+        <a href={src} target="_blank" rel="noopener noreferrer" download
           className="flex items-center gap-3 p-3 rounded-md bg-background/30 hover:bg-background/50 transition-colors">
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
             <FileText className="h-5 w-5 text-primary" />
@@ -133,6 +141,7 @@ const MediaContent = ({ message }: { message: Message }) => {
       return null;
   }
 };
+
 
 /* ─── URL image detection ─── */
 const isImageUrl = (text: string): boolean => {
