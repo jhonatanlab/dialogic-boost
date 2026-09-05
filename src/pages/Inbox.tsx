@@ -38,6 +38,8 @@ import { AiControlCard } from "@/components/inbox/AiControlCard";
 import { ForceAutomationCard } from "@/components/contacts/ForceAutomationCard";
 import { MediaLightbox, openMediaLightbox, requestMediaLightbox, MEDIA_LIGHTBOX_REQUEST_EVENT, type LightboxItem } from "@/components/inbox/MediaLightbox";
 import { useConversationClosure } from "@/hooks/useConversationClosure";
+import { resolveMediaSrcSync, resolveMediaSrcAsync, useMediaSrc } from "@/lib/mediaSrc";
+
 
 /* ─── Helpers ─── */
 
