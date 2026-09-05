@@ -51,13 +51,9 @@ const getMimetype = (msg: Message): string | null => {
   return typeof meta?.mimetype === "string" ? meta.mimetype : null;
 };
 
-const resolveMediaSrc = (url: string, mimetype: string | null, fallbackType: string): string => {
-  if (url.startsWith("http") || url.startsWith("data:")) return url;
-  const mimeMap: Record<string, string> = {
-    image: "image/jpeg", audio: "audio/ogg", video: "video/mp4", document: "application/octet-stream",
-  };
-  return `data:${mimetype || mimeMap[fallbackType] || "application/octet-stream"};base64,${url}`;
-};
+const resolveMediaSrc = (url: string, mimetype: string | null, fallbackType: string): string | null =>
+  resolveMediaSrcSync(url, mimetype, fallbackType);
+
 
 const formatConvDate = (dateStr: string) => {
   const d = new Date(dateStr);
