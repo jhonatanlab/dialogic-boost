@@ -143,7 +143,64 @@ const MediaContent = ({ message }: { message: Message }) => {
 };
 
 
+/* ─── Reusable media items (files panel) ─── */
+const FileRow = ({ msg, icon: Icon, label }: { msg: Message; icon: any; label: string }) => {
+  const src = useMediaSrc(getMediaUrl(msg), getMimetype(msg), msg.message_type);
+  const isAudio = msg.message_type === "audio";
+  return (
+    <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary group">
+      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+        <Icon className="h-4 w-4 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-foreground truncate">{label}</p>
+        <p className="text-[10px] text-muted-foreground">
+          {format(new Date(msg.created_at), "dd/MM/yy HH:mm")} · {msg.direction === "outbound" ? "Enviado" : "Recebido"}
+        </p>
+        {isAudio && src && <audio src={src} controls className="w-full mt-1.5 h-8" />}
+      </div>
+      {src ? (
+        <a href={src} target="_blank" rel="noopener noreferrer" download title="Abrir / baixar">
+          <Download className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors shrink-0" />
+        </a>
+      ) : (
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />
+      )}
+    </div>
+  );
+};
+
+const MediaThumb = ({ msg, kind }: { msg: Message; kind: "image" | "video" }) => {
+  const src = useMediaSrc(getMediaUrl(msg), getMimetype(msg), kind);
+  if (!src) {
+    return (
+      <div className="aspect-square rounded-lg bg-secondary flex items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => requestMediaLightbox({ url: src, type: kind })}
+      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity cursor-zoom-in relative"
+    >
+      {kind === "image" ? (
+        <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
+      ) : (
+        <>
+          <video src={src} className="w-full h-full object-cover pointer-events-none" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <PlayCircle className="h-8 w-8 text-white drop-shadow" />
+          </div>
+        </>
+      )}
+    </button>
+  );
+};
+
 /* ─── URL image detection ─── */
+
 const isImageUrl = (text: string): boolean => {
   if (!text) return false;
   const trimmed = text.trim();
