@@ -336,15 +336,8 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                         <Image className="h-3 w-3" /> Imagens ({images.length})
                       </Label>
                       <div className="grid grid-cols-3 gap-1.5">
-                        {images.map(msg => {
-                          const src = resolveMediaSrc(getMediaUrl(msg)!, getMimetype(msg), "image");
-                          return (
-                            <a key={msg.id} href={src} target="_blank" rel="noopener noreferrer"
-                              className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity">
-                              <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
-                            </a>
-                          );
-                        })}
+                        {images.map(msg => <ImageThumb key={msg.id} msg={msg} />)}
+
                       </div>
                     </div>
                   )}
