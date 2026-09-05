@@ -405,12 +405,11 @@ function resolveFileName(msg: MediaMessage, fallback: string): string {
 }
 
 function FileItem({ msg, icon: Icon, fallbackLabel }: { msg: MediaMessage; icon: any; fallbackLabel: string }) {
-  const url = getMediaUrl(msg)!;
-  const mimetype = getMimetype(msg);
-  const src = resolveMediaSrc(url, mimetype, msg.message_type);
+  const src = useMediaSrc(getMediaUrl(msg), getMimetype(msg), msg.message_type);
   const label = resolveFileName(msg, fallbackLabel);
   return (
-    <a href={src} target="_blank" rel="noopener noreferrer"
+    <a href={src || undefined} target="_blank" rel="noopener noreferrer" download
+
       className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors group">
       <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
         <Icon className="h-4 w-4 text-primary" />
