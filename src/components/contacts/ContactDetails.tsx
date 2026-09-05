@@ -45,13 +45,17 @@ const getMimetype = (msg: MediaMessage): string | null => {
   return typeof meta?.mimetype === "string" ? meta.mimetype : null;
 };
 
-const resolveMediaSrc = (url: string, mimetype: string | null, fallbackType: string): string => {
-  if (url.startsWith("http") || url.startsWith("data:")) return url;
-  const mimeMap: Record<string, string> = {
-    image: "image/jpeg", audio: "audio/ogg", video: "video/mp4", document: "application/octet-stream",
-  };
-  return `data:${mimetype || mimeMap[fallbackType] || "application/octet-stream"};base64,${url}`;
+const ImageThumb = ({ msg }: { msg: MediaMessage }) => {
+  const src = useMediaSrc(getMediaUrl(msg), getMimetype(msg), "image");
+  if (!src) return <div className="aspect-square rounded-lg bg-secondary" />;
+  return (
+    <a href={src} target="_blank" rel="noopener noreferrer"
+      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity block">
+      <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
+    </a>
+  );
 };
+
 
 export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: ContactDetailsProps) {
   const [newNote, setNewNote] = useState("");
