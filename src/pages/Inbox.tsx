@@ -38,6 +38,8 @@ import { AiControlCard } from "@/components/inbox/AiControlCard";
 import { ForceAutomationCard } from "@/components/contacts/ForceAutomationCard";
 import { MediaLightbox, openMediaLightbox, requestMediaLightbox, MEDIA_LIGHTBOX_REQUEST_EVENT, type LightboxItem } from "@/components/inbox/MediaLightbox";
 import { useConversationClosure } from "@/hooks/useConversationClosure";
+import { resolveMediaSrcSync, resolveMediaSrcAsync, useMediaSrc } from "@/lib/mediaSrc";
+
 
 /* ─── Helpers ─── */
 
@@ -51,13 +53,9 @@ const getMimetype = (msg: Message): string | null => {
   return typeof meta?.mimetype === "string" ? meta.mimetype : null;
 };
 
-const resolveMediaSrc = (url: string, mimetype: string | null, fallbackType: string): string => {
-  if (url.startsWith("http") || url.startsWith("data:")) return url;
-  const mimeMap: Record<string, string> = {
-    image: "image/jpeg", audio: "audio/ogg", video: "video/mp4", document: "application/octet-stream",
-  };
-  return `data:${mimetype || mimeMap[fallbackType] || "application/octet-stream"};base64,${url}`;
-};
+const resolveMediaSrc = (url: string, mimetype: string | null, fallbackType: string): string | null =>
+  resolveMediaSrcSync(url, mimetype, fallbackType);
+
 
 const formatConvDate = (dateStr: string) => {
   const d = new Date(dateStr);
@@ -92,8 +90,16 @@ const MediaContent = ({ message }: { message: Message }) => {
   const mediaUrl = getMediaUrl(message);
   const mimetype = getMimetype(message);
   const type = message.message_type;
+  const src = useMediaSrc(mediaUrl, mimetype, type);
   if (!mediaUrl || type === "text") return null;
-  const src = resolveMediaSrc(mediaUrl, mimetype, type);
+  if (!src) {
+    return (
+      <div className="p-3 flex items-center gap-2 text-muted-foreground text-xs">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Carregando mídia…</span>
+      </div>
+    );
+  }
 
   switch (type) {
     case "image":
@@ -120,7 +126,7 @@ const MediaContent = ({ message }: { message: Message }) => {
       return <audio src={src} controls className="w-full min-w-[220px]" />;
     case "document":
       return (
-        <a href={src} target="_blank" rel="noopener noreferrer"
+        <a href={src} target="_blank" rel="noopener noreferrer" download
           className="flex items-center gap-3 p-3 rounded-md bg-background/30 hover:bg-background/50 transition-colors">
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
             <FileText className="h-5 w-5 text-primary" />
@@ -136,7 +142,65 @@ const MediaContent = ({ message }: { message: Message }) => {
   }
 };
 
+
+/* ─── Reusable media items (files panel) ─── */
+const FileRow = ({ msg, icon: Icon, label }: { msg: Message; icon: any; label: string }) => {
+  const src = useMediaSrc(getMediaUrl(msg), getMimetype(msg), msg.message_type);
+  const isAudio = msg.message_type === "audio";
+  return (
+    <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary group">
+      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+        <Icon className="h-4 w-4 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-foreground truncate">{label}</p>
+        <p className="text-[10px] text-muted-foreground">
+          {format(new Date(msg.created_at), "dd/MM/yy HH:mm")} · {msg.direction === "outbound" ? "Enviado" : "Recebido"}
+        </p>
+        {isAudio && src && <audio src={src} controls className="w-full mt-1.5 h-8" />}
+      </div>
+      {src ? (
+        <a href={src} target="_blank" rel="noopener noreferrer" download title="Abrir / baixar">
+          <Download className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors shrink-0" />
+        </a>
+      ) : (
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />
+      )}
+    </div>
+  );
+};
+
+const MediaThumb = ({ msg, kind }: { msg: Message; kind: "image" | "video" }) => {
+  const src = useMediaSrc(getMediaUrl(msg), getMimetype(msg), kind);
+  if (!src) {
+    return (
+      <div className="aspect-square rounded-lg bg-secondary flex items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => requestMediaLightbox({ url: src, type: kind })}
+      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity cursor-zoom-in relative"
+    >
+      {kind === "image" ? (
+        <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
+      ) : (
+        <>
+          <video src={src} className="w-full h-full object-cover pointer-events-none" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <PlayCircle className="h-8 w-8 text-white drop-shadow" />
+          </div>
+        </>
+      )}
+    </button>
+  );
+};
+
 /* ─── URL image detection ─── */
+
 const isImageUrl = (text: string): boolean => {
   if (!text) return false;
   const trimmed = text.trim();
@@ -1231,22 +1295,25 @@ const Inbox = () => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<LightboxItem>).detail;
       if (!detail?.url) return;
-      const items: LightboxItem[] = [];
-      for (const m of allMessages || []) {
-        const url = getMediaUrl(m);
-        if (!url) continue;
-        if (m.message_type === "image" || m.message_type === "video") {
-          const src = resolveMediaSrc(url, getMimetype(m), m.message_type);
-          items.push({ url: src, type: m.message_type as "image" | "video" });
+      (async () => {
+        const items: LightboxItem[] = [];
+        for (const m of allMessages || []) {
+          const url = getMediaUrl(m);
+          if (!url) continue;
+          if (m.message_type === "image" || m.message_type === "video") {
+            const src = await resolveMediaSrcAsync(url, getMimetype(m), m.message_type);
+            if (src) items.push({ url: src, type: m.message_type as "image" | "video" });
+          }
         }
-      }
-      const idx = items.findIndex(i => i.url === detail.url);
-      if (idx === -1) {
-        openMediaLightbox({ items: [detail], index: 0 });
-      } else {
-        openMediaLightbox({ items, index: idx });
-      }
+        const idx = items.findIndex(i => i.url === detail.url);
+        if (idx === -1) {
+          openMediaLightbox({ items: [detail], index: 0 });
+        } else {
+          openMediaLightbox({ items, index: idx });
+        }
+      })();
     };
+
     window.addEventListener(MEDIA_LIGHTBOX_REQUEST_EVENT, handler);
     return () => window.removeEventListener(MEDIA_LIGHTBOX_REQUEST_EVENT, handler);
   }, [allMessages]);
@@ -2058,27 +2125,10 @@ const Inbox = () => {
                         return fallback;
                       };
 
-                      const FileItem = ({ msg, icon: Icon, fallbackLabel }: { msg: Message; icon: any; fallbackLabel: string }) => {
-                        const url = getMediaUrl(msg)!;
-                        const mimetype = getMimetype(msg);
-                        const src = resolveMediaSrc(url, mimetype, msg.message_type);
-                        const label = resolveFileName(msg, fallbackLabel);
-                        return (
-                          <a href={src} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors group">
-                            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                              <Icon className="h-4 w-4 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-foreground truncate">{label}</p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {format(new Date(msg.created_at), "dd/MM/yy HH:mm")} · {msg.direction === "outbound" ? "Enviado" : "Recebido"}
-                              </p>
-                            </div>
-                            <Download className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </a>
-                        );
-                      };
+                      const FileItem = ({ msg, icon: Icon, fallbackLabel }: { msg: Message; icon: any; fallbackLabel: string }) => (
+                        <FileRow msg={msg} icon={Icon} label={resolveFileName(msg, fallbackLabel)} />
+                      );
+
 
                       return (
                         <div className="space-y-4">
@@ -2088,19 +2138,7 @@ const Inbox = () => {
                                 <ImageIcon className="h-3 w-3" /> Imagens ({images.length})
                               </Label>
                               <div className="grid grid-cols-3 gap-1.5">
-                                {images.map(msg => {
-                                  const src = resolveMediaSrc(getMediaUrl(msg)!, getMimetype(msg), "image");
-                                  return (
-                                    <button
-                                      type="button"
-                                      key={msg.id}
-                                      onClick={() => requestMediaLightbox({ url: src, type: "image" })}
-                                      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity cursor-zoom-in"
-                                    >
-                                      <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                    </button>
-                                  );
-                                })}
+                                {images.map(msg => <MediaThumb key={msg.id} msg={msg} kind="image" />)}
                               </div>
                             </div>
                           )}
@@ -2110,23 +2148,9 @@ const Inbox = () => {
                                 <Film className="h-3 w-3" /> Vídeos ({videos.length})
                               </Label>
                               <div className="grid grid-cols-3 gap-1.5">
-                                {videos.map(msg => {
-                                  const src = resolveMediaSrc(getMediaUrl(msg)!, getMimetype(msg), "video");
-                                  return (
-                                    <button
-                                      type="button"
-                                      key={msg.id}
-                                      onClick={() => requestMediaLightbox({ url: src, type: "video" })}
-                                      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity cursor-pointer relative"
-                                    >
-                                      <video src={src} className="w-full h-full object-cover pointer-events-none" />
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                        <PlayCircle className="h-8 w-8 text-white drop-shadow" />
-                                      </div>
-                                    </button>
-                                  );
-                                })}
+                                {videos.map(msg => <MediaThumb key={msg.id} msg={msg} kind="video" />)}
                               </div>
+
                             </div>
                           )}
                           {audios.length > 0 && (

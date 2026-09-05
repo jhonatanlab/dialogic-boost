@@ -372,6 +372,10 @@ Deno.serve(async (req) => {
 
       // 6. Mídia: baixar via Evolution getBase64FromMediaMessage e subir no bucket
       let media_url: string | null = null;
+      const originalFileName: string | undefined =
+        item?.message?.documentMessage?.fileName ??
+        item?.message?.documentWithCaptionMessage?.message?.documentMessage?.fileName ??
+        undefined;
       if (message_type !== "text") {
         if (!evolutionBaseUrl || !evolutionApiKey) {
           content = content || "[mídia não recuperada]";
@@ -389,7 +393,11 @@ Deno.serve(async (req) => {
             const b64: string | undefined = mediaJson?.base64 ?? mediaJson?.data ?? mediaJson?.body;
             if (!b64) throw new Error("no base64 in response");
             const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-            const ext = extForMime(mimetype, message_type);
+            // Extensão: preferir a do nome original do documento; senão derivar do mimetype
+            const nameExt = originalFileName?.includes(".")
+              ? originalFileName.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8)
+              : "";
+            const ext = nameExt || extForMime(mimetype, message_type);
             const path = `${company_id}/${conversationId}/${keyId}.${ext}`;
             const { error: upErr } = await supabase.storage
               .from("whatsapp-media")
@@ -411,6 +419,8 @@ Deno.serve(async (req) => {
       };
       if (media_url) metadata.media_url = media_url;
       if (mimetype) metadata.mimetype = mimetype;
+      if (originalFileName) metadata.file_name = originalFileName;
+
 
       const { error: msgErr } = await supabase.from("messages").insert({
         message_id: keyId,

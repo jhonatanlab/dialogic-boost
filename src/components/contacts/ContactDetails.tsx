@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
 import { ContactFollowupsCard } from "@/components/contacts/ContactFollowupsCard";
 import { format } from "date-fns";
+import { useMediaSrc } from "@/lib/mediaSrc";
+
 import { ptBR } from "date-fns/locale";
 
 interface ContactDetailsProps {
@@ -45,13 +47,17 @@ const getMimetype = (msg: MediaMessage): string | null => {
   return typeof meta?.mimetype === "string" ? meta.mimetype : null;
 };
 
-const resolveMediaSrc = (url: string, mimetype: string | null, fallbackType: string): string => {
-  if (url.startsWith("http") || url.startsWith("data:")) return url;
-  const mimeMap: Record<string, string> = {
-    image: "image/jpeg", audio: "audio/ogg", video: "video/mp4", document: "application/octet-stream",
-  };
-  return `data:${mimetype || mimeMap[fallbackType] || "application/octet-stream"};base64,${url}`;
+const ImageThumb = ({ msg }: { msg: MediaMessage }) => {
+  const src = useMediaSrc(getMediaUrl(msg), getMimetype(msg), "image");
+  if (!src) return <div className="aspect-square rounded-lg bg-secondary" />;
+  return (
+    <a href={src} target="_blank" rel="noopener noreferrer"
+      className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity block">
+      <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
+    </a>
+  );
 };
+
 
 export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: ContactDetailsProps) {
   const [newNote, setNewNote] = useState("");
@@ -330,15 +336,8 @@ export function ContactDetails({ contact, onClose, onEdit, onSendWhatsApp }: Con
                         <Image className="h-3 w-3" /> Imagens ({images.length})
                       </Label>
                       <div className="grid grid-cols-3 gap-1.5">
-                        {images.map(msg => {
-                          const src = resolveMediaSrc(getMediaUrl(msg)!, getMimetype(msg), "image");
-                          return (
-                            <a key={msg.id} href={src} target="_blank" rel="noopener noreferrer"
-                              className="aspect-square rounded-lg overflow-hidden bg-secondary hover:opacity-80 transition-opacity">
-                              <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
-                            </a>
-                          );
-                        })}
+                        {images.map(msg => <ImageThumb key={msg.id} msg={msg} />)}
+
                       </div>
                     </div>
                   )}
@@ -406,12 +405,11 @@ function resolveFileName(msg: MediaMessage, fallback: string): string {
 }
 
 function FileItem({ msg, icon: Icon, fallbackLabel }: { msg: MediaMessage; icon: any; fallbackLabel: string }) {
-  const url = getMediaUrl(msg)!;
-  const mimetype = getMimetype(msg);
-  const src = resolveMediaSrc(url, mimetype, msg.message_type);
+  const src = useMediaSrc(getMediaUrl(msg), getMimetype(msg), msg.message_type);
   const label = resolveFileName(msg, fallbackLabel);
   return (
-    <a href={src} target="_blank" rel="noopener noreferrer"
+    <a href={src || undefined} target="_blank" rel="noopener noreferrer" download
+
       className="flex items-center gap-2.5 p-2.5 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors group">
       <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
         <Icon className="h-4 w-4 text-primary" />
