@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { AiSummaryCard } from "@/components/contacts/AiSummaryCard";
 import { ContactFollowupsCard } from "@/components/contacts/ContactFollowupsCard";
 import { format } from "date-fns";
+import { useMediaSrc } from "@/lib/mediaSrc";
+
 import { ptBR } from "date-fns/locale";
 
 interface ContactDetailsProps {
