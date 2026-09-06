@@ -99,9 +99,17 @@ Deno.serve(async (req) => {
         body: JSON.stringify({ phone, message }),
       });
       const payload = await resp.json().catch(() => ({}));
-      if (!resp.ok) return json({ ok: false, error: payload?.error || `send failed (${resp.status})` }, 502);
-      return json({ ok: true, action, result: payload });
+      // Return 200 with ok:false so the client can read the real reason.
+      if (!resp.ok || payload?.success === false) {
+        return json({
+          ok: false,
+          error: payload?.error || `send failed (${resp.status})`,
+          whatsapp_offline: payload?.whatsapp_offline === true,
+        });
+      }
+      return json({ ok: true, action, message_id: payload?.message_id ?? null, result: payload });
     }
+
 
     return json({ error: `unknown action: ${action}` }, 400);
   } catch (e: any) {

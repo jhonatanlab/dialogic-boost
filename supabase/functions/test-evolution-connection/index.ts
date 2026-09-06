@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
 
     const { data: inst } = await admin
       .from('whatsapp_instances')
-      .select('company_id')
+      .select('company_id, instance_id')
       .eq('id', instanceId)
       .maybeSingle();
 
@@ -111,7 +111,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, latency_ms: latency }), {
+    // Also read the WhatsApp connection state of this instance (open / connecting / close)
+    let connectionState: string | null = null;
+    if (inst.instance_id) {
+      try {
+        const stateResp = await fetch(`${baseUrl}/instance/connectionState/${inst.instance_id}`, {
+          method: 'GET',
+          headers: { 'apikey': apiKey, 'Content-Type': 'application/json' },
+        });
+        const statePayload = await stateResp.json().catch(() => null);
+        connectionState = statePayload?.instance?.state ?? statePayload?.state ?? null;
+      } catch (_e) {
+        connectionState = null;
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, latency_ms: latency, connection_state: connectionState, connected: connectionState === 'open' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

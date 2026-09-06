@@ -167,24 +167,40 @@ client_message_id: tempMessageId,
           },
         });
         if (error || (data && data.ok === false)) {
+          const reason = error?.message || data?.error || "Erro no envio via API Nativa";
           await (supabase as any)
             .from("messages")
-            .update({ status: "failed" })
+            .update({ status: "failed", metadata: { ...metadata, error: reason } })
             .eq("client_message_id", tempMessageId);
-          throw new Error(error?.message || data?.error || "Erro no envio via API Nativa");
+          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+          throw new Error(reason);
         }
         result = data;
 
         // Reconcile: Evolution returns the WhatsApp message key immediately.
         const waId =
+          data?.message_id ??
+          data?.result?.message_id ??
           data?.result?.result?.key?.id ??
           data?.result?.result?.messages?.[0]?.id ??
           null;
+
+        if (!waId) {
+          const reason = "WhatsApp não confirmou o envio desta mensagem.";
+          await (supabase as any)
+            .from("messages")
+            .update({ status: "failed", metadata: { ...metadata, error: reason } })
+            .eq("client_message_id", tempMessageId);
+          queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+          throw new Error(reason);
+        }
+
         await (supabase as any)
           .from("messages")
-          .update({ status: "sent", ...(waId ? { message_id: waId } : {}) })
+          .update({ status: "sent", message_id: waId })
           .eq("client_message_id", tempMessageId);
         queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+
       } else if (automationEnabled && automationOutbound) {
 
         // API Automação: POST direto para o endpoint outbound
