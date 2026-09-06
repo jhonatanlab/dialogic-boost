@@ -1667,6 +1667,19 @@ const Inbox = () => {
                   </div>
                 ) : (
                   <>
+                    {waConnection?.hasInstance && waConnection.connected === false && (
+                      <div className="flex items-center gap-2 mb-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/30">
+                        <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+                        <span className="text-xs text-destructive flex-1">
+                          O WhatsApp da empresa está desconectado. As mensagens não serão entregues até reconectar.
+                        </span>
+                        <Button size="sm" variant="outline" className="h-7 text-xs"
+                          onClick={() => navigate("/whatsapp-integrations")}>
+                          Reconectar
+                        </Button>
+                      </div>
+                    )}
+
                     {attachedFile && !isRecording && (
                       <div className="flex items-center gap-2 mb-2 p-2.5 bg-secondary rounded-lg">
                         <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
