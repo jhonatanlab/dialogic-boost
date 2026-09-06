@@ -170,7 +170,7 @@ client_message_id: tempMessageId,
           const reason = error?.message || data?.error || "Erro no envio via API Nativa";
           await (supabase as any)
             .from("messages")
-            .update({ status: "failed", metadata: { error: reason } })
+            .update({ status: "failed", metadata: { ...metadata, error: reason } })
             .eq("client_message_id", tempMessageId);
           queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
           throw new Error(reason);
@@ -189,7 +189,7 @@ client_message_id: tempMessageId,
           const reason = "WhatsApp não confirmou o envio desta mensagem.";
           await (supabase as any)
             .from("messages")
-            .update({ status: "failed", metadata: { error: reason } })
+            .update({ status: "failed", metadata: { ...metadata, error: reason } })
             .eq("client_message_id", tempMessageId);
           queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
           throw new Error(reason);
