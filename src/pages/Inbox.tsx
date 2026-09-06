@@ -16,7 +16,7 @@ import {
   Search, Send, Phone, Copy, Edit, MessageSquare, Zap, Paperclip,
   X, Loader2, FileText, ChevronDown, Save, Plus, Tag, Image as ImageIcon, Download, Film, Mic, Square,
   ImageOff, UserCheck, CheckCircle2, ArrowRightLeft, Users, User, Inbox as InboxIcon, History, PlayCircle,
-  XCircle, ArrowRight, Clock, Brain, RotateCw,
+  XCircle, ArrowRight, Clock, Brain, RotateCw, AlertTriangle,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,6 +38,8 @@ import { AiControlCard } from "@/components/inbox/AiControlCard";
 import { ForceAutomationCard } from "@/components/contacts/ForceAutomationCard";
 import { MediaLightbox, openMediaLightbox, requestMediaLightbox, MEDIA_LIGHTBOX_REQUEST_EVENT, type LightboxItem } from "@/components/inbox/MediaLightbox";
 import { useConversationClosure } from "@/hooks/useConversationClosure";
+import { useWhatsappConnection } from "@/hooks/useWhatsappConnection";
+import { useNavigate } from "react-router-dom";
 import { resolveMediaSrcSync, resolveMediaSrcAsync, useMediaSrc } from "@/lib/mediaSrc";
 
 
@@ -549,6 +551,8 @@ const Inbox = () => {
   const [currentUserName, setCurrentUserName] = useState<string>("");
 
   const { companyId } = useCompany();
+  const navigate = useNavigate();
+  const { data: waConnection } = useWhatsappConnection(companyId);
   const { conversations, isLoading: conversationsLoading } = useConversations();
   const { messages, isLoading: messagesLoading, sendMessage, markAsRead, retryMessage, agentNames } = useMessages(selectedConversationId);
   const { quickReplies } = useQuickReplies();
@@ -939,6 +943,10 @@ const Inbox = () => {
 
   const handleSendMessage = async () => {
     if ((!messageInput.trim() && !attachedFile) || !selectedConversation || !companyId) return;
+    if (waConnection?.hasInstance && waConnection.connected === false) {
+      toast.error("O WhatsApp da empresa está desconectado. Reconecte para enviar mensagens.");
+      return;
+    }
 
     const rawText = messageInput.trim();
     // Prefix text content with agent name for WhatsApp bold formatting
