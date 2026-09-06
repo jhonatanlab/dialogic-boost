@@ -75,23 +75,25 @@ Deno.serve(async (req) => {
     let sendResult: unknown = null;
 
     // ── 1) Evolution (whatsapp_instances) FIRST ──
-    try {
-      const { data: instance } = await supabase
-        .from('whatsapp_instances')
-        .select('id, instance_id, provider, status')
-        .eq('company_id', companyId)
-        .eq('provider', 'evolution')
-        .eq('status', 'connected')
-        .maybeSingle();
+    // If the company has a connected Evolution instance, it is the ONLY route:
+    // any failure is surfaced (502) instead of silently falling back to n8n.
+    const { data: instance } = await supabase
+      .from('whatsapp_instances')
+      .select('id, instance_id, provider, status')
+      .eq('company_id', companyId)
+      .eq('provider', 'evolution')
+      .eq('status', 'connected')
+      .maybeSingle();
 
-      if (instance) {
+    if (instance) {
+      try {
         const { data: credRows, error: credErr } = await supabase
           .rpc('get_instance_evolution_credentials', { p_instance_id: instance.id });
         if (credErr) throw credErr;
         const cred = Array.isArray(credRows) ? credRows[0] : credRows;
         const baseUrl = (cred?.base_url || '').replace(/\/+$/, '');
         const apiKey = cred?.api_key || '';
-        if (!baseUrl || !apiKey) throw new Error('missing evolution credentials');
+        if (!baseUrl || !apiKey) throw new Error('Credenciais da Evolution não configuradas');
 
         const url = `${baseUrl}/message/sendText/${instance.instance_id}`;
         const resp = await fetch(url, {
@@ -100,18 +102,39 @@ Deno.serve(async (req) => {
           body: JSON.stringify({ number: phone, text: message }),
         });
         const payload = await resp.json().catch(() => ({ status: resp.status }));
-        if (!resp.ok) throw new Error(`evolution error: ${JSON.stringify(payload)}`);
+        if (!resp.ok) {
+          const detail = (payload as any)?.response?.message ?? (payload as any)?.message ?? payload;
+          throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+        }
 
-        console.log("Message sent via Evolution");
+        const waId = (payload as any)?.key?.id ?? (payload as any)?.messages?.[0]?.id ?? null;
+        if (!waId) {
+          throw new Error('WhatsApp não confirmou o envio (sem identificador da mensagem)');
+        }
+
+        console.log("Message sent via Evolution", waId);
         return new Response(
-          JSON.stringify({ success: true, provider: 'evolution', result: payload }),
+          JSON.stringify({ success: true, provider: 'evolution', message_id: waId, result: payload }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      } catch (evoErr) {
+        const msg = evoErr instanceof Error ? evoErr.message : String(evoErr);
+        console.error("Evolution send failed (no fallback):", msg);
+        const offline = /connection closed|not connected|close|disconnect/i.test(msg);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            provider: 'evolution',
+            error: offline
+              ? 'A conexão do WhatsApp desta empresa está fora do ar. Reconecte o WhatsApp e tente novamente.'
+              : `Falha no envio pelo WhatsApp: ${msg}`,
+            whatsapp_offline: offline,
+          }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-    } catch (evoErr) {
-      console.error("Evolution branch failed, falling back:", evoErr);
-      // fall through to existing branches
     }
+
 
     // ── 2) Existing Meta / Z-API integration ──
     const { data: integration } = await supabase
