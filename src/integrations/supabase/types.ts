@@ -1903,6 +1903,474 @@ export type Database = {
           },
         ]
       }
+      solar_cities: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          irradiance_abr: number | null
+          irradiance_ago: number | null
+          irradiance_dez: number | null
+          irradiance_fev: number | null
+          irradiance_jan: number | null
+          irradiance_jul: number | null
+          irradiance_jun: number | null
+          irradiance_mai: number | null
+          irradiance_mar: number | null
+          irradiance_nov: number | null
+          irradiance_out: number | null
+          irradiance_set: number | null
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          name: string
+          price: number | null
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          irradiance_abr?: number | null
+          irradiance_ago?: number | null
+          irradiance_dez?: number | null
+          irradiance_fev?: number | null
+          irradiance_jan?: number | null
+          irradiance_jul?: number | null
+          irradiance_jun?: number | null
+          irradiance_mai?: number | null
+          irradiance_mar?: number | null
+          irradiance_nov?: number | null
+          irradiance_out?: number | null
+          irradiance_set?: number | null
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          price?: number | null
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          irradiance_abr?: number | null
+          irradiance_ago?: number | null
+          irradiance_dez?: number | null
+          irradiance_fev?: number | null
+          irradiance_jan?: number | null
+          irradiance_jul?: number | null
+          irradiance_jun?: number | null
+          irradiance_mai?: number | null
+          irradiance_mar?: number | null
+          irradiance_nov?: number | null
+          irradiance_out?: number | null
+          irradiance_set?: number | null
+          is_active?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          price?: number | null
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_cities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_connection_types: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          minimum_kwh: number | null
+          name: string
+          phases: number | null
+          price: number | null
+          updated_at: string
+          voltage: number | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          minimum_kwh?: number | null
+          name: string
+          phases?: number | null
+          price?: number | null
+          updated_at?: string
+          voltage?: number | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          minimum_kwh?: number | null
+          name?: string
+          phases?: number | null
+          price?: number | null
+          updated_at?: string
+          voltage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_connection_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_inverters: {
+        Row: {
+          brand: string | null
+          company_id: string
+          created_at: string
+          description: string | null
+          efficiency: number | null
+          id: string
+          input_count: number | null
+          is_active: boolean
+          model: string | null
+          mppt_count: number | null
+          name: string
+          phases: number | null
+          power_kw: number | null
+          price: number | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          company_id: string
+          created_at?: string
+          description?: string | null
+          efficiency?: number | null
+          id?: string
+          input_count?: number | null
+          is_active?: boolean
+          model?: string | null
+          mppt_count?: number | null
+          name: string
+          phases?: number | null
+          power_kw?: number | null
+          price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          efficiency?: number | null
+          id?: string
+          input_count?: number | null
+          is_active?: boolean
+          model?: string | null
+          mppt_count?: number | null
+          name?: string
+          phases?: number | null
+          power_kw?: number | null
+          price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_inverters_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_kits: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          inverter_id: string | null
+          is_active: boolean
+          kwp_total: number | null
+          module_id: string | null
+          module_quantity: number
+          name: string
+          price: number | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          inverter_id?: string | null
+          is_active?: boolean
+          kwp_total?: number | null
+          module_id?: string | null
+          module_quantity?: number
+          name: string
+          price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          inverter_id?: string | null
+          is_active?: boolean
+          kwp_total?: number | null
+          module_id?: string | null
+          module_quantity?: number
+          name?: string
+          price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_kits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_kits_inverter_id_fkey"
+            columns: ["inverter_id"]
+            isOneToOne: false
+            referencedRelation: "solar_inverters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_kits_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "solar_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_modules: {
+        Row: {
+          brand: string | null
+          company_id: string
+          created_at: string
+          description: string | null
+          height_mm: number | null
+          id: string
+          is_active: boolean
+          model: string | null
+          name: string
+          power_wp: number | null
+          price: number | null
+          technology: string | null
+          updated_at: string
+          weight_kg: number | null
+          width_mm: number | null
+        }
+        Insert: {
+          brand?: string | null
+          company_id: string
+          created_at?: string
+          description?: string | null
+          height_mm?: number | null
+          id?: string
+          is_active?: boolean
+          model?: string | null
+          name: string
+          power_wp?: number | null
+          price?: number | null
+          technology?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+          width_mm?: number | null
+        }
+        Update: {
+          brand?: string | null
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          height_mm?: number | null
+          id?: string
+          is_active?: boolean
+          model?: string | null
+          name?: string
+          power_wp?: number | null
+          price?: number | null
+          technology?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+          width_mm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_modules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_orientations: {
+        Row: {
+          azimuth: number | null
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          loss_factor: number | null
+          name: string
+          price: number | null
+          updated_at: string
+        }
+        Insert: {
+          azimuth?: number | null
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          loss_factor?: number | null
+          name: string
+          price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          azimuth?: number | null
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          loss_factor?: number | null
+          name?: string
+          price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_orientations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_roof_types: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          loss_factor: number | null
+          name: string
+          price: number | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          loss_factor?: number | null
+          name: string
+          price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          loss_factor?: number | null
+          name?: string
+          price?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_roof_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_utilities: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          minimum_fee: number | null
+          name: string
+          price: number | null
+          state: string | null
+          tariff_kwh: number | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          minimum_fee?: number | null
+          name: string
+          price?: number | null
+          state?: string | null
+          tariff_kwh?: number | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          minimum_fee?: number | null
+          name?: string
+          price?: number | null
+          state?: string | null
+          tariff_kwh?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_utilities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tags: {
         Row: {
           color: string
@@ -2334,6 +2802,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_company_manager: { Args: never; Returns: boolean }
       normalize_br_phone: { Args: { p_phone: string }; Returns: string }
       process_checkin_token: {
         Args: {
