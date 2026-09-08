@@ -85,21 +85,27 @@ export function CatalogManager({
   };
 
   const handleSubmit = (values: Record<string, any>) => {
-    saveItem.mutate(values, { onSuccess: () => setDialogOpen(false) });
+    saveItem.mutate(
+      { ...(defaults ?? {}), ...values },
+      { onSuccess: () => setDialogOpen(false) }
+    );
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        {showSearch && (
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        )}
+        {!showSearch && <div className="flex-1" />}
         {canManage && (
           <Button onClick={openNew} className="gap-1">
             <Plus className="h-4 w-4" /> Novo
