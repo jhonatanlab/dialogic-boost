@@ -23,7 +23,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LeadFiles } from "./LeadFiles";
 import { LeadConversation } from "./LeadConversation";
 import { useCrmStages } from "@/hooks/useCrmStages";
-import { useCompanyMembers, useUpdateLead, type CrmLead } from "@/hooks/useCrmLeads";
+import { useCompanyMembers, useUpdateLead, useMoveLead, type CrmLead } from "@/hooks/useCrmLeads";
+import { toast } from "sonner";
 import { useContactNotes, useCreateContactNote } from "@/hooks/useContactNotes";
 import { describeContactSource } from "@/lib/contactSource";
 
