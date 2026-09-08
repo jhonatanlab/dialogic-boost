@@ -165,6 +165,14 @@ const ProposalSettings = () => (
             ]}
           />
         </TabsContent>
+
+        <TabsContent value="financing" className="mt-4">
+          <FinancingSection />
+        </TabsContent>
+
+        <TabsContent value="fixed" className="mt-4">
+          <FixedValuesSection />
+        </TabsContent>
       </Tabs>
     </div>
   </DashboardLayout>
