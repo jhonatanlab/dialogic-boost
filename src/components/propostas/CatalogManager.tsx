@@ -29,6 +29,11 @@ interface Props {
   fields: CatalogField[];
   columns?: CatalogColumn[];
   showPrice?: boolean;
+  showName?: boolean;
+  showDescription?: boolean;
+  showSearch?: boolean;
+  filter?: (row: CatalogRow) => boolean;
+  defaults?: Record<string, any>;
   computeValues?: (values: Record<string, any>) => Record<string, any>;
 }
 
