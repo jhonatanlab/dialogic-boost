@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Settings,
   Calendar,
+  Columns3,
 } from "lucide-react";
 import { useCompany } from "@/hooks/useCompany";
 import {
