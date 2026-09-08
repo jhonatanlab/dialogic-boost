@@ -117,11 +117,11 @@ export function CatalogManager({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
+              {showName && <TableHead>Nome</TableHead>}
               {columns.map((c) => (
                 <TableHead key={c.key}>{c.label}</TableHead>
               ))}
-              <TableHead>Descrição</TableHead>
+              {showDescription && <TableHead>Descrição</TableHead>}
               {showPrice && <TableHead>Preço</TableHead>}
               <TableHead>Status</TableHead>
               <TableHead className="w-[100px] text-right">Ações</TableHead>
@@ -130,14 +130,14 @@ export function CatalogManager({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={columns.length + 5} className="text-center py-8">
+                <TableCell colSpan={colCount} className="text-center py-8">
                   <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Carregando...
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length + 5}
+                  colSpan={colCount}
                   className="text-center py-8 text-muted-foreground text-sm"
                 >
                   Nenhum registro cadastrado.
@@ -146,15 +146,17 @@ export function CatalogManager({
             ) : (
               filtered.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium">{row.name}</TableCell>
+                  {showName && <TableCell className="font-medium">{row.name}</TableCell>}
                   {columns.map((c) => (
                     <TableCell key={c.key} className="text-sm">
                       {c.format ? c.format(row) : (row[c.key] ?? "-")}
                     </TableCell>
                   ))}
-                  <TableCell className="text-sm text-muted-foreground max-w-[240px] truncate">
-                    {row.description || "-"}
-                  </TableCell>
+                  {showDescription && (
+                    <TableCell className="text-sm text-muted-foreground max-w-[240px] truncate">
+                      {row.description || "-"}
+                    </TableCell>
+                  )}
                   {showPrice && <TableCell className="text-sm">{formatPrice(row.price)}</TableCell>}
                   <TableCell>
                     <Badge variant={row.is_active ? "default" : "outline"} className="text-[10px]">
