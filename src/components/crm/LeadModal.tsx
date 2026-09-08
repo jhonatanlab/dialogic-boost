@@ -195,19 +195,38 @@ export function LeadModal({ lead, open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[760px]">
         <DialogHeader>
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3 pr-10">
             <Avatar className="h-10 w-10">
               <AvatarImage src={lead.avatar_url ?? undefined} />
               <AvatarFallback>
                 {lead.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <DialogTitle className="truncate">{lead.name}</DialogTitle>
               <DialogDescription>
                 {source.label} · criado em{" "}
                 {format(new Date(lead.created_at), "dd/MM/yyyy HH:mm")}
               </DialogDescription>
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              {statusButtons.map((b) => (
+                <Button
+                  key={b.key}
+                  size="sm"
+                  variant={status === b.key ? "default" : "outline"}
+                  className={status === b.key ? b.activeClass : undefined}
+                  disabled={!b.stage || moveLead.isPending}
+                  title={
+                    b.stage
+                      ? undefined
+                      : "Nenhuma etapa de ganho/perda configurada — configure em Etapas"
+                  }
+                  onClick={() => setStatus(b.key)}
+                >
+                  {b.label}
+                </Button>
+              ))}
             </div>
           </div>
         </DialogHeader>
