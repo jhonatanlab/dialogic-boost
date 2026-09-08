@@ -4,6 +4,7 @@ import { CatalogManager } from "@/components/propostas/CatalogManager";
 import type { CatalogField } from "@/components/propostas/catalogTypes";
 import { FinancingSection } from "@/components/propostas/FinancingSection";
 import { FixedValuesSection } from "@/components/propostas/FixedValuesSection";
+import { BrandingSection } from "@/components/propostas/BrandingSection";
 import { Settings2 } from "lucide-react";
 
 const utilityFields: CatalogField[] = [
@@ -92,6 +93,7 @@ const ProposalSettings = () => (
           <TabsTrigger value="connections">Tipos de ligação</TabsTrigger>
           <TabsTrigger value="financing">Financiamento</TabsTrigger>
           <TabsTrigger value="fixed">Valores fixos</TabsTrigger>
+          <TabsTrigger value="branding">Personalização</TabsTrigger>
         </TabsList>
 
         <TabsContent value="utilities" className="mt-4">
@@ -172,6 +174,10 @@ const ProposalSettings = () => (
 
         <TabsContent value="fixed" className="mt-4">
           <FixedValuesSection />
+        </TabsContent>
+
+        <TabsContent value="branding" className="mt-4">
+          <BrandingSection />
         </TabsContent>
       </Tabs>
     </div>

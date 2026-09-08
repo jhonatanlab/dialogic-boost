@@ -1903,6 +1903,65 @@ export type Database = {
           },
         ]
       }
+      solar_branding: {
+        Row: {
+          about_us_text: string | null
+          company_id: string
+          cover_background_url: string | null
+          created_at: string
+          footer_contacts: Json
+          footer_text: string | null
+          id: string
+          logo_url: string | null
+          mission_text: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          updated_at: string
+          values_text: string | null
+          vision_text: string | null
+        }
+        Insert: {
+          about_us_text?: string | null
+          company_id: string
+          cover_background_url?: string | null
+          created_at?: string
+          footer_contacts?: Json
+          footer_text?: string | null
+          id?: string
+          logo_url?: string | null
+          mission_text?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          updated_at?: string
+          values_text?: string | null
+          vision_text?: string | null
+        }
+        Update: {
+          about_us_text?: string | null
+          company_id?: string
+          cover_background_url?: string | null
+          created_at?: string
+          footer_contacts?: Json
+          footer_text?: string | null
+          id?: string
+          logo_url?: string | null
+          mission_text?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          updated_at?: string
+          values_text?: string | null
+          vision_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_branding_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solar_cities: {
         Row: {
           company_id: string
