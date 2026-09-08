@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Inbox from "./pages/Inbox";
 import Contacts from "./pages/Contacts";
+import CRM from "./pages/CRM";
 import Automations from "./pages/Automations";
 import Campaigns from "./pages/Campaigns";
 import NewCampaign from "./pages/NewCampaign";
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/inbox" element={<Inbox />} />
           <Route path="/contacts" element={<Contacts />} />
+          <Route path="/crm" element={<CRM />} />
           <Route path="/automations" element={<Automations />} />
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/campaigns/new" element={<NewCampaign />} />
