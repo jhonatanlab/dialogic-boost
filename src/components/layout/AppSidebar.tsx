@@ -28,6 +28,7 @@ const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Inbox", url: "/inbox", icon: MessageSquare },
   { title: "Contatos", url: "/contacts", icon: Users },
+  { title: "CRM", url: "/crm", icon: Columns3 },
   { title: "Automações", url: "/automations", icon: Bot, requiredRoles: ["admin", "manager"] },
   { title: "Campanhas", url: "/campaigns", icon: Send, requiredRoles: ["admin", "manager"] },
   { title: "Agenda", url: "/agenda", icon: Calendar },
