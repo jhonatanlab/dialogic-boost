@@ -193,8 +193,8 @@ export function LeadModal({ lead, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[760px]">
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] flex flex-col overflow-hidden p-0 sm:max-w-[760px]">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-2">
           <div className="flex items-start gap-3 pr-10">
             <Avatar className="h-10 w-10">
               <AvatarImage src={lead.avatar_url ?? undefined} />
@@ -231,6 +231,7 @@ export function LeadModal({ lead, open, onOpenChange }: Props) {
           </div>
         </DialogHeader>
 
+        <div className="flex-1 overflow-y-auto min-h-0 px-6 py-2">
         <Tabs defaultValue="dados">
           <TabsList className="flex w-full flex-wrap justify-start">
             <TabsTrigger value="dados">Dados</TabsTrigger>
@@ -355,8 +356,9 @@ export function LeadModal({ lead, open, onOpenChange }: Props) {
             </div>
           </TabsContent>
         </Tabs>
+        </div>
 
-        <div className="flex justify-end gap-2 border-t pt-4">
+        <div className="flex shrink-0 justify-end gap-2 border-t bg-background px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Fechar
           </Button>
