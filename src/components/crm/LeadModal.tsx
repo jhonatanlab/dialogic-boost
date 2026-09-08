@@ -132,6 +132,63 @@ export function LeadModal({ lead, open, onOpenChange }: Props) {
 
   const source = describeContactSource(lead.source);
 
+  const wonStage = stages.find((s) => s.is_won);
+  const lostStage = stages.find((s) => s.is_lost);
+  const openStage = stages.find((s) => !s.is_won && !s.is_lost);
+  const currentStageId = form.crm_stage_id || lead.crm_stage_id || "";
+  const status =
+    wonStage && currentStageId === wonStage.id
+      ? "won"
+      : lostStage && currentStageId === lostStage.id
+      ? "lost"
+      : "open";
+
+  const setStatus = (next: "open" | "won" | "lost") => {
+    if (status === next) return;
+    const target = next === "won" ? wonStage : next === "lost" ? lostStage : openStage;
+    if (!target) return;
+    set("crm_stage_id", target.id);
+    moveLead.mutate(
+      { leadId: lead.id, stageId: target.id, position: 0 },
+      {
+        onSuccess: () =>
+          toast.success(
+            next === "won"
+              ? "Lead marcado como ganho"
+              : next === "lost"
+              ? "Lead marcado como perdido"
+              : "Lead reaberto"
+          ),
+      }
+    );
+  };
+
+  const statusButtons: {
+    key: "open" | "won" | "lost";
+    label: string;
+    stage: typeof wonStage;
+    activeClass: string;
+  }[] = [
+    {
+      key: "open",
+      label: "Aberto",
+      stage: openStage,
+      activeClass: "bg-primary text-primary-foreground hover:bg-primary/90",
+    },
+    {
+      key: "won",
+      label: "Ganho",
+      stage: wonStage,
+      activeClass: "bg-emerald-600 text-white hover:bg-emerald-600/90",
+    },
+    {
+      key: "lost",
+      label: "Perdido",
+      stage: lostStage,
+      activeClass: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+    },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[760px]">
