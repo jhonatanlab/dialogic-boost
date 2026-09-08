@@ -867,6 +867,60 @@ export type Database = {
           },
         ]
       }
+      contact_files: {
+        Row: {
+          company_id: string
+          contact_id: string
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          mime_type: string | null
+          size: number | null
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          company_id: string
+          contact_id: string
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          mime_type?: string | null
+          size?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          contact_id?: string
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          mime_type?: string | null
+          size?: number | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_files_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_files_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_notes: {
         Row: {
           company_id: string | null
@@ -960,46 +1014,100 @@ export type Database = {
       }
       contacts: {
         Row: {
+          address_city: string | null
+          address_complement: string | null
+          address_district: string | null
+          address_number: string | null
+          address_state: string | null
+          address_street: string | null
+          address_zip: string | null
           avatar_url: string | null
           birthday: string | null
           company_id: string | null
+          cpf_cnpj: string | null
           created_at: string
+          crm_position: number
+          crm_stage_id: string | null
           custom_fields: Json | null
           email: string | null
+          gender: string | null
           id: string
           instagram: string | null
           name: string
+          owner_user_id: string | null
           phone: string | null
+          phone_secondary: string | null
+          pre_sales_user_id: string | null
+          profession: string | null
+          referred_by: string | null
+          rg_cnh: string | null
+          sales_user_id: string | null
           source: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          address_city?: string | null
+          address_complement?: string | null
+          address_district?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           avatar_url?: string | null
           birthday?: string | null
           company_id?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
+          crm_position?: number
+          crm_stage_id?: string | null
           custom_fields?: Json | null
           email?: string | null
+          gender?: string | null
           id?: string
           instagram?: string | null
           name: string
+          owner_user_id?: string | null
           phone?: string | null
+          phone_secondary?: string | null
+          pre_sales_user_id?: string | null
+          profession?: string | null
+          referred_by?: string | null
+          rg_cnh?: string | null
+          sales_user_id?: string | null
           source?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          address_city?: string | null
+          address_complement?: string | null
+          address_district?: string | null
+          address_number?: string | null
+          address_state?: string | null
+          address_street?: string | null
+          address_zip?: string | null
           avatar_url?: string | null
           birthday?: string | null
           company_id?: string | null
+          cpf_cnpj?: string | null
           created_at?: string
+          crm_position?: number
+          crm_stage_id?: string | null
           custom_fields?: Json | null
           email?: string | null
+          gender?: string | null
           id?: string
           instagram?: string | null
           name?: string
+          owner_user_id?: string | null
           phone?: string | null
+          phone_secondary?: string | null
+          pre_sales_user_id?: string | null
+          profession?: string | null
+          referred_by?: string | null
+          rg_cnh?: string | null
+          sales_user_id?: string | null
           source?: string | null
           updated_at?: string
           user_id?: string
@@ -1010,6 +1118,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_crm_stage_id_fkey"
+            columns: ["crm_stage_id"]
+            isOneToOne: false
+            referencedRelation: "crm_stages"
             referencedColumns: ["id"]
           },
         ]
@@ -1199,6 +1314,53 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_stages: {
+        Row: {
+          color: string
+          company_id: string
+          created_at: string
+          id: string
+          is_archived: boolean
+          is_lost: boolean
+          is_won: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          company_id: string
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_lost?: boolean
+          is_won?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_lost?: boolean
+          is_won?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_stages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
