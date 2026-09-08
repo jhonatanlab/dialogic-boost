@@ -65,9 +65,14 @@ export function CatalogManager({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogRow | null>(null);
 
-  const filtered = rows.filter((r) =>
-    (r.name ?? "").toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const filtered = rows
+    .filter((r) => (filter ? filter(r) : true))
+    .filter((r) =>
+      showSearch ? (r.name ?? "").toLowerCase().includes(search.trim().toLowerCase()) : true
+    );
+
+  const colCount =
+    columns.length + 2 + (showName ? 1 : 0) + (showDescription ? 1 : 0) + (showPrice ? 1 : 0);
 
   const openNew = () => {
     setEditing(null);
