@@ -233,7 +233,7 @@ export function LeadModal({ lead, open, onOpenChange }: Props) {
 
         <div className="flex-1 overflow-y-auto min-h-0 px-6 py-2">
         <Tabs defaultValue="dados">
-          <TabsList className="flex w-full flex-wrap justify-start">
+          <TabsList className="sticky top-0 z-10 flex w-full flex-wrap justify-start bg-background/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <TabsTrigger value="dados">Dados</TabsTrigger>
             <TabsTrigger value="documentos">Documentos</TabsTrigger>
             <TabsTrigger value="endereco">Endereço</TabsTrigger>
