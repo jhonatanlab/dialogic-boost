@@ -2039,6 +2039,92 @@ export type Database = {
           },
         ]
       }
+      solar_financing_banks: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_financing_banks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_financing_terms: {
+        Row: {
+          bank_id: string
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          monthly_interest_rate: number | null
+          term_months: number
+          updated_at: string
+        }
+        Insert: {
+          bank_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          monthly_interest_rate?: number | null
+          term_months: number
+          updated_at?: string
+        }
+        Update: {
+          bank_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          monthly_interest_rate?: number | null
+          term_months?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_financing_terms_bank_id_fkey"
+            columns: ["bank_id"]
+            isOneToOne: false
+            referencedRelation: "solar_financing_banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_financing_terms_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solar_inverters: {
         Row: {
           brand: string | null
@@ -2272,6 +2358,50 @@ export type Database = {
             foreignKeyName: "solar_orientations_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      solar_pricing_config: {
+        Row: {
+          annual_module_degradation_percent: number | null
+          annual_tariff_inflation_percent: number | null
+          base_visit_fee: number | null
+          company_id: string
+          created_at: string
+          id: string
+          margin_percent: number | null
+          price_per_km: number | null
+          updated_at: string
+        }
+        Insert: {
+          annual_module_degradation_percent?: number | null
+          annual_tariff_inflation_percent?: number | null
+          base_visit_fee?: number | null
+          company_id: string
+          created_at?: string
+          id?: string
+          margin_percent?: number | null
+          price_per_km?: number | null
+          updated_at?: string
+        }
+        Update: {
+          annual_module_degradation_percent?: number | null
+          annual_tariff_inflation_percent?: number | null
+          base_visit_fee?: number | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          margin_percent?: number | null
+          price_per_km?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_pricing_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },

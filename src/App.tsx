@@ -38,6 +38,8 @@ import Inverters from "./pages/propostas/Inverters";
 import Modules from "./pages/propostas/Modules";
 import Kits from "./pages/propostas/Kits";
 import ProposalSettings from "./pages/propostas/Settings";
+import ProposalFinancing from "./pages/propostas/Financing";
+import ProposalFixedValues from "./pages/propostas/FixedValues";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +82,8 @@ const App = () => (
           <Route path="/propostas/modulos" element={<Modules />} />
           <Route path="/propostas/kits" element={<Kits />} />
           <Route path="/propostas/configuracoes" element={<ProposalSettings />} />
+          <Route path="/propostas/configuracoes/financiamento" element={<ProposalFinancing />} />
+          <Route path="/propostas/configuracoes/valores-fixos" element={<ProposalFixedValues />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
           <Route path="/admin/companies" element={<AdminCompanies />} />
           <Route path="/profile" element={<Profile />} />

@@ -29,6 +29,11 @@ interface Props {
   fields: CatalogField[];
   columns?: CatalogColumn[];
   showPrice?: boolean;
+  showName?: boolean;
+  showDescription?: boolean;
+  showSearch?: boolean;
+  filter?: (row: CatalogRow) => boolean;
+  defaults?: Record<string, any>;
   computeValues?: (values: Record<string, any>) => Record<string, any>;
 }
 
@@ -43,6 +48,11 @@ export function CatalogManager({
   fields,
   columns = [],
   showPrice = true,
+  showName = true,
+  showDescription = true,
+  showSearch = true,
+  filter,
+  defaults,
   computeValues,
 }: Props) {
   const { profile } = useCompany();
@@ -55,9 +65,14 @@ export function CatalogManager({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogRow | null>(null);
 
-  const filtered = rows.filter((r) =>
-    (r.name ?? "").toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const filtered = rows
+    .filter((r) => (filter ? filter(r) : true))
+    .filter((r) =>
+      showSearch ? (r.name ?? "").toLowerCase().includes(search.trim().toLowerCase()) : true
+    );
+
+  const colCount =
+    columns.length + 2 + (showName ? 1 : 0) + (showDescription ? 1 : 0) + (showPrice ? 1 : 0);
 
   const openNew = () => {
     setEditing(null);
@@ -70,21 +85,27 @@ export function CatalogManager({
   };
 
   const handleSubmit = (values: Record<string, any>) => {
-    saveItem.mutate(values, { onSuccess: () => setDialogOpen(false) });
+    saveItem.mutate(
+      { ...(defaults ?? {}), ...values },
+      { onSuccess: () => setDialogOpen(false) }
+    );
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        {showSearch && (
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        )}
+        {!showSearch && <div className="flex-1" />}
         {canManage && (
           <Button onClick={openNew} className="gap-1">
             <Plus className="h-4 w-4" /> Novo
@@ -96,11 +117,11 @@ export function CatalogManager({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome</TableHead>
+              {showName && <TableHead>Nome</TableHead>}
               {columns.map((c) => (
                 <TableHead key={c.key}>{c.label}</TableHead>
               ))}
-              <TableHead>Descrição</TableHead>
+              {showDescription && <TableHead>Descrição</TableHead>}
               {showPrice && <TableHead>Preço</TableHead>}
               <TableHead>Status</TableHead>
               <TableHead className="w-[100px] text-right">Ações</TableHead>
@@ -109,14 +130,14 @@ export function CatalogManager({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={columns.length + 5} className="text-center py-8">
+                <TableCell colSpan={colCount} className="text-center py-8">
                   <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Carregando...
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length + 5}
+                  colSpan={colCount}
                   className="text-center py-8 text-muted-foreground text-sm"
                 >
                   Nenhum registro cadastrado.
@@ -125,15 +146,17 @@ export function CatalogManager({
             ) : (
               filtered.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium">{row.name}</TableCell>
+                  {showName && <TableCell className="font-medium">{row.name}</TableCell>}
                   {columns.map((c) => (
                     <TableCell key={c.key} className="text-sm">
                       {c.format ? c.format(row) : (row[c.key] ?? "-")}
                     </TableCell>
                   ))}
-                  <TableCell className="text-sm text-muted-foreground max-w-[240px] truncate">
-                    {row.description || "-"}
-                  </TableCell>
+                  {showDescription && (
+                    <TableCell className="text-sm text-muted-foreground max-w-[240px] truncate">
+                      {row.description || "-"}
+                    </TableCell>
+                  )}
                   {showPrice && <TableCell className="text-sm">{formatPrice(row.price)}</TableCell>}
                   <TableCell>
                     <Badge variant={row.is_active ? "default" : "outline"} className="text-[10px]">
@@ -156,7 +179,8 @@ export function CatalogManager({
                           variant="ghost"
                           className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => {
-                            if (confirm(`Excluir "${row.name}"?`)) deleteItem.mutate(row.id);
+                            if (confirm(`Excluir ${row.name ? `"${row.name}"` : `este ${singularLabel}`}?`))
+                              deleteItem.mutate(row.id);
                           }}
                         >
                           <Trash2 className="h-4 w-4" />

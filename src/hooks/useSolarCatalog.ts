@@ -11,7 +11,9 @@ export type SolarTable =
   | "solar_cities"
   | "solar_roof_types"
   | "solar_orientations"
-  | "solar_connection_types";
+  | "solar_connection_types"
+  | "solar_financing_banks"
+  | "solar_financing_terms";
 
 export type CatalogRow = {
   id: string;
