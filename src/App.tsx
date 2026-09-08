@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Inbox from "./pages/Inbox";
 import Contacts from "./pages/Contacts";
+import CRM from "./pages/CRM";
 import Automations from "./pages/Automations";
 import Campaigns from "./pages/Campaigns";
 import NewCampaign from "./pages/NewCampaign";
