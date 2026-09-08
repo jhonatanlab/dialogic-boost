@@ -2,6 +2,8 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CatalogManager } from "@/components/propostas/CatalogManager";
 import type { CatalogField } from "@/components/propostas/catalogTypes";
+import { FinancingSection } from "@/components/propostas/FinancingSection";
+import { FixedValuesSection } from "@/components/propostas/FixedValuesSection";
 import { Settings2 } from "lucide-react";
 
 const utilityFields: CatalogField[] = [
@@ -88,6 +90,8 @@ const ProposalSettings = () => (
           <TabsTrigger value="roofs">Telhados</TabsTrigger>
           <TabsTrigger value="orientations">Orientações</TabsTrigger>
           <TabsTrigger value="connections">Tipos de ligação</TabsTrigger>
+          <TabsTrigger value="financing">Financiamento</TabsTrigger>
+          <TabsTrigger value="fixed">Valores fixos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="utilities" className="mt-4">
