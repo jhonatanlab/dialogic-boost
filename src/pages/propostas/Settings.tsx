@@ -92,6 +92,7 @@ const ProposalSettings = () => (
           <TabsTrigger value="connections">Tipos de ligação</TabsTrigger>
           <TabsTrigger value="financing">Financiamento</TabsTrigger>
           <TabsTrigger value="fixed">Valores fixos</TabsTrigger>
+          <TabsTrigger value="branding">Personalização</TabsTrigger>
         </TabsList>
 
         <TabsContent value="utilities" className="mt-4">
