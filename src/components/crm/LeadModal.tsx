@@ -78,6 +78,7 @@ export function LeadModal({ lead, open, onOpenChange }: Props) {
   const { data: stages = [] } = useCrmStages();
   const { data: members = [] } = useCompanyMembers();
   const updateLead = useUpdateLead();
+  const moveLead = useMoveLead();
   const { data: notes = [] } = useContactNotes(lead?.id);
   const createNote = useCreateContactNote();
 
