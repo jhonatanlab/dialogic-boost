@@ -48,6 +48,11 @@ export function CatalogManager({
   fields,
   columns = [],
   showPrice = true,
+  showName = true,
+  showDescription = true,
+  showSearch = true,
+  filter,
+  defaults,
   computeValues,
 }: Props) {
   const { profile } = useCompany();
