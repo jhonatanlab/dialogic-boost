@@ -34,6 +34,10 @@ import Profile from "./pages/Profile";
 import ClosureReasons from "./pages/ClosureReasons";
 import AppointmentRules from "./pages/AppointmentRules";
 import AgentAI from "./pages/AgentAI";
+import Inverters from "./pages/propostas/Inverters";
+import Modules from "./pages/propostas/Modules";
+import Kits from "./pages/propostas/Kits";
+import ProposalSettings from "./pages/propostas/Settings";
 
 const queryClient = new QueryClient();
 
@@ -71,6 +75,11 @@ const App = () => (
           <Route path="/settings/closure-reasons" element={<ClosureReasons />} />
           <Route path="/settings/appointment-rules" element={<AppointmentRules />} />
           <Route path="/agent-ai" element={<AgentAI />} />
+          <Route path="/propostas" element={<Navigate to="/propostas/kits" replace />} />
+          <Route path="/propostas/inversores" element={<Inverters />} />
+          <Route path="/propostas/modulos" element={<Modules />} />
+          <Route path="/propostas/kits" element={<Kits />} />
+          <Route path="/propostas/configuracoes" element={<ProposalSettings />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
           <Route path="/admin/companies" element={<AdminCompanies />} />
           <Route path="/profile" element={<Profile />} />
