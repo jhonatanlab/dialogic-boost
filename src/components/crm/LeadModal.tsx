@@ -23,7 +23,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LeadFiles } from "./LeadFiles";
 import { LeadConversation } from "./LeadConversation";
 import { useCrmStages } from "@/hooks/useCrmStages";
-import { useCompanyMembers, useUpdateLead, type CrmLead } from "@/hooks/useCrmLeads";
+import { useCompanyMembers, useUpdateLead, useMoveLead, type CrmLead } from "@/hooks/useCrmLeads";
+import { toast } from "sonner";
 import { useContactNotes, useCreateContactNote } from "@/hooks/useContactNotes";
 import { describeContactSource } from "@/lib/contactSource";
 
@@ -77,6 +78,7 @@ export function LeadModal({ lead, open, onOpenChange }: Props) {
   const { data: stages = [] } = useCrmStages();
   const { data: members = [] } = useCompanyMembers();
   const updateLead = useUpdateLead();
+  const moveLead = useMoveLead();
   const { data: notes = [] } = useContactNotes(lead?.id);
   const createNote = useCreateContactNote();
 
@@ -132,23 +134,99 @@ export function LeadModal({ lead, open, onOpenChange }: Props) {
 
   const source = describeContactSource(lead.source);
 
+  const wonStage = stages.find((s) => s.is_won);
+  const lostStage = stages.find((s) => s.is_lost);
+  const openStage = stages.find((s) => !s.is_won && !s.is_lost);
+  const currentStageId = form.crm_stage_id || lead.crm_stage_id || "";
+  const status =
+    wonStage && currentStageId === wonStage.id
+      ? "won"
+      : lostStage && currentStageId === lostStage.id
+      ? "lost"
+      : "open";
+
+  const setStatus = (next: "open" | "won" | "lost") => {
+    if (status === next) return;
+    const target = next === "won" ? wonStage : next === "lost" ? lostStage : openStage;
+    if (!target) return;
+    set("crm_stage_id", target.id);
+    moveLead.mutate(
+      { leadId: lead.id, stageId: target.id, position: 0 },
+      {
+        onSuccess: () =>
+          toast.success(
+            next === "won"
+              ? "Lead marcado como ganho"
+              : next === "lost"
+              ? "Lead marcado como perdido"
+              : "Lead reaberto"
+          ),
+      }
+    );
+  };
+
+  const statusButtons: {
+    key: "open" | "won" | "lost";
+    label: string;
+    stage: typeof wonStage;
+    activeClass: string;
+  }[] = [
+    {
+      key: "open",
+      label: "Aberto",
+      stage: openStage,
+      activeClass: "bg-primary text-primary-foreground hover:bg-primary/90",
+    },
+    {
+      key: "won",
+      label: "Ganho",
+      stage: wonStage,
+      activeClass: "bg-emerald-600 text-white hover:bg-emerald-600/90",
+    },
+    {
+      key: "lost",
+      label: "Perdido",
+      stage: lostStage,
+      activeClass: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+    },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[760px]">
         <DialogHeader>
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3 pr-10">
             <Avatar className="h-10 w-10">
               <AvatarImage src={lead.avatar_url ?? undefined} />
               <AvatarFallback>
                 {lead.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <DialogTitle className="truncate">{lead.name}</DialogTitle>
               <DialogDescription>
                 {source.label} · criado em{" "}
                 {format(new Date(lead.created_at), "dd/MM/yyyy HH:mm")}
               </DialogDescription>
+            </div>
+            <div className="flex shrink-0 gap-1.5">
+              {statusButtons.map((b) => (
+                <Button
+                  key={b.key}
+                  size="sm"
+                  variant={status === b.key ? "default" : "outline"}
+                  className={status === b.key ? b.activeClass : undefined}
+                  disabled={!b.stage || moveLead.isPending}
+                  title={
+                    b.stage
+                      ? undefined
+                      : "Nenhuma etapa de ganho/perda configurada — configure em Etapas"
+                  }
+                  onClick={() => setStatus(b.key)}
+                >
+                  {b.label}
+                </Button>
+              ))}
             </div>
           </div>
         </DialogHeader>
