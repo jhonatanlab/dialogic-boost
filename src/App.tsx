@@ -38,6 +38,8 @@ import Inverters from "./pages/propostas/Inverters";
 import Modules from "./pages/propostas/Modules";
 import Kits from "./pages/propostas/Kits";
 import ProposalSettings from "./pages/propostas/Settings";
+import ProposalFinancing from "./pages/propostas/Financing";
+import ProposalFixedValues from "./pages/propostas/FixedValues";
 
 const queryClient = new QueryClient();
 
