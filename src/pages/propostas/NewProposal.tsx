@@ -224,9 +224,17 @@ const NewProposal = () => {
     );
   };
 
+  const handlePrint = () => {
+    if (!result) {
+      toast.error("Calcule a proposta antes de imprimir");
+      return;
+    }
+    window.print();
+  };
+
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 print:hidden">
         <BackToProposals />
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
