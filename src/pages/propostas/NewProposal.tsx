@@ -342,6 +342,57 @@ const NewProposal = () => {
                 </CardContent>
               </Card>
 
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Condições</CardTitle>
+                  <CardDescription>
+                    Forma de pagamento e validade desta proposta.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Condição de pagamento</Label>
+                    <Select
+                      value={paymentMode}
+                      onValueChange={(v) => setPaymentMode(v as "cash" | "financing")}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">À vista</SelectItem>
+                        <SelectItem value="financing">Financiamento</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {paymentMode === "financing" && (
+                    <div className="space-y-2">
+                      <Label>Prazo</Label>
+                      <Select value={paymentTerm} onValueChange={setPaymentTerm}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {termOptions.map((t) => (
+                            <SelectItem key={t} value={String(t)}>
+                              {t}x
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Válida até</Label>
+                    <Input
+                      type="date"
+                      value={validUntil}
+                      onChange={(e) => setValidUntil(e.target.value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="flex gap-2">
                 <Button onClick={handleCalculate} disabled={calculating}>
                   {calculating ? (
