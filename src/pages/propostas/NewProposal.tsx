@@ -75,6 +75,23 @@ const NewProposal = () => {
   });
   const [result, setResult] = useState<any>(null);
   const [calculating, setCalculating] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<"cash" | "financing">("cash");
+  const [paymentTerm, setPaymentTerm] = useState<string>("60");
+  const [validUntil, setValidUntil] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 15);
+    return d.toISOString().slice(0, 10);
+  });
+
+  const paymentCondition =
+    paymentMode === "cash" ? "À vista" : `Financiamento em ${paymentTerm}x`;
+
+  const termOptions = useMemo(() => {
+    const fromResult = Array.from(
+      new Set((result?.financing ?? []).map((f: any) => Number(f.term_months)))
+    ).filter(Boolean) as number[];
+    return fromResult.length ? fromResult.sort((a, b) => a - b) : [12, 24, 36, 48, 60, 72, 84];
+  }, [result]);
 
   useEffect(() => {
     if (!existing) return;
