@@ -61,6 +61,8 @@ const NewProposal = () => {
   const { data: utilities = [] } = useSolarCatalog("solar_utilities");
   const { data: banks = [] } = useSolarCatalog("solar_financing_banks");
   const { data: contacts = [] } = useContacts();
+  const { data: branding = null } = useSolarBranding();
+  const { profile, company } = useCompany();
 
   const [contactId, setContactId] = useState<string>("");
   const [clientName, setClientName] = useState("");
