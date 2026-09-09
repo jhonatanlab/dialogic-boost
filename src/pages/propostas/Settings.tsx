@@ -6,7 +6,43 @@ import type { CatalogField } from "@/components/propostas/catalogTypes";
 import { FinancingSection } from "@/components/propostas/FinancingSection";
 import { FixedValuesSection } from "@/components/propostas/FixedValuesSection";
 import { BrandingSection } from "@/components/propostas/BrandingSection";
-import { Settings2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCompany } from "@/hooks/useCompany";
+import {
+  Settings2,
+  ShieldAlert,
+  Package,
+  Zap,
+  PanelTop,
+  Landmark,
+  Coins,
+  Palette,
+} from "lucide-react";
+
+const shortcuts = [
+  { title: "Kits", description: "Inversor, módulo e quantidade.", to: "/propostas/kits", icon: Package },
+  { title: "Inversores", description: "Equipamentos disponíveis.", to: "/propostas/inversores", icon: Zap },
+  { title: "Módulos", description: "Placas solares cadastradas.", to: "/propostas/modulos", icon: PanelTop },
+  {
+    title: "Financiamento",
+    description: "Bancos, prazos e juros.",
+    to: "/propostas/configuracoes/financiamento",
+    icon: Landmark,
+  },
+  {
+    title: "Valores fixos",
+    description: "Margem, km, visita e reajustes.",
+    to: "/propostas/configuracoes/valores-fixos",
+    icon: Coins,
+  },
+  {
+    title: "Personalização",
+    description: "Logo, cores e textos.",
+    to: "/propostas/configuracoes/personalizacao",
+    icon: Palette,
+  },
+];
 
 const utilityFields: CatalogField[] = [
   { key: "name", label: "Nome", type: "text", placeholder: "Ex: Equatorial" },
