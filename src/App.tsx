@@ -42,6 +42,7 @@ import ProposalFinancing from "./pages/propostas/Financing";
 import ProposalFixedValues from "./pages/propostas/FixedValues";
 import ProposalBranding from "./pages/propostas/Branding";
 import ProposalsOverview from "./pages/propostas/Overview";
+import NewProposal from "./pages/propostas/NewProposal";
 
 const queryClient = new QueryClient();
 
