@@ -137,7 +137,8 @@ export function ProposalDocument({
           <img
             src={cover}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover opacity-[0.12]"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ opacity: 0.12 }}
           />
         )}
         <div className="relative p-[18mm]">
