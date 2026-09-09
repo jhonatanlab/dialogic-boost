@@ -210,6 +210,9 @@ const NewProposal = () => {
         kwp_total: result?.generation?.kwp ?? null,
         cash_price: result?.pricing?.cash_price ?? null,
         payback_months: result?.summary?.payback_months ?? null,
+        payment_condition: paymentCondition,
+        valid_until: validUntil || null,
+        status: existing?.status ?? "draft",
         result,
       },
       { onSuccess: () => navigate("/propostas") }
