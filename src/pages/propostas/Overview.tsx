@@ -166,9 +166,6 @@ const ProposalsOverview = () => {
                       </TableCell>
                       <TableCell className="text-sm">{p.kwp_total ?? "-"}</TableCell>
                       <TableCell className="text-sm">{currency(p.cash_price)}</TableCell>
-                      <TableCell className="text-sm">
-                        {new Date(p.created_at).toLocaleDateString("pt-BR")}
-                      </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Select
                           value={p.status}
