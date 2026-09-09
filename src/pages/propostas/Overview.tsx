@@ -185,6 +185,9 @@ const ProposalsOverview = () => {
                           </SelectContent>
                         </Select>
                       </TableCell>
+                      <TableCell className="text-sm">
+                        {new Date(p.created_at).toLocaleDateString("pt-BR")}
+                      </TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <Button
                           size="icon"
