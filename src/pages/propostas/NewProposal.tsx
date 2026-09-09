@@ -34,7 +34,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSolarCatalog } from "@/hooks/useSolarCatalog";
 import { useContacts } from "@/hooks/useContacts";
 import { useSaveSolarProposal, useSolarProposal } from "@/hooks/useSolarProposals";
-import { Calculator, Loader2, Save } from "lucide-react";
+import { useSolarBranding } from "@/hooks/useSolarBranding";
+import { useCompany } from "@/hooks/useCompany";
+import { ProposalDocument } from "@/components/propostas/ProposalDocument";
+import { Calculator, Loader2, Printer, Save } from "lucide-react";
 import { toast } from "sonner";
 
 const currency = (v: any) =>
