@@ -539,15 +539,31 @@ const NewProposal = () => {
                             <TableHead>Prazo</TableHead>
                             <TableHead>Juros/mês</TableHead>
                             <TableHead className="text-right">Parcela</TableHead>
+                            <TableHead className="text-right">Total pago</TableHead>
+                            <TableHead className="text-right">Juros</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {result.financing.map((f: any) => (
-                            <TableRow key={f.term_id}>
+                            <TableRow
+                              key={f.term_id}
+                              className={
+                                paymentMode === "financing" &&
+                                String(f.term_months) === paymentTerm
+                                  ? "bg-muted/50 font-medium"
+                                  : undefined
+                              }
+                            >
                               <TableCell>{f.bank_name ?? "-"}</TableCell>
                               <TableCell>{f.term_months}x</TableCell>
                               <TableCell>{f.monthly_interest_rate}%</TableCell>
                               <TableCell className="text-right">{currency(f.installment)}</TableCell>
+                              <TableCell className="text-right">
+                                {currency(f.total_paid ?? f.total_amount)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {currency(f.total_interest)}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
