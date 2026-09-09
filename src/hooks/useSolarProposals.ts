@@ -93,7 +93,12 @@ export function useSaveSolarProposal() {
       }
       const { data: userData } = await supabase.auth.getUser();
       const { data, error } = await (supabase.from("solar_proposals" as any) as any)
-        .insert({ ...rest, company_id: companyId, created_by: userData.user?.id ?? null })
+        .insert({
+          ...rest,
+          company_id: companyId,
+          created_by: userData.user?.id ?? null,
+          seller_user_id: rest.seller_user_id ?? userData.user?.id ?? null,
+        })
         .select("id")
         .maybeSingle();
       if (error) throw error;
