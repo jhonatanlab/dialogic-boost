@@ -6,7 +6,43 @@ import type { CatalogField } from "@/components/propostas/catalogTypes";
 import { FinancingSection } from "@/components/propostas/FinancingSection";
 import { FixedValuesSection } from "@/components/propostas/FixedValuesSection";
 import { BrandingSection } from "@/components/propostas/BrandingSection";
-import { Settings2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCompany } from "@/hooks/useCompany";
+import {
+  Settings2,
+  ShieldAlert,
+  Package,
+  Zap,
+  PanelTop,
+  Landmark,
+  Coins,
+  Palette,
+} from "lucide-react";
+
+const shortcuts = [
+  { title: "Kits", description: "Inversor, módulo e quantidade.", to: "/propostas/kits", icon: Package },
+  { title: "Inversores", description: "Equipamentos disponíveis.", to: "/propostas/inversores", icon: Zap },
+  { title: "Módulos", description: "Placas solares cadastradas.", to: "/propostas/modulos", icon: PanelTop },
+  {
+    title: "Financiamento",
+    description: "Bancos, prazos e juros.",
+    to: "/propostas/configuracoes/financiamento",
+    icon: Landmark,
+  },
+  {
+    title: "Valores fixos",
+    description: "Margem, km, visita e reajustes.",
+    to: "/propostas/configuracoes/valores-fixos",
+    icon: Coins,
+  },
+  {
+    title: "Personalização",
+    description: "Logo, cores e textos.",
+    to: "/propostas/configuracoes/personalizacao",
+    icon: Palette,
+  },
+];
 
 const utilityFields: CatalogField[] = [
   { key: "name", label: "Nome", type: "text", placeholder: "Ex: Equatorial" },
@@ -73,7 +109,31 @@ const connectionFields: CatalogField[] = [
   { key: "description", label: "Descrição", type: "textarea", colSpan: 2 },
 ];
 
-const ProposalSettings = () => (
+const ProposalSettings = () => {
+  const { profile, isLoading } = useCompany();
+  const canManage = profile?.role === "admin" || profile?.role === "manager";
+
+  if (!isLoading && !canManage) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 space-y-6">
+          <BackToProposals />
+          <Card className="max-w-lg">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-destructive" /> Acesso restrito
+              </CardTitle>
+              <CardDescription>
+                Apenas administradores e gerentes podem acessar as configurações de propostas.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
   <DashboardLayout>
     <div className="p-6 space-y-6">
       <BackToProposals />
@@ -85,6 +145,23 @@ const ProposalSettings = () => (
           Cadastros de apoio usados no dimensionamento das propostas.
         </p>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {shortcuts.map((s) => (
+          <Link key={s.to} to={s.to}>
+            <Card className="h-full rounded-xl transition-colors hover:border-primary/50">
+              <CardHeader className="pb-4">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <s.icon className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle className="text-base mt-3">{s.title}</CardTitle>
+                <CardDescription>{s.description}</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
 
       <Tabs defaultValue="utilities">
         <TabsList>
@@ -184,6 +261,7 @@ const ProposalSettings = () => (
       </Tabs>
     </div>
   </DashboardLayout>
-);
+  );
+};
 
 export default ProposalSettings;

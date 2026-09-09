@@ -1,95 +1,63 @@
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useSolarCatalog } from "@/hooks/useSolarCatalog";
-import { useSolarPricingConfig } from "@/hooks/useSolarPricingConfig";
-import { useSolarBranding } from "@/hooks/useSolarBranding";
+import { Input } from "@/components/ui/input";
 import {
-  FileText,
-  Settings2,
-  Package,
-  Zap,
-  Grid3x3,
-  Landmark,
-  Coins,
-  Palette,
-  Building2,
-  ArrowRight,
-} from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useCompany } from "@/hooks/useCompany";
+import {
+  PROPOSAL_STATUS_LABELS,
+  useDeleteSolarProposal,
+  useSolarProposals,
+  useUpdateProposalStatus,
+  type ProposalStatus,
+} from "@/hooks/useSolarProposals";
+import { FileText, Loader2, Plus, Search, Settings2, Trash2 } from "lucide-react";
+
+const currency = (v: number | null | undefined) =>
+  v === null || v === undefined
+    ? "-"
+    : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const statusVariant = (status: ProposalStatus) =>
+  status === "accepted" ? "default" : status === "rejected" ? "destructive" : "outline";
 
 const ProposalsOverview = () => {
-  const kits = useSolarCatalog("solar_kits");
-  const inverters = useSolarCatalog("solar_inverters");
-  const modules = useSolarCatalog("solar_modules");
-  const utilities = useSolarCatalog("solar_utilities");
-  const cities = useSolarCatalog("solar_cities");
-  const roofs = useSolarCatalog("solar_roof_types");
-  const orientations = useSolarCatalog("solar_orientations");
-  const connections = useSolarCatalog("solar_connection_types");
-  const banks = useSolarCatalog("solar_financing_banks");
-  const { data: pricing } = useSolarPricingConfig();
-  const { data: branding } = useSolarBranding();
+  const navigate = useNavigate();
+  const { profile } = useCompany();
+  const canManage = profile?.role === "admin" || profile?.role === "manager";
+  const { data: proposals = [], isLoading } = useSolarProposals();
+  const updateStatus = useUpdateProposalStatus();
+  const deleteProposal = useDeleteSolarProposal();
 
-  const supportCount =
-    (utilities.data?.length ?? 0) +
-    (cities.data?.length ?? 0) +
-    (roofs.data?.length ?? 0) +
-    (orientations.data?.length ?? 0) +
-    (connections.data?.length ?? 0);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const cards = [
-    {
-      title: "Kits",
-      description: "Inversor, módulo e quantidade com o kWp calculado.",
-      to: "/propostas/kits",
-      icon: Package,
-      info: `${kits.data?.length ?? 0} cadastrados`,
-    },
-    {
-      title: "Inversores",
-      description: "Equipamentos disponíveis para montar os kits.",
-      to: "/propostas/inversores",
-      icon: Zap,
-      info: `${inverters.data?.length ?? 0} cadastrados`,
-    },
-    {
-      title: "Módulos",
-      description: "Placas solares com potência e dimensões.",
-      to: "/propostas/modulos",
-      icon: Grid3x3,
-      info: `${modules.data?.length ?? 0} cadastrados`,
-    },
-    {
-      title: "Cadastros de apoio",
-      description: "Concessionárias, cidades, telhados, orientações e ligações.",
-      to: "/propostas/configuracoes",
-      icon: Building2,
-      info: `${supportCount} registros`,
-    },
-    {
-      title: "Financiamento",
-      description: "Bancos, prazos e taxa de juros mensal.",
-      to: "/propostas/configuracoes/financiamento",
-      icon: Landmark,
-      info: `${banks.data?.length ?? 0} bancos`,
-    },
-    {
-      title: "Valores fixos",
-      description: "Margem, valor por km, visita, inflação e degradação.",
-      to: "/propostas/configuracoes/valores-fixos",
-      icon: Coins,
-      info: pricing ? "Configurado" : "Pendente",
-    },
-    {
-      title: "Personalização",
-      description: "Logo, cores e textos que aparecem na proposta.",
-      to: "/propostas/configuracoes/personalizacao",
-      icon: Palette,
-      info: branding ? "Configurado" : "Pendente",
-    },
-  ];
+  const filtered = useMemo(
+    () =>
+      proposals
+        .filter((p) => (statusFilter === "all" ? true : p.status === statusFilter))
+        .filter((p) =>
+          p.client_name.toLowerCase().includes(search.trim().toLowerCase())
+        ),
+    [proposals, search, statusFilter]
+  );
 
   return (
     <DashboardLayout>
@@ -100,51 +68,158 @@ const ProposalsOverview = () => {
               <FileText className="h-6 w-6 text-primary" /> Propostas
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Central do módulo de propostas solares: cadastros, valores e personalização.
+              Propostas geradas para os clientes da sua empresa.
             </p>
           </div>
-          <Button asChild>
-            <Link to="/propostas/configuracoes">
-              <Settings2 className="h-4 w-4 mr-2" />
-              Configurações
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {canManage && (
+              <Button variant="outline" asChild>
+                <Link to="/propostas/configuracoes">
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Configurações
+                </Link>
+              </Button>
+            )}
+            <Button asChild>
+              <Link to="/propostas/nova">
+                <Plus className="h-4 w-4 mr-2" />
+                Nova proposta
+              </Link>
+            </Button>
+          </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {cards.map((card) => (
-            <Link key={card.to + card.title} to={card.to} className="group">
-              <Card className="h-full rounded-xl transition-colors hover:border-primary/50">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <card.icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <Badge variant="secondary">{card.info}</Badge>
-                  </div>
-                  <CardTitle className="text-base mt-3">{card.title}</CardTitle>
-                  <CardDescription>{card.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <span className="inline-flex items-center gap-1 text-sm text-primary">
-                    Abrir
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por cliente..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Situação" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as situações</SelectItem>
+              {Object.entries(PROPOSAL_STATUS_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <Card className="rounded-xl border-dashed">
-          <CardHeader>
-            <CardTitle className="text-base">Propostas geradas</CardTitle>
-            <CardDescription>
-              Em breve: aqui ficará a lista das propostas criadas para os clientes. O cálculo já
-              está disponível, mas ainda não é salvo.
-            </CardDescription>
-          </CardHeader>
+        <Card className="overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Cidade</TableHead>
+                <TableHead>Kit</TableHead>
+                <TableHead>kWp</TableHead>
+                <TableHead>Consumo (kWh)</TableHead>
+                <TableHead>Valor à vista</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Situação</TableHead>
+                <TableHead className="w-[80px] text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-10">
+                    <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Carregando...
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-10 text-sm text-muted-foreground">
+                    Nenhuma proposta encontrada. Clique em “Nova proposta” para gerar a primeira.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((p) => {
+                  const resolved = p.result?.input_resolved ?? {};
+                  return (
+                    <TableRow
+                      key={p.id}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/propostas/${p.id}`)}
+                    >
+                      <TableCell className="font-medium">
+                        {p.client_name}
+                        {p.client_phone && (
+                          <span className="block text-xs text-muted-foreground">
+                            {p.client_phone}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {resolved.city?.name ?? "-"}
+                      </TableCell>
+                      <TableCell className="text-sm">{resolved.kit?.name ?? "-"}</TableCell>
+                      <TableCell className="text-sm">{p.kwp_total ?? "-"}</TableCell>
+                      <TableCell className="text-sm">
+                        {Number(p.avg_monthly_consumption_kwh).toLocaleString("pt-BR")}
+                      </TableCell>
+                      <TableCell className="text-sm">{currency(p.cash_price)}</TableCell>
+                      <TableCell className="text-sm">
+                        {new Date(p.created_at).toLocaleDateString("pt-BR")}
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Select
+                          value={p.status}
+                          onValueChange={(status) =>
+                            updateStatus.mutate({ id: p.id, status: status as ProposalStatus })
+                          }
+                        >
+                          <SelectTrigger className="h-8 w-[130px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(PROPOSAL_STATUS_LABELS).map(([value, label]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => {
+                            if (confirm(`Excluir a proposta de ${p.client_name}?`))
+                              deleteProposal.mutate(p.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </Card>
+
+        {!isLoading && filtered.length > 0 && (
+          <div className="flex gap-2 text-xs text-muted-foreground">
+            {Object.entries(PROPOSAL_STATUS_LABELS).map(([value, label]) => (
+              <Badge key={value} variant={statusVariant(value as ProposalStatus)}>
+                {label}: {proposals.filter((p) => p.status === value).length}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

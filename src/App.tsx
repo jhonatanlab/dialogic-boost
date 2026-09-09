@@ -42,6 +42,7 @@ import ProposalFinancing from "./pages/propostas/Financing";
 import ProposalFixedValues from "./pages/propostas/FixedValues";
 import ProposalBranding from "./pages/propostas/Branding";
 import ProposalsOverview from "./pages/propostas/Overview";
+import NewProposal from "./pages/propostas/NewProposal";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +88,8 @@ const App = () => (
           <Route path="/propostas/configuracoes/financiamento" element={<ProposalFinancing />} />
           <Route path="/propostas/configuracoes/valores-fixos" element={<ProposalFixedValues />} />
           <Route path="/propostas/configuracoes/personalizacao" element={<ProposalBranding />} />
+          <Route path="/propostas/nova" element={<NewProposal />} />
+          <Route path="/propostas/:id" element={<NewProposal />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
           <Route path="/admin/companies" element={<AdminCompanies />} />
           <Route path="/profile" element={<Profile />} />

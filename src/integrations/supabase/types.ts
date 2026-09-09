@@ -2466,6 +2466,145 @@ export type Database = {
           },
         ]
       }
+      solar_proposals: {
+        Row: {
+          avg_monthly_consumption_kwh: number
+          cash_price: number | null
+          city_id: string | null
+          client_name: string
+          client_phone: string | null
+          company_id: string
+          connection_type_id: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          distance_km: number
+          financing_bank_id: string | null
+          id: string
+          kit_id: string | null
+          kwp_total: number | null
+          orientation_id: string | null
+          payback_months: number | null
+          result: Json
+          roof_type_id: string | null
+          status: string
+          updated_at: string
+          utility_id: string | null
+        }
+        Insert: {
+          avg_monthly_consumption_kwh: number
+          cash_price?: number | null
+          city_id?: string | null
+          client_name: string
+          client_phone?: string | null
+          company_id: string
+          connection_type_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          distance_km?: number
+          financing_bank_id?: string | null
+          id?: string
+          kit_id?: string | null
+          kwp_total?: number | null
+          orientation_id?: string | null
+          payback_months?: number | null
+          result?: Json
+          roof_type_id?: string | null
+          status?: string
+          updated_at?: string
+          utility_id?: string | null
+        }
+        Update: {
+          avg_monthly_consumption_kwh?: number
+          cash_price?: number | null
+          city_id?: string | null
+          client_name?: string
+          client_phone?: string | null
+          company_id?: string
+          connection_type_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          distance_km?: number
+          financing_bank_id?: string | null
+          id?: string
+          kit_id?: string | null
+          kwp_total?: number | null
+          orientation_id?: string | null
+          payback_months?: number | null
+          result?: Json
+          roof_type_id?: string | null
+          status?: string
+          updated_at?: string
+          utility_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solar_proposals_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "solar_cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_proposals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_proposals_connection_type_id_fkey"
+            columns: ["connection_type_id"]
+            isOneToOne: false
+            referencedRelation: "solar_connection_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_proposals_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_proposals_financing_bank_id_fkey"
+            columns: ["financing_bank_id"]
+            isOneToOne: false
+            referencedRelation: "solar_financing_banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_proposals_kit_id_fkey"
+            columns: ["kit_id"]
+            isOneToOne: false
+            referencedRelation: "solar_kits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_proposals_orientation_id_fkey"
+            columns: ["orientation_id"]
+            isOneToOne: false
+            referencedRelation: "solar_orientations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_proposals_roof_type_id_fkey"
+            columns: ["roof_type_id"]
+            isOneToOne: false
+            referencedRelation: "solar_roof_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solar_proposals_utility_id_fkey"
+            columns: ["utility_id"]
+            isOneToOne: false
+            referencedRelation: "solar_utilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solar_roof_types: {
         Row: {
           company_id: string
