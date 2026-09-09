@@ -261,6 +261,7 @@ const ProposalSettings = () => {
       </Tabs>
     </div>
   </DashboardLayout>
-);
+  );
+};
 
 export default ProposalSettings;
