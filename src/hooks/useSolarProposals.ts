@@ -33,6 +33,12 @@ export interface SolarProposal {
   cash_price: number | null;
   payback_months: number | null;
   result: any;
+  quote_number: number | null;
+  seller_user_id: string | null;
+  valid_until: string | null;
+  payment_condition: string | null;
+  pdf_url: string | null;
+  sent_at: string | null;
   created_at: string;
   updated_at: string;
 }
