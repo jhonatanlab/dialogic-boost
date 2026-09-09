@@ -109,7 +109,31 @@ const connectionFields: CatalogField[] = [
   { key: "description", label: "Descrição", type: "textarea", colSpan: 2 },
 ];
 
-const ProposalSettings = () => (
+const ProposalSettings = () => {
+  const { profile, isLoading } = useCompany();
+  const canManage = profile?.role === "admin" || profile?.role === "manager";
+
+  if (!isLoading && !canManage) {
+    return (
+      <DashboardLayout>
+        <div className="p-6 space-y-6">
+          <BackToProposals />
+          <Card className="max-w-lg">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-destructive" /> Acesso restrito
+              </CardTitle>
+              <CardDescription>
+                Apenas administradores e gerentes podem acessar as configurações de propostas.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
   <DashboardLayout>
     <div className="p-6 space-y-6">
       <BackToProposals />
@@ -121,6 +145,23 @@ const ProposalSettings = () => (
           Cadastros de apoio usados no dimensionamento das propostas.
         </p>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {shortcuts.map((s) => (
+          <Link key={s.to} to={s.to}>
+            <Card className="h-full rounded-xl transition-colors hover:border-primary/50">
+              <CardHeader className="pb-4">
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <s.icon className="h-5 w-5 text-primary" />
+                </div>
+                <CardTitle className="text-base mt-3">{s.title}</CardTitle>
+                <CardDescription>{s.description}</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
 
       <Tabs defaultValue="utilities">
         <TabsList>
