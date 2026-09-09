@@ -427,7 +427,16 @@ const NewProposal = () => {
                   )}
                   Salvar proposta
                 </Button>
+                <Button variant="outline" onClick={handlePrint} disabled={!result}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Imprimir / Salvar PDF
+                </Button>
               </div>
+              {!result && (
+                <p className="text-xs text-muted-foreground">
+                  Calcule a proposta para liberar a impressão em PDF.
+                </p>
+              )}
             </div>
 
             <div className="space-y-6">
