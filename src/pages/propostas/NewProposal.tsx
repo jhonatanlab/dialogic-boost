@@ -598,6 +598,27 @@ const NewProposal = () => {
           </div>
         )}
       </div>
+
+      {result && (
+        <div className="hidden print:block">
+          <ProposalDocument
+            proposal={{
+              quote_number: existing?.quote_number ?? null,
+              client_name: clientName,
+              client_phone: clientPhone,
+              payment_condition: paymentCondition,
+              valid_until: validUntil,
+              created_at: existing?.created_at ?? new Date().toISOString(),
+              avg_monthly_consumption_kwh: form.avg_monthly_consumption_kwh,
+            }}
+            result={result}
+            branding={branding}
+            companyName={(company as any)?.name ?? null}
+            sellerName={profile?.full_name ?? null}
+            selectedTermMonths={paymentMode === "financing" ? Number(paymentTerm) : null}
+          />
+        </div>
+      )}
     </DashboardLayout>
   );
 };
