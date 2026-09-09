@@ -131,31 +131,39 @@ export function ProposalDocument({
       {/* ---------- Capa ---------- */}
       <section
         className="proposal-page relative flex flex-col justify-between text-white"
-        style={{ background: secondary }}
+        style={{ background: cover ? "transparent" : secondary }}
       >
-        {cover && (
+        {cover ? (
           <img
             src={cover}
             alt=""
             className="absolute inset-0 h-full w-full object-cover"
-            style={{ opacity: 0.12 }}
           />
+        ) : (
+          <div className="absolute inset-0" style={{ background: secondary }} />
         )}
         <div className="relative p-[18mm]">
           {logo ? (
-            <img src={logo} alt={companyName ?? "Logo"} className="h-[24mm] object-contain" />
+            <img
+              src={logo}
+              alt={companyName ?? "Logo"}
+              className="h-[24mm] object-contain drop-shadow-md"
+            />
           ) : (
-            <p className="text-2xl font-bold">{companyName ?? "Energia Solar"}</p>
+            <p className="text-2xl font-bold drop-shadow-md">{companyName ?? "Energia Solar"}</p>
           )}
-          <p className="mt-[26mm] text-[13px] uppercase tracking-[0.25em]" style={{ color: primary }}>
+          <p
+            className="mt-[26mm] text-[13px] uppercase tracking-[0.25em] drop-shadow-md"
+            style={{ color: primary }}
+          >
             Proposta comercial
           </p>
-          <h1 className="mt-2 text-[34px] font-bold leading-tight">
+          <h1 className="mt-2 text-[34px] font-bold leading-tight drop-shadow-lg">
             Sistema de energia solar
             <br />
             fotovoltaica
           </h1>
-          <p className="mt-3 text-[15px] opacity-90">
+          <p className="mt-3 text-[15px] opacity-95 drop-shadow-md">
             {number(kit.kwp_total ?? generation.kwp, 2)} kWp · Geração média de{" "}
             {number(generation.monthly_average_kwh)} kWh/mês
           </p>
