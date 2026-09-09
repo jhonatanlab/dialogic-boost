@@ -180,4 +180,49 @@
   .print\:hidden {
     display: none !important;
   }
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  /* Ao imprimir o documento da proposta, só ele aparece na página. */
+  body:has(> .proposal-doc-wrap) > *:not(.proposal-doc-wrap) {
+    display: none !important;
+  }
+
+  .proposal-doc-wrap,
+  .proposal-doc {
+    display: block !important;
+    color: #000;
+    background: #fff;
+  }
+
+  .proposal-doc .proposal-page {
+    width: 210mm;
+    min-height: 296mm;
+    box-sizing: border-box;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
+  }
+
+  .proposal-doc .proposal-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .proposal-doc table {
+    break-inside: avoid;
+  }
 }

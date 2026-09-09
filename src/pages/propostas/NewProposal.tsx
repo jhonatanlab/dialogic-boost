@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { BackToProposals } from "@/components/propostas/BackToProposals";
@@ -34,7 +35,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSolarCatalog } from "@/hooks/useSolarCatalog";
 import { useContacts } from "@/hooks/useContacts";
 import { useSaveSolarProposal, useSolarProposal } from "@/hooks/useSolarProposals";
-import { Calculator, Loader2, Save } from "lucide-react";
+import { useSolarBranding } from "@/hooks/useSolarBranding";
+import { useCompany } from "@/hooks/useCompany";
+import { ProposalDocument } from "@/components/propostas/ProposalDocument";
+import { Calculator, Loader2, Printer, Save } from "lucide-react";
 import { toast } from "sonner";
 
 const currency = (v: any) =>
@@ -58,6 +62,8 @@ const NewProposal = () => {
   const { data: utilities = [] } = useSolarCatalog("solar_utilities");
   const { data: banks = [] } = useSolarCatalog("solar_financing_banks");
   const { data: contacts = [] } = useContacts();
+  const { data: branding = null } = useSolarBranding();
+  const { profile, company } = useCompany();
 
   const [contactId, setContactId] = useState<string>("");
   const [clientName, setClientName] = useState("");
@@ -219,9 +225,17 @@ const NewProposal = () => {
     );
   };
 
+  const handlePrint = () => {
+    if (!result) {
+      toast.error("Calcule a proposta antes de imprimir");
+      return;
+    }
+    window.print();
+  };
+
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 print:hidden">
         <BackToProposals />
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -414,7 +428,16 @@ const NewProposal = () => {
                   )}
                   Salvar proposta
                 </Button>
+                <Button variant="outline" onClick={handlePrint} disabled={!result}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Imprimir / Salvar PDF
+                </Button>
               </div>
+              {!result && (
+                <p className="text-xs text-muted-foreground">
+                  Calcule a proposta para liberar a impressão em PDF.
+                </p>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -576,6 +599,29 @@ const NewProposal = () => {
           </div>
         )}
       </div>
+
+      {result &&
+        createPortal(
+          <div className="proposal-doc-wrap hidden">
+            <ProposalDocument
+              proposal={{
+                quote_number: existing?.quote_number ?? null,
+                client_name: clientName,
+                client_phone: clientPhone,
+                payment_condition: paymentCondition,
+                valid_until: validUntil,
+                created_at: existing?.created_at ?? new Date().toISOString(),
+                avg_monthly_consumption_kwh: form.avg_monthly_consumption_kwh,
+              }}
+              result={result}
+              branding={branding}
+              companyName={(company as any)?.name ?? null}
+              sellerName={profile?.full_name ?? null}
+              selectedTermMonths={paymentMode === "financing" ? Number(paymentTerm) : null}
+            />
+          </div>,
+          document.body
+        )}
     </DashboardLayout>
   );
 };
