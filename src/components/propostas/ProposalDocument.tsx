@@ -134,17 +134,11 @@ export function ProposalDocument({
         style={{ background: secondary }}
       >
         {cover && (
-          <>
-            <img
-              src={cover}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            <div
-              className="absolute inset-0"
-              style={{ background: secondary, opacity: 0.88 }}
-            />
-          </>
+          <img
+            src={cover}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover opacity-[0.12]"
+          />
         )}
         <div className="relative p-[18mm]">
           {logo ? (
