@@ -117,8 +117,10 @@ export function useUpdateProposalStatus() {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ProposalStatus }) => {
+      const patch: Record<string, any> = { status };
+      if (status === "sent") patch.sent_at = new Date().toISOString();
       const { error } = await (supabase.from("solar_proposals" as any) as any)
-        .update({ status })
+        .update(patch)
         .eq("id", id);
       if (error) throw error;
     },
