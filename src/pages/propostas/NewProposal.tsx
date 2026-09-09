@@ -110,6 +110,16 @@ const NewProposal = () => {
       financing_bank_id: existing.financing_bank_id ?? "",
     });
     setResult(existing.result && Object.keys(existing.result).length ? existing.result : null);
+    if (existing.valid_until) setValidUntil(existing.valid_until);
+    if (existing.payment_condition) {
+      const match = /(\d+)x/.exec(existing.payment_condition);
+      if (match) {
+        setPaymentMode("financing");
+        setPaymentTerm(match[1]);
+      } else {
+        setPaymentMode("cash");
+      }
+    }
   }, [existing]);
 
   const set = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
