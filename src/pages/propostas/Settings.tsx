@@ -1,4 +1,5 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { BackToProposals } from "@/components/propostas/BackToProposals";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CatalogManager } from "@/components/propostas/CatalogManager";
 import type { CatalogField } from "@/components/propostas/catalogTypes";
@@ -75,6 +76,7 @@ const connectionFields: CatalogField[] = [
 const ProposalSettings = () => (
   <DashboardLayout>
     <div className="p-6 space-y-6">
+      <BackToProposals />
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Settings2 className="h-6 w-6 text-primary" /> Configurações de Propostas

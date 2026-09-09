@@ -1,4 +1,5 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { BackToProposals } from "@/components/propostas/BackToProposals";
 import { CatalogManager } from "@/components/propostas/CatalogManager";
 import type { CatalogField } from "@/components/propostas/catalogTypes";
 import { Zap } from "lucide-react";
@@ -20,6 +21,7 @@ const fields: CatalogField[] = [
 const Inverters = () => (
   <DashboardLayout>
     <div className="p-6 space-y-6">
+      <BackToProposals />
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Zap className="h-6 w-6 text-primary" /> Inversores

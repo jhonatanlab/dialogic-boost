@@ -41,6 +41,7 @@ import ProposalSettings from "./pages/propostas/Settings";
 import ProposalFinancing from "./pages/propostas/Financing";
 import ProposalFixedValues from "./pages/propostas/FixedValues";
 import ProposalBranding from "./pages/propostas/Branding";
+import ProposalsOverview from "./pages/propostas/Overview";
 
 const queryClient = new QueryClient();
 
@@ -78,7 +79,7 @@ const App = () => (
           <Route path="/settings/closure-reasons" element={<ClosureReasons />} />
           <Route path="/settings/appointment-rules" element={<AppointmentRules />} />
           <Route path="/agent-ai" element={<AgentAI />} />
-          <Route path="/propostas" element={<Navigate to="/propostas/kits" replace />} />
+          <Route path="/propostas" element={<ProposalsOverview />} />
           <Route path="/propostas/inversores" element={<Inverters />} />
           <Route path="/propostas/modulos" element={<Modules />} />
           <Route path="/propostas/kits" element={<Kits />} />
