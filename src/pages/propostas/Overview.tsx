@@ -53,9 +53,14 @@ const ProposalsOverview = () => {
     () =>
       proposals
         .filter((p) => (statusFilter === "all" ? true : p.status === statusFilter))
-        .filter((p) =>
-          p.client_name.toLowerCase().includes(search.trim().toLowerCase())
-        ),
+        .filter((p) => {
+          const term = search.trim().toLowerCase();
+          if (!term) return true;
+          return (
+            p.client_name.toLowerCase().includes(term) ||
+            String(p.quote_number ?? "").includes(term)
+          );
+        }),
     [proposals, search, statusFilter]
   );
 
