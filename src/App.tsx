@@ -88,6 +88,8 @@ const App = () => (
           <Route path="/propostas/configuracoes/financiamento" element={<ProposalFinancing />} />
           <Route path="/propostas/configuracoes/valores-fixos" element={<ProposalFixedValues />} />
           <Route path="/propostas/configuracoes/personalizacao" element={<ProposalBranding />} />
+          <Route path="/propostas/nova" element={<NewProposal />} />
+          <Route path="/propostas/:id" element={<NewProposal />} />
           <Route path="/admin/whatsapp" element={<AdminWhatsapp />} />
           <Route path="/admin/companies" element={<AdminCompanies />} />
           <Route path="/profile" element={<Profile />} />
