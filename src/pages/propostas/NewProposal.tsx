@@ -21,6 +21,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useSolarCatalog } from "@/hooks/useSolarCatalog";
 import { useContacts } from "@/hooks/useContacts";
@@ -66,6 +75,23 @@ const NewProposal = () => {
   });
   const [result, setResult] = useState<any>(null);
   const [calculating, setCalculating] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<"cash" | "financing">("cash");
+  const [paymentTerm, setPaymentTerm] = useState<string>("60");
+  const [validUntil, setValidUntil] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 15);
+    return d.toISOString().slice(0, 10);
+  });
+
+  const paymentCondition =
+    paymentMode === "cash" ? "À vista" : `Financiamento em ${paymentTerm}x`;
+
+  const termOptions = useMemo(() => {
+    const fromResult = Array.from(
+      new Set((result?.financing ?? []).map((f: any) => Number(f.term_months)))
+    ).filter(Boolean) as number[];
+    return fromResult.length ? fromResult.sort((a, b) => a - b) : [12, 24, 36, 48, 60, 72, 84];
+  }, [result]);
 
   useEffect(() => {
     if (!existing) return;
@@ -84,6 +110,16 @@ const NewProposal = () => {
       financing_bank_id: existing.financing_bank_id ?? "",
     });
     setResult(existing.result && Object.keys(existing.result).length ? existing.result : null);
+    if (existing.valid_until) setValidUntil(existing.valid_until);
+    if (existing.payment_condition) {
+      const match = /(\d+)x/.exec(existing.payment_condition);
+      if (match) {
+        setPaymentMode("financing");
+        setPaymentTerm(match[1]);
+      } else {
+        setPaymentMode("cash");
+      }
+    }
   }, [existing]);
 
   const set = (key: string, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -174,6 +210,9 @@ const NewProposal = () => {
         kwp_total: result?.generation?.kwp ?? null,
         cash_price: result?.pricing?.cash_price ?? null,
         payback_months: result?.summary?.payback_months ?? null,
+        payment_condition: paymentCondition,
+        valid_until: validUntil || null,
+        status: existing?.status ?? "draft",
         result,
       },
       { onSuccess: () => navigate("/propostas") }
@@ -303,6 +342,57 @@ const NewProposal = () => {
                 </CardContent>
               </Card>
 
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Condições</CardTitle>
+                  <CardDescription>
+                    Forma de pagamento e validade desta proposta.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Condição de pagamento</Label>
+                    <Select
+                      value={paymentMode}
+                      onValueChange={(v) => setPaymentMode(v as "cash" | "financing")}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">À vista</SelectItem>
+                        <SelectItem value="financing">Financiamento</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {paymentMode === "financing" && (
+                    <div className="space-y-2">
+                      <Label>Prazo</Label>
+                      <Select value={paymentTerm} onValueChange={setPaymentTerm}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {termOptions.map((t) => (
+                            <SelectItem key={t} value={String(t)}>
+                              {t}x
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Válida até</Label>
+                    <Input
+                      type="date"
+                      value={validUntil}
+                      onChange={(e) => setValidUntil(e.target.value)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="flex gap-2">
                 <Button onClick={handleCalculate} disabled={calculating}>
                   {calculating ? (
@@ -385,6 +475,32 @@ const NewProposal = () => {
                     </CardContent>
                   </Card>
 
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Geração mensal (kWh)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[260px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={result.generation?.monthly ?? []}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                          <XAxis dataKey="label" fontSize={11} />
+                          <YAxis fontSize={11} />
+                          <Tooltip
+                            formatter={(v: any) =>
+                              `${Number(v).toLocaleString("pt-BR")} kWh`
+                            }
+                          />
+                          <Bar
+                            dataKey="generation_kwh"
+                            name="Geração"
+                            fill="hsl(var(--primary))"
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
                   <Card className="overflow-hidden">
                     <CardHeader>
                       <CardTitle className="text-base">Geração mês a mês</CardTitle>
@@ -423,15 +539,31 @@ const NewProposal = () => {
                             <TableHead>Prazo</TableHead>
                             <TableHead>Juros/mês</TableHead>
                             <TableHead className="text-right">Parcela</TableHead>
+                            <TableHead className="text-right">Total pago</TableHead>
+                            <TableHead className="text-right">Juros</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {result.financing.map((f: any) => (
-                            <TableRow key={f.term_id}>
+                            <TableRow
+                              key={f.term_id}
+                              className={
+                                paymentMode === "financing" &&
+                                String(f.term_months) === paymentTerm
+                                  ? "bg-muted/50 font-medium"
+                                  : undefined
+                              }
+                            >
                               <TableCell>{f.bank_name ?? "-"}</TableCell>
                               <TableCell>{f.term_months}x</TableCell>
                               <TableCell>{f.monthly_interest_rate}%</TableCell>
                               <TableCell className="text-right">{currency(f.installment)}</TableCell>
+                              <TableCell className="text-right">
+                                {currency(f.total_paid ?? f.total_amount)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {currency(f.total_interest)}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>

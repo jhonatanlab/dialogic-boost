@@ -33,6 +33,12 @@ export interface SolarProposal {
   cash_price: number | null;
   payback_months: number | null;
   result: any;
+  quote_number: number | null;
+  seller_user_id: string | null;
+  valid_until: string | null;
+  payment_condition: string | null;
+  pdf_url: string | null;
+  sent_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -87,7 +93,12 @@ export function useSaveSolarProposal() {
       }
       const { data: userData } = await supabase.auth.getUser();
       const { data, error } = await (supabase.from("solar_proposals" as any) as any)
-        .insert({ ...rest, company_id: companyId, created_by: userData.user?.id ?? null })
+        .insert({
+          ...rest,
+          company_id: companyId,
+          created_by: userData.user?.id ?? null,
+          seller_user_id: rest.seller_user_id ?? userData.user?.id ?? null,
+        })
         .select("id")
         .maybeSingle();
       if (error) throw error;
@@ -106,8 +117,10 @@ export function useUpdateProposalStatus() {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ProposalStatus }) => {
+      const patch: Record<string, any> = { status };
+      if (status === "sent") patch.sent_at = new Date().toISOString();
       const { error } = await (supabase.from("solar_proposals" as any) as any)
-        .update({ status })
+        .update(patch)
         .eq("id", id);
       if (error) throw error;
     },

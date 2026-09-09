@@ -53,9 +53,14 @@ const ProposalsOverview = () => {
     () =>
       proposals
         .filter((p) => (statusFilter === "all" ? true : p.status === statusFilter))
-        .filter((p) =>
-          p.client_name.toLowerCase().includes(search.trim().toLowerCase())
-        ),
+        .filter((p) => {
+          const term = search.trim().toLowerCase();
+          if (!term) return true;
+          return (
+            p.client_name.toLowerCase().includes(term) ||
+            String(p.quote_number ?? "").includes(term)
+          );
+        }),
     [proposals, search, statusFilter]
   );
 
@@ -93,7 +98,7 @@ const ProposalsOverview = () => {
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por cliente..."
+              placeholder="Buscar por cliente ou nº..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -118,39 +123,39 @@ const ProposalsOverview = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[90px]">Nº cotação</TableHead>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Cidade</TableHead>
-                <TableHead>Kit</TableHead>
                 <TableHead>kWp</TableHead>
-                <TableHead>Consumo (kWh)</TableHead>
-                <TableHead>Valor à vista</TableHead>
-                <TableHead>Data</TableHead>
+                <TableHead>Valor</TableHead>
                 <TableHead>Situação</TableHead>
+                <TableHead>Data</TableHead>
                 <TableHead className="w-[80px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-10">
+                  <TableCell colSpan={7} className="text-center py-10">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Carregando...
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-10 text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-10 text-sm text-muted-foreground">
                     Nenhuma proposta encontrada. Clique em “Nova proposta” para gerar a primeira.
                   </TableCell>
                 </TableRow>
               ) : (
                 filtered.map((p) => {
-                  const resolved = p.result?.input_resolved ?? {};
                   return (
                     <TableRow
                       key={p.id}
                       className="cursor-pointer"
                       onClick={() => navigate(`/propostas/${p.id}`)}
                     >
+                      <TableCell className="text-sm font-mono">
+                        #{String(p.quote_number ?? "-").padStart(3, "0")}
+                      </TableCell>
                       <TableCell className="font-medium">
                         {p.client_name}
                         {p.client_phone && (
@@ -159,18 +164,8 @@ const ProposalsOverview = () => {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {resolved.city?.name ?? "-"}
-                      </TableCell>
-                      <TableCell className="text-sm">{resolved.kit?.name ?? "-"}</TableCell>
                       <TableCell className="text-sm">{p.kwp_total ?? "-"}</TableCell>
-                      <TableCell className="text-sm">
-                        {Number(p.avg_monthly_consumption_kwh).toLocaleString("pt-BR")}
-                      </TableCell>
                       <TableCell className="text-sm">{currency(p.cash_price)}</TableCell>
-                      <TableCell className="text-sm">
-                        {new Date(p.created_at).toLocaleDateString("pt-BR")}
-                      </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Select
                           value={p.status}
@@ -189,6 +184,9 @@ const ProposalsOverview = () => {
                             ))}
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {new Date(p.created_at).toLocaleDateString("pt-BR")}
                       </TableCell>
                       <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <Button

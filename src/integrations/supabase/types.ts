@@ -2485,11 +2485,17 @@ export type Database = {
           kwp_total: number | null
           orientation_id: string | null
           payback_months: number | null
+          payment_condition: string | null
+          pdf_url: string | null
+          quote_number: number | null
           result: Json
           roof_type_id: string | null
+          seller_user_id: string | null
+          sent_at: string | null
           status: string
           updated_at: string
           utility_id: string | null
+          valid_until: string | null
         }
         Insert: {
           avg_monthly_consumption_kwh: number
@@ -2509,11 +2515,17 @@ export type Database = {
           kwp_total?: number | null
           orientation_id?: string | null
           payback_months?: number | null
+          payment_condition?: string | null
+          pdf_url?: string | null
+          quote_number?: number | null
           result?: Json
           roof_type_id?: string | null
+          seller_user_id?: string | null
+          sent_at?: string | null
           status?: string
           updated_at?: string
           utility_id?: string | null
+          valid_until?: string | null
         }
         Update: {
           avg_monthly_consumption_kwh?: number
@@ -2533,11 +2545,17 @@ export type Database = {
           kwp_total?: number | null
           orientation_id?: string | null
           payback_months?: number | null
+          payment_condition?: string | null
+          pdf_url?: string | null
+          quote_number?: number | null
           result?: Json
           roof_type_id?: string | null
+          seller_user_id?: string | null
+          sent_at?: string | null
           status?: string
           updated_at?: string
           utility_id?: string | null
+          valid_until?: string | null
         }
         Relationships: [
           {

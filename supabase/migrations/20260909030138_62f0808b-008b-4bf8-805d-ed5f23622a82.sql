@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.set_solar_proposal_quote_number() FROM PUBLIC, anon, authenticated;
