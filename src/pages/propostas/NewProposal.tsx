@@ -475,6 +475,32 @@ const NewProposal = () => {
                     </CardContent>
                   </Card>
 
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Geração mensal (kWh)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[260px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={result.generation?.monthly ?? []}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                          <XAxis dataKey="label" fontSize={11} />
+                          <YAxis fontSize={11} />
+                          <Tooltip
+                            formatter={(v: any) =>
+                              `${Number(v).toLocaleString("pt-BR")} kWh`
+                            }
+                          />
+                          <Bar
+                            dataKey="generation_kwh"
+                            name="Geração"
+                            fill="hsl(var(--primary))"
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
                   <Card className="overflow-hidden">
                     <CardHeader>
                       <CardTitle className="text-base">Geração mês a mês</CardTitle>
