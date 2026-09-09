@@ -195,6 +195,12 @@
     padding: 0 !important;
   }
 
+  /* Ao imprimir o documento da proposta, só ele aparece na página. */
+  body:has(> .proposal-doc-wrap) > *:not(.proposal-doc-wrap) {
+    display: none !important;
+  }
+
+  .proposal-doc-wrap,
   .proposal-doc {
     display: block !important;
     color: #000;
