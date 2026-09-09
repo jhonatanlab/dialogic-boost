@@ -547,7 +547,11 @@ export function ProposalDocument({
           {sectionTitle("Aceite da proposta")}
           <p className="text-[11px] leading-relaxed">
             Declaro estar de acordo com o escopo, os valores e as condições apresentadas nesta
-            proposta nº #{String(proposal.quote_number ?? "-").padStart(3, "0")}, no valor de{" "}
+            proposta
+            {proposal.quote_number != null
+              ? ` nº #${String(proposal.quote_number).padStart(3, "0")}`
+              : ""}
+            , no valor de{" "}
             <strong>{currency(pricing.cash_price)}</strong> ({proposal.payment_condition || "à vista"}).
           </p>
           <div className="mt-12 grid grid-cols-2 gap-10 text-[11px]">
