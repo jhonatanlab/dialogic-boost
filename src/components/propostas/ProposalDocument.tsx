@@ -169,7 +169,11 @@ export function ProposalDocument({
               </p>
               <p>
                 <span className="opacity-70">Cotação:</span>{" "}
-                <strong>#{String(proposal.quote_number ?? "-").padStart(3, "0")}</strong>
+                <strong>
+                  {proposal.quote_number != null
+                    ? `#${String(proposal.quote_number).padStart(3, "0")}`
+                    : "-"}
+                </strong>
               </p>
               <p>
                 <span className="opacity-70">Telefone:</span> {proposal.client_phone || "-"}
