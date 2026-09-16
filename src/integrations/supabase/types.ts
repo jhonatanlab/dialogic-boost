@@ -3006,6 +3006,7 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
+          vzaps_client_token: string | null
           webhook_secret: string | null
         }
         Insert: {
@@ -3025,6 +3026,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id: string
+          vzaps_client_token?: string | null
           webhook_secret?: string | null
         }
         Update: {
@@ -3044,6 +3046,7 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+          vzaps_client_token?: string | null
           webhook_secret?: string | null
         }
         Relationships: [
@@ -3190,6 +3193,16 @@ export type Database = {
           p_base_url: string
           p_instance_id: string
           p_webhook_secret: string
+        }
+        Returns: undefined
+      }
+      save_instance_vzaps_config: {
+        Args: {
+          p_base_url?: string
+          p_client_token?: string
+          p_instance_id: string
+          p_instance_token?: string
+          p_vzaps_instance_id: string
         }
         Returns: undefined
       }

@@ -65,5 +65,6 @@ Edge Functions: `req.text()` fallback to sanitize `\n`, `\r`, `\t` before parsin
 - [Agent Identification Prefix](mem://features/identificacao-atendente-mensagens-pt) — Outbound messages prefixed with `*Name:*\n`
 - [Message Formatting Render](mem://architecture/inbox-message-rendering-formatting-pt) — Bold `*text*` formatting in ChatBubble
 - [Inactivity Follow-up Automation](mem://features/inactivity-followup-automation) — pg_cron worker triggers follow-ups when contact is inactive
+- [WhatsApp VZaps Provider](mem://features/whatsapp-vzaps-provider) — VZaps como 3º tipo de conexão (X-Instance-Token, download de mídia, webhook ?s=)
 - [User Presence System](mem://features/user-presence-system) — Real-time online tracking, Dashboard card, Analytics activity report
 - [Automation Executions Tracking](mem://features/automation-executions-tracking) — `automation_executions` table for granular per-flow metrics

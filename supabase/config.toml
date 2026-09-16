@@ -35,3 +35,9 @@ verify_jwt = true
 
 [functions.webhook-zapster]
 verify_jwt = false
+
+[functions.test-vzaps-connection]
+verify_jwt = true
+
+[functions.webhook-vzaps]
+verify_jwt = false

@@ -74,6 +74,84 @@ Deno.serve(async (req) => {
 
     let sendResult: unknown = null;
 
+    // ── 0a) VZaps (whatsapp_instances) ──
+    // Mesma regra da Evolution/Zapster: se a empresa tem instância VZaps conectada,
+    // esta é a ÚNICA rota; qualquer falha é retornada (502), sem fallback para n8n.
+    const { data: vzapsInstance } = await supabase
+      .from('whatsapp_instances')
+      .select('id, instance_id, provider, status, vzaps_client_token')
+      .eq('company_id', companyId)
+      .eq('provider', 'vzaps')
+      .eq('status', 'connected')
+      .maybeSingle();
+
+    if (vzapsInstance) {
+      try {
+        const { data: credRows, error: credErr } = await supabase
+          .rpc('get_instance_evolution_credentials', { p_instance_id: vzapsInstance.id });
+        if (credErr) throw credErr;
+        const cred = Array.isArray(credRows) ? credRows[0] : credRows;
+        const base = ((cred?.base_url || 'https://api.vzaps.com') as string).replace(/\/+$/, '');
+        const instanceToken = (cred?.api_key || '').replace(/[\r\n\t]/g, '').trim();
+        if (!instanceToken) throw new Error('Token da instância VZaps não configurado');
+        if (!vzapsInstance.instance_id) throw new Error('ID da instância VZaps não configurado');
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'X-Instance-Token': instanceToken,
+        };
+        const clientToken = String((vzapsInstance as any).vzaps_client_token || '').trim();
+        if (clientToken) headers['X-Client-Token'] = clientToken;
+
+        const resp = await fetch(
+          `${base}/instances/${encodeURIComponent(vzapsInstance.instance_id)}/chat/send/text`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              phone: String(phone).replace(/\D/g, ''),
+              message,
+            }),
+          },
+        );
+        const payload = await resp.json().catch(() => ({ status: resp.status }));
+        if (!resp.ok) {
+          const errs = (payload as any)?.errors;
+          const detail = (Array.isArray(errs) ? errs[0]?.message : null)
+            ?? (payload as any)?.message
+            ?? (payload as any)?.error
+            ?? payload;
+          throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+        }
+
+        const waId = (payload as any)?.data?.message_id ?? (payload as any)?.message_id ?? null;
+        if (!waId) {
+          throw new Error('WhatsApp não confirmou o envio (sem identificador da mensagem)');
+        }
+
+        console.log("Message sent via VZaps", waId);
+        return new Response(
+          JSON.stringify({ success: true, provider: 'vzaps', message_id: waId, result: payload }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (vzErr) {
+        const msg = vzErr instanceof Error ? vzErr.message : String(vzErr);
+        console.error("VZaps send failed (no fallback):", msg);
+        const offline = /not connected|disconnect|offline|instance_not_connected|close/i.test(msg);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            provider: 'vzaps',
+            error: offline
+              ? 'A conexão do WhatsApp desta empresa está fora do ar. Reconecte o WhatsApp e tente novamente.'
+              : `Falha no envio pelo WhatsApp: ${msg}`,
+            whatsapp_offline: offline,
+          }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // ── 0) Zapster (whatsapp_instances) ──
     // Mesma regra da Evolution: se a empresa tem instância Zapster conectada,
     // esta é a ÚNICA rota; qualquer falha é retornada (502), sem fallback para n8n.

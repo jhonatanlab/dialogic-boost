@@ -16,7 +16,7 @@ export function useWhatsappConnection(companyId: string | null) {
         .from("whatsapp_instances")
         .select("id, instance_id, status, provider")
         .eq("company_id", companyId!)
-        .in("provider", ["evolution", "zapster"])
+        .in("provider", ["evolution", "zapster", "vzaps"])
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -27,7 +27,13 @@ export function useWhatsappConnection(companyId: string | null) {
         return { hasInstance: true, connected: false, state: instance.status as string | null };
       }
 
-      const fn = (instance as any).provider === "zapster" ? "test-zapster-connection" : "test-evolution-connection";
+      const provider = (instance as any).provider as string;
+      const fn =
+        provider === "zapster"
+          ? "test-zapster-connection"
+          : provider === "vzaps"
+          ? "test-vzaps-connection"
+          : "test-evolution-connection";
       const { data, error } = await supabase.functions.invoke(fn, {
         body: { instance_id: instance.id },
       });
