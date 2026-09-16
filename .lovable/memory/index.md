@@ -55,6 +55,7 @@ Edge Functions: `req.text()` fallback to sanitize `\n`, `\r`, `\t` before parsin
 - [Inbox Send Reconciliation](mem://features/fluxo-reconciliacao-envio-inbox-pt) — Pre-persist with UUID, reconcile via webhook ID
 - [Loyalty Check-in System](mem://features/sistema-fidelidade-checkin-pt) — Service role override for public QR check-ins
 - [WhatsApp Providers](mem://features/provedores-integracao-whatsapp-pt) — 4 modes: Meta, Z-API, Native, Automation
+- [WhatsApp Zapster Provider](mem://features/whatsapp-zapster-provider) — Zapster reaproveitando estrutura Evolution: RPC, webhook ?s=, send-message branch
 - [Multi-tenant Isolation](mem://architecture/isolamento-multi-tenant-pt) — RLS policies on `company_id`
 - [Inbox Chronology](mem://features/interface-comportamento-inbox-pt) — Strict ordering by `sent_at`, default `now()`
 - [Inbox Conversation Filtering](mem://features/gestao-filtragem-conversas-inbox-pt) — Tabs visibility and RLS isolation
