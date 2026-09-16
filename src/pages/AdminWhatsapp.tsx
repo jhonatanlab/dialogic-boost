@@ -597,6 +597,7 @@ const AdminWhatsapp = () => {
 
   const [newProvider, setNewProvider] = useState<string>("evolution");
   const [creatingZapster, setCreatingZapster] = useState(false);
+  const [creatingVzaps, setCreatingVzaps] = useState(false);
 
   const handleCreateZapsterInstance = async (company: { id: string; name: string }) => {
     setCreatingZapster(true);
@@ -618,6 +619,29 @@ const AdminWhatsapp = () => {
       toast({ title: "Erro ao criar conexão", description: e.message, variant: "destructive" });
     } finally {
       setCreatingZapster(false);
+    }
+  };
+
+  const handleCreateVzapsInstance = async (company: { id: string; name: string }) => {
+    setCreatingVzaps(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("Não autenticado");
+      const { error } = await supabase.from("whatsapp_instances").insert({
+        user_id: userData.user.id,
+        company_id: company.id,
+        company_name: company.name,
+        provider: "vzaps",
+        status: "disconnected",
+        evolution_base_url: "https://api.vzaps.com",
+      } as any);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+      toast({ title: "Conexão VZaps criada!", description: "Agora informe o ID da instância e o token." });
+    } catch (e: any) {
+      toast({ title: "Erro ao criar conexão", description: e.message, variant: "destructive" });
+    } finally {
+      setCreatingVzaps(false);
     }
   };
 
