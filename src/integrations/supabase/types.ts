@@ -3193,6 +3193,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      save_instance_zapster_config: {
+        Args: {
+          p_base_url?: string
+          p_instance_id: string
+          p_token?: string
+          p_zapster_instance_id: string
+        }
+        Returns: undefined
+      }
       set_company_llm_api_key: {
         Args: { p_api_key: string; p_company_id: string }
         Returns: undefined
