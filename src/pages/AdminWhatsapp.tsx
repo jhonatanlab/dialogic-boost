@@ -709,6 +709,23 @@ const AdminWhatsapp = () => {
     setGeneratingQr(inst.id);
     try {
       // Zapster: QR Code vem da própria API da Zapster
+      if (inst.provider === "vzaps") {
+        const { data, error } = await supabase.functions.invoke("test-vzaps-connection", {
+          body: { instance_id: inst.id, action: "qrcode" },
+        });
+        if (error) throw error;
+        if (data?.ok && data.qr) {
+          setQrCodeData(data.qr);
+          setQrDialogOpen(true);
+        } else {
+          toast({
+            title: "Não foi possível gerar o QR Code",
+            description: String(data?.error || "Verifique o token e o ID da instância na VZaps.").slice(0, 200),
+            variant: "destructive",
+          });
+        }
+        return;
+      }
       if (inst.provider === "zapster") {
         const { data, error } = await supabase.functions.invoke("test-zapster-connection", {
           body: { instance_id: inst.id, action: "qrcode" },
@@ -940,6 +957,7 @@ const AdminWhatsapp = () => {
                             <SelectContent>
                               <SelectItem value="evolution">Evolution API</SelectItem>
                               <SelectItem value="zapster">Zapster API</SelectItem>
+                              <SelectItem value="vzaps">VZaps API</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -954,6 +972,16 @@ const AdminWhatsapp = () => {
                           >
                             <Plus className="h-4 w-4 mr-2" />
                             {creatingInstance ? "Criando..." : "Criar Instância"}
+                          </Button>
+                        )}
+                        {!companyInstance && newProvider === "vzaps" && (
+                          <Button
+                            onClick={() => handleCreateVzapsInstance({ id: selected.id, name: selected.name })}
+                            disabled={creatingVzaps}
+                            className="bg-orange-500 hover:bg-orange-600 text-white"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            {creatingVzaps ? "Criando..." : "Criar conexão VZaps"}
                           </Button>
                         )}
                         {!companyInstance && newProvider === "zapster" && (
@@ -1018,6 +1046,7 @@ const AdminWhatsapp = () => {
                             <SelectContent>
                               <SelectItem value="evolution">Evolution API</SelectItem>
                               <SelectItem value="zapster">Zapster API</SelectItem>
+                              <SelectItem value="vzaps">VZaps API</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1025,6 +1054,10 @@ const AdminWhatsapp = () => {
 
                       {companyInstance && (companyInstance as any).provider === "evolution" && (
                         <EvolutionSection instance={companyInstance as any} />
+                      )}
+
+                      {companyInstance && (companyInstance as any).provider === "vzaps" && (
+                        <VzapsSection instance={companyInstance as any} />
                       )}
 
                       {companyInstance && (companyInstance as any).provider === "zapster" && (
