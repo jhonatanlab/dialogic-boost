@@ -187,6 +187,157 @@ function EvolutionSection({ instance }: EvolutionSectionProps) {
   );
 }
 
+interface ZapsterSectionProps {
+  instance: {
+    id: string;
+    instance_id: string | null;
+    evolution_api_key_secret_id?: string | null;
+    webhook_secret: string | null;
+  };
+}
+
+function ZapsterSection({ instance }: ZapsterSectionProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [zapsterInstanceId, setZapsterInstanceId] = useState(instance.instance_id ?? "");
+  const [token, setToken] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [testResult, setTestResult] = useState<null | { ok: boolean; msg: string }>(null);
+  const hasSavedToken = !!instance.evolution_api_key_secret_id;
+
+  useEffect(() => {
+    setZapsterInstanceId(instance.instance_id ?? "");
+    setToken("");
+    setTestResult(null);
+  }, [instance.id]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc("save_instance_zapster_config" as any, {
+        p_instance_id: instance.id,
+        p_zapster_instance_id: zapsterInstanceId.trim() || null,
+        p_token: token.trim() || null,
+      });
+      if (error) throw error;
+      setToken("");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+      toast({ title: "Configuração Zapster salva!" });
+    } catch (e: any) {
+      toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-zapster-connection", {
+        body: { instance_id: instance.id, action: "test" },
+      });
+      if (error) throw error;
+      if (data?.ok) {
+        const msg = `Instância ${data.connection_state ?? "?"} (${data.latency_ms}ms)`;
+        setTestResult({ ok: !!data.connected, msg });
+        toast({ title: data.connected ? "Zapster conectada" : "Zapster acessível, WhatsApp desconectado", description: msg });
+      } else {
+        const msg = data?.error || "Falha desconhecida";
+        setTestResult({ ok: false, msg });
+        toast({ title: "Falha na conexão", description: msg, variant: "destructive" });
+      }
+    } catch (e: any) {
+      setTestResult({ ok: false, msg: e.message });
+      toast({ title: "Erro no teste", description: e.message, variant: "destructive" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleRegisterWebhook = async () => {
+    setRegistering(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-zapster-connection", {
+        body: { instance_id: instance.id, action: "register_webhook" },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Falha ao registrar webhook");
+      toast({ title: "Recebimento ativado!", description: "As mensagens da Zapster passarão a chegar no EloChat." });
+    } catch (e: any) {
+      toast({ title: "Erro ao ativar recebimento", description: e.message, variant: "destructive" });
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  return (
+    <div className="border-t pt-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-semibold">Zapster API</h4>
+        {testResult && (
+          <Badge
+            className={
+              testResult.ok
+                ? "bg-green-500/20 text-green-400 border-green-500/30"
+                : "bg-red-500/20 text-red-400 border-red-500/30"
+            }
+          >
+            {testResult.ok ? "OK" : "Erro"}
+          </Badge>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label>ID da instância na Zapster</Label>
+        <Input
+          value={zapsterInstanceId}
+          onChange={(e) => setZapsterInstanceId(e.target.value)}
+          placeholder="ex.: 9f8b1c2d-..."
+          className="font-mono text-xs"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>
+          Token de acesso{" "}
+          {hasSavedToken && <span className="text-xs text-muted-foreground">(salvo — deixe vazio para manter)</span>}
+        </Label>
+        <Input
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder={hasSavedToken ? "••••••••" : "cole o token da Zapster"}
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={handleSave} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? "Salvando..." : "Salvar"}
+        </Button>
+        <Button onClick={handleTest} disabled={testing} variant="outline">
+          {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wifi className="h-4 w-4 mr-2" />}
+          Testar conexão
+        </Button>
+        <Button onClick={handleRegisterWebhook} disabled={registering} variant="outline">
+          {registering ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Link className="h-4 w-4 mr-2" />}
+          Ativar recebimento
+        </Button>
+      </div>
+
+      {testResult && (
+        <p className={`text-xs ${testResult.ok ? "text-green-400" : "text-red-400"}`}>{testResult.msg}</p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Salve o ID e o token, clique em "Ativar recebimento" e depois use "Gerar QR Code" para conectar o WhatsApp.
+      </p>
+    </div>
+  );
+}
+
 const AdminWhatsapp = () => {
   const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
   const { instances, isLoading: instancesLoading, createInstance, deleteInstance } = useWhatsappInstances();
@@ -331,13 +482,31 @@ const AdminWhatsapp = () => {
     console.log("Integração com n8n será feita via Webhook - Atualizar status:", id);
   };
 
-  const handleGenerateQr = async (inst: { id: string; instance_id: string | null; instance_token: string | null; company_id: string | null }) => {
+  const handleGenerateQr = async (inst: { id: string; instance_id: string | null; instance_token: string | null; company_id: string | null; provider?: string | null }) => {
     if (!inst.instance_id) {
       toast({ title: "Sem instance_id", description: "Esta instância não possui instance_id.", variant: "destructive" });
       return;
     }
     setGeneratingQr(inst.id);
     try {
+      // Zapster: QR Code vem da própria API da Zapster
+      if (inst.provider === "zapster") {
+        const { data, error } = await supabase.functions.invoke("test-zapster-connection", {
+          body: { instance_id: inst.id, action: "qrcode" },
+        });
+        if (error) throw error;
+        if (data?.ok && data.qr) {
+          setQrCodeData(data.qr);
+          setQrDialogOpen(true);
+        } else {
+          toast({
+            title: "Não foi possível gerar o QR Code",
+            description: String(data?.error || "Verifique o token e o ID da instância na Zapster.").slice(0, 200),
+            variant: "destructive",
+          });
+        }
+        return;
+      }
       // Try Evolution direct first
       const evoResp = await supabase.functions.invoke("evolution-qr", {
         body: { instance_id: inst.id },
@@ -582,8 +751,40 @@ const AdminWhatsapp = () => {
                         )}
                       </div>
 
+                      {companyInstance && (
+                        <div className="border-t pt-4 space-y-2">
+                          <Label>Tipo de conexão</Label>
+                          <Select
+                            value={((companyInstance as any).provider as string) || "evolution"}
+                            onValueChange={async (value) => {
+                              const { error } = await supabase
+                                .from("whatsapp_instances")
+                                .update({ provider: value, updated_at: new Date().toISOString() })
+                                .eq("id", companyInstance.id);
+                              if (error) {
+                                toast({ title: "Erro ao trocar tipo", description: error.message, variant: "destructive" });
+                                return;
+                              }
+                              queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+                            }}
+                          >
+                            <SelectTrigger className="w-56">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="evolution">Evolution API</SelectItem>
+                              <SelectItem value="zapster">Zapster API</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
                       {companyInstance && (companyInstance as any).provider === "evolution" && (
                         <EvolutionSection instance={companyInstance as any} />
+                      )}
+
+                      {companyInstance && (companyInstance as any).provider === "zapster" && (
+                        <ZapsterSection instance={companyInstance as any} />
                       )}
                     </div>
                   );

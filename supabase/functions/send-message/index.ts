@@ -74,7 +74,73 @@ Deno.serve(async (req) => {
 
     let sendResult: unknown = null;
 
-    // ── 1) Evolution (whatsapp_instances) FIRST ──
+    // ── 0) Zapster (whatsapp_instances) ──
+    // Mesma regra da Evolution: se a empresa tem instância Zapster conectada,
+    // esta é a ÚNICA rota; qualquer falha é retornada (502), sem fallback para n8n.
+    const { data: zapsterInstance } = await supabase
+      .from('whatsapp_instances')
+      .select('id, instance_id, provider, status')
+      .eq('company_id', companyId)
+      .eq('provider', 'zapster')
+      .eq('status', 'connected')
+      .maybeSingle();
+
+    if (zapsterInstance) {
+      try {
+        const { data: credRows, error: credErr } = await supabase
+          .rpc('get_instance_evolution_credentials', { p_instance_id: zapsterInstance.id });
+        if (credErr) throw credErr;
+        const cred = Array.isArray(credRows) ? credRows[0] : credRows;
+        const base = ((cred?.base_url || 'https://api.zapsterapi.com/v1') as string).replace(/\/+$/, '');
+        const token = (cred?.api_key || '').replace(/[\r\n\t]/g, '').trim();
+        if (!token) throw new Error('Token da Zapster não configurado');
+        if (!zapsterInstance.instance_id) throw new Error('ID da instância Zapster não configurado');
+
+        const resp = await fetch(`${base}/wa/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            instance_id: zapsterInstance.instance_id,
+            recipient: String(phone).replace(/\D/g, ''),
+            text: message,
+          }),
+        });
+        const payload = await resp.json().catch(() => ({ status: resp.status }));
+        if (!resp.ok) {
+          const errs = (payload as any)?.errors;
+          const detail = (Array.isArray(errs) ? errs[0]?.message : null) ?? (payload as any)?.message ?? payload;
+          throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+        }
+
+        const waId = (payload as any)?.message_id ?? (payload as any)?.id ?? (payload as any)?.data?.id ?? null;
+        if (!waId) {
+          throw new Error('WhatsApp não confirmou o envio (sem identificador da mensagem)');
+        }
+
+        console.log("Message sent via Zapster", waId);
+        return new Response(
+          JSON.stringify({ success: true, provider: 'zapster', message_id: waId, result: payload }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (zapErr) {
+        const msg = zapErr instanceof Error ? zapErr.message : String(zapErr);
+        console.error("Zapster send failed (no fallback):", msg);
+        const offline = /not connected|disconnect|offline|instance_not_connected|close/i.test(msg);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            provider: 'zapster',
+            error: offline
+              ? 'A conexão do WhatsApp desta empresa está fora do ar. Reconecte o WhatsApp e tente novamente.'
+              : `Falha no envio pelo WhatsApp: ${msg}`,
+            whatsapp_offline: offline,
+          }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // ── 1) Evolution (whatsapp_instances) ──
     // If the company has a connected Evolution instance, it is the ONLY route:
     // any failure is surfaced (502) instead of silently falling back to n8n.
     const { data: instance } = await supabase
