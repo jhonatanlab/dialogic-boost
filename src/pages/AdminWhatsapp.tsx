@@ -737,8 +737,23 @@ const AdminWhatsapp = () => {
                         )}
                       </div>
 
+                      {!companyInstance && (
+                        <div className="border-t pt-4 space-y-2">
+                          <Label>Tipo de conexão</Label>
+                          <Select value={newProvider} onValueChange={setNewProvider}>
+                            <SelectTrigger className="w-56">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="evolution">Evolution API</SelectItem>
+                              <SelectItem value="zapster">Zapster API</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
                       <div className="flex gap-3">
-                        {!hasInstance && (
+                        {!companyInstance && newProvider === "evolution" && (
                           <Button
                             onClick={() => handleCreateInstanceWebhook({ id: selected.id, company_name: selected.name })}
                             disabled={creatingInstance}
@@ -746,6 +761,16 @@ const AdminWhatsapp = () => {
                           >
                             <Plus className="h-4 w-4 mr-2" />
                             {creatingInstance ? "Criando..." : "Criar Instância"}
+                          </Button>
+                        )}
+                        {!companyInstance && newProvider === "zapster" && (
+                          <Button
+                            onClick={() => handleCreateZapsterInstance({ id: selected.id, name: selected.name })}
+                            disabled={creatingZapster}
+                            className="bg-orange-500 hover:bg-orange-600 text-white"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            {creatingZapster ? "Criando..." : "Criar conexão Zapster"}
                           </Button>
                         )}
                         {hasInstance && (
