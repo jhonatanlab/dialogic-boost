@@ -338,6 +338,175 @@ function ZapsterSection({ instance }: ZapsterSectionProps) {
   );
 }
 
+interface VzapsSectionProps {
+  instance: {
+    id: string;
+    instance_id: string | null;
+    evolution_api_key_secret_id?: string | null;
+    vzaps_client_token?: string | null;
+    webhook_secret: string | null;
+  };
+}
+
+function VzapsSection({ instance }: VzapsSectionProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [vzapsInstanceId, setVzapsInstanceId] = useState(instance.instance_id ?? "");
+  const [instanceToken, setInstanceToken] = useState("");
+  const [clientToken, setClientToken] = useState(instance.vzaps_client_token ?? "");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [testResult, setTestResult] = useState<null | { ok: boolean; msg: string }>(null);
+  const hasSavedToken = !!instance.evolution_api_key_secret_id;
+
+  useEffect(() => {
+    setVzapsInstanceId(instance.instance_id ?? "");
+    setClientToken(instance.vzaps_client_token ?? "");
+    setInstanceToken("");
+    setTestResult(null);
+  }, [instance.id]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.rpc("save_instance_vzaps_config" as any, {
+        p_instance_id: instance.id,
+        p_vzaps_instance_id: vzapsInstanceId.trim() || null,
+        p_instance_token: instanceToken.trim() || null,
+        p_client_token: clientToken.trim() || null,
+      });
+      if (error) throw error;
+      setInstanceToken("");
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+      toast({ title: "Configuração VZaps salva!" });
+    } catch (e: any) {
+      toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-vzaps-connection", {
+        body: { instance_id: instance.id, action: "test" },
+      });
+      if (error) throw error;
+      if (data?.ok) {
+        const msg = `Instância ${data.connection_state ?? "?"} (${data.latency_ms}ms)`;
+        setTestResult({ ok: !!data.connected, msg });
+        toast({ title: data.connected ? "VZaps conectada" : "VZaps acessível, WhatsApp desconectado", description: msg });
+      } else {
+        const msg = data?.error || "Falha desconhecida";
+        setTestResult({ ok: false, msg });
+        toast({ title: "Falha na conexão", description: msg, variant: "destructive" });
+      }
+    } catch (e: any) {
+      setTestResult({ ok: false, msg: e.message });
+      toast({ title: "Erro no teste", description: e.message, variant: "destructive" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleRegisterWebhook = async () => {
+    setRegistering(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-vzaps-connection", {
+        body: { instance_id: instance.id, action: "register_webhook" },
+      });
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Falha ao registrar webhook");
+      toast({ title: "Recebimento ativado!", description: "As mensagens da VZaps passarão a chegar no EloChat." });
+    } catch (e: any) {
+      toast({ title: "Erro ao ativar recebimento", description: e.message, variant: "destructive" });
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  return (
+    <div className="border-t pt-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-sm font-semibold">VZaps</h4>
+        {testResult && (
+          <Badge
+            className={
+              testResult.ok
+                ? "bg-green-500/20 text-green-400 border-green-500/30"
+                : "bg-red-500/20 text-red-400 border-red-500/30"
+            }
+          >
+            {testResult.ok ? "OK" : "Erro"}
+          </Badge>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label>ID da instância na VZaps</Label>
+        <Input
+          value={vzapsInstanceId}
+          onChange={(e) => setVzapsInstanceId(e.target.value)}
+          placeholder="ex.: VZ..."
+          className="font-mono text-xs"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>
+          Token da instância{" "}
+          {hasSavedToken && <span className="text-xs text-muted-foreground">(salvo — deixe vazio para manter)</span>}
+        </Label>
+        <Input
+          type="password"
+          value={instanceToken}
+          onChange={(e) => setInstanceToken(e.target.value)}
+          placeholder={hasSavedToken ? "••••••••" : "cole o token da instância"}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>
+          Token de cliente <span className="text-xs text-muted-foreground">(opcional, se a sua conta exigir)</span>
+        </Label>
+        <Input
+          value={clientToken}
+          onChange={(e) => setClientToken(e.target.value)}
+          placeholder="X-Client-Token"
+          className="font-mono text-xs"
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={handleSave} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? "Salvando..." : "Salvar"}
+        </Button>
+        <Button onClick={handleTest} disabled={testing} variant="outline">
+          {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wifi className="h-4 w-4 mr-2" />}
+          Testar conexão
+        </Button>
+        <Button onClick={handleRegisterWebhook} disabled={registering} variant="outline">
+          {registering ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Link className="h-4 w-4 mr-2" />}
+          Ativar recebimento
+        </Button>
+      </div>
+
+      {testResult && (
+        <p className={`text-xs ${testResult.ok ? "text-green-400" : "text-red-400"}`}>{testResult.msg}</p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Salve o ID e o token, clique em "Ativar recebimento" e depois use "Gerar QR Code" para conectar o WhatsApp.
+      </p>
+    </div>
+  );
+}
+
+
+
 const AdminWhatsapp = () => {
   const { getSettingValue, saveSettings, isLoading: settingsLoading } = useAdminSettings();
   const { instances, isLoading: instancesLoading, createInstance, deleteInstance } = useWhatsappInstances();
