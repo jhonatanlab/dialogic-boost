@@ -426,6 +426,32 @@ const AdminWhatsapp = () => {
 
   const { toast } = useToast();
 
+  const [newProvider, setNewProvider] = useState<string>("evolution");
+  const [creatingZapster, setCreatingZapster] = useState(false);
+
+  const handleCreateZapsterInstance = async (company: { id: string; name: string }) => {
+    setCreatingZapster(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("Não autenticado");
+      const { error } = await supabase.from("whatsapp_instances").insert({
+        user_id: userData.user.id,
+        company_id: company.id,
+        company_name: company.name,
+        provider: "zapster",
+        status: "disconnected",
+        evolution_base_url: "https://api.zapsterapi.com/v1",
+      } as any);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
+      toast({ title: "Conexão Zapster criada!", description: "Agora informe o ID da instância e o token." });
+    } catch (e: any) {
+      toast({ title: "Erro ao criar conexão", description: e.message, variant: "destructive" });
+    } finally {
+      setCreatingZapster(false);
+    }
+  };
+
   const handleCreateInstanceWebhook = async (company: { id: string; company_name: string }) => {
     if (!createEndpoint) {
       toast({ title: "Endpoint não configurado", description: "Configure o Create Instance Endpoint primeiro.", variant: "destructive" });
