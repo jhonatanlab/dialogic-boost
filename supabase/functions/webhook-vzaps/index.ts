@@ -208,25 +208,80 @@ Deno.serve(async (req) => {
 
     // ── 3. Recibos de entrega/leitura ──
     if (eventType === "ReadReceipt") {
-      const state = String(data?.state ?? data?.State ?? "");
-      if (state === "ReadSelf") return json({ success: true, event: eventType, skipped: "read_self" });
-      const mapped = state === "Read" ? "read" : state === "Delivered" ? "delivered" : null;
-      if (!mapped) return json({ success: true, event: eventType, skipped: `state ${state}` });
+      const stateRaw = data?.state ?? data?.State ?? data?.status ?? data?.Status ?? data?.ack ?? data?.Ack ?? "";
+      const stateNorm = String(stateRaw).toLowerCase().replace(/[^a-z0-9]/g, "");
 
-      const ids: string[] = (data?.MessageIDs ?? data?.message_ids ?? data?.messageIds ?? [])
-        .filter?.((v: unknown) => typeof v === "string") ?? [];
-      const single = data?.MessageID ?? data?.message_id ?? data?.id;
-      if (single && typeof single === "string") ids.push(single);
+      // Coleta identificadores em qualquer um dos formatos conhecidos.
+      const ids: string[] = [];
+      const pushId = (v: unknown) => {
+        if (typeof v === "string" && v.trim()) ids.push(v.trim());
+      };
+      const pushList = (v: unknown) => {
+        if (Array.isArray(v)) {
+          for (const item of v) {
+            if (typeof item === "string") pushId(item);
+            else if (item && typeof item === "object") {
+              pushId((item as any).id ?? (item as any).ID ?? (item as any).message_id);
+            }
+          }
+        }
+      };
+      pushList(data?.MessageIDs ?? data?.message_ids ?? data?.messageIds ?? data?.ids ?? data?.IDs);
+      pushList(data?.keys ?? data?.Keys);
+      for (
+        const candidate of [
+          data?.MessageID,
+          data?.message_id,
+          data?.messageId,
+          data?.id,
+          data?.ID,
+          data?.key?.id,
+          data?.Key?.ID,
+          data?.info?.id,
+          data?.Info?.ID,
+          data?.message?.id,
+          data?.message?.key?.id,
+        ]
+      ) pushId(candidate);
+
+      console.log("[webhook-vzaps] receipt debug", {
+        eventType,
+        stateRaw: typeof stateRaw === "string" ? stateRaw : typeof stateRaw,
+        idCount: ids.length,
+        dataKeys: data && typeof data === "object" ? Object.keys(data).slice(0, 15) : [],
+        rootKeys: body && typeof body === "object" ? Object.keys(body).slice(0, 12) : [],
+      });
+
+      if (stateNorm === "readself" || stateNorm === "played") {
+        return json({ success: true, event: eventType, skipped: "read_self" });
+      }
+      const mapped = /read|4/.test(stateNorm)
+        ? "read"
+        : /deliver|3/.test(stateNorm)
+        ? "delivered"
+        : /sent|server|2/.test(stateNorm)
+        ? "sent"
+        : null;
+      if (!mapped) return json({ success: true, event: eventType, skipped: `state ${stateNorm || "empty"}` });
       if (!ids.length) return json({ success: true, event: eventType, skipped: "no message ids" });
 
       let updated = 0;
       for (const messageId of ids) {
-        const { data: current } = await supabase
+        let { data: current } = await supabase
           .from("messages")
           .select("id, status")
           .eq("company_id", company_id)
           .eq("message_id", messageId)
           .maybeSingle();
+        if (!current) {
+          const fallback = await supabase
+            .from("messages")
+            .select("id, status")
+            .eq("company_id", company_id)
+            .eq("client_message_id", messageId)
+            .maybeSingle();
+          current = fallback.data as any;
+        }
         if (!current) continue;
         if (statusPriority(mapped) <= statusPriority(current.status)) continue;
         const { error: upErr } = await supabase.from("messages").update({ status: mapped }).eq("id", current.id);
