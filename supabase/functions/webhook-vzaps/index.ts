@@ -121,7 +121,30 @@ Deno.serve(async (req) => {
     }
 
     const company_id = instance.company_id as string;
-    const eventType: string = String(body?.type ?? body?.event ?? "");
+    // Diagnóstico temporário: registrar o formato real do payload da VZaps.
+    console.log("[webhook-vzaps] payload:", rawBody.substring(0, 2000));
+    const rawEvent = String(
+      body?.type ??
+        body?.event ??
+        body?.event_type ??
+        body?.eventType ??
+        body?.Event ??
+        body?.name ??
+        body?.data?.type ??
+        body?.data?.event ??
+        "",
+    );
+    // Normaliza nomes como "message", "MESSAGE", "message.received", "read_receipt".
+    const norm = rawEvent.toLowerCase().replace(/[^a-z]/g, "");
+    const eventType = norm.startsWith("message") || norm.includes("messagereceived") || norm === "messages"
+      ? "Message"
+      : norm.includes("readreceipt") || norm.includes("ack") || norm.includes("status")
+      ? "ReadReceipt"
+      : norm.includes("connected") && !norm.includes("dis")
+      ? "Connected"
+      : norm.includes("disconnected")
+      ? "Disconnected"
+      : rawEvent;
     const data: any = vzapsData(body) ?? {};
 
     // ── 2. Eventos de conexão ──
