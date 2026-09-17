@@ -199,7 +199,26 @@ Deno.serve(async (req) => {
         email_confirm: true,
       });
 
-      if (createUserError) throw createUserError;
+      if (createUserError) {
+        console.error("create_user failed", { email, company_id: callerProfile.company_id, message: createUserError.message });
+        const msg = String(createUserError.message || "");
+        if (/already been registered|already exists|already registered/i.test(msg)) {
+          return new Response(JSON.stringify({ error: "Este e-mail já possui conta. Use outro e-mail." }), {
+            status: 409,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (/password|weak|pwned|leaked|at least/i.test(msg)) {
+          return new Response(JSON.stringify({ error: "Senha recusada: use uma senha mais forte (mínimo 6 caracteres e não vazada)." }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ error: `Falha ao criar usuário: ${msg}` }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // Create profile
       const { error: profileError } = await supabaseAdmin
@@ -211,14 +230,32 @@ Deno.serve(async (req) => {
           role,
         });
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("create_user profile insert failed", { email, company_id: callerProfile.company_id, message: profileError.message });
+        if (/duplicate key|unique/i.test(String(profileError.message))) {
+          return new Response(JSON.stringify({ error: "Este usuário já pertence a esta empresa." }), {
+            status: 409,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({ error: `Falha ao criar perfil: ${profileError.message}` }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // Create user_role entry
       const { error: roleError } = await supabaseAdmin
         .from("user_roles")
         .insert({ user_id: newUser.user.id, role });
 
-      if (roleError) throw roleError;
+      if (roleError) {
+        console.error("create_user role insert failed", { email, role, message: roleError.message });
+        return new Response(JSON.stringify({ error: `Falha ao definir cargo: ${roleError.message}` }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       return new Response(JSON.stringify({ message: "User created successfully" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
