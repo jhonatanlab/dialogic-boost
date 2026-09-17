@@ -121,16 +121,23 @@ Deno.serve(async (req) => {
     }
 
     const company_id = instance.company_id as string;
+    const nestedEvent = body?.json_data?.event;
+    const eventPayload: any = nestedEvent && typeof nestedEvent === "object"
+      ? nestedEvent
+      : body?.data?.event && typeof body.data.event === "object"
+      ? body.data.event
+      : null;
+    const data: any = eventPayload ?? vzapsData(body) ?? {};
     const rawEvent = String(
-      body?.type ??
-        body?.event ??
+      eventPayload?.type ??
+        (typeof body?.event === "string" ? body.event : undefined) ??
+        body?.type ??
         body?.event_type ??
         body?.eventType ??
         body?.Event ??
         body?.name ??
-        body?.json_data?.event?.type ??
-        body?.data?.type ??
-        body?.data?.event ??
+        data?.type ??
+        (typeof data?.event === "string" ? data.event : undefined) ??
         "",
     );
     // Normaliza nomes como "message", "MESSAGE", "message.received", "read_receipt".
@@ -144,7 +151,6 @@ Deno.serve(async (req) => {
       : norm.includes("disconnected")
       ? "Disconnected"
       : rawEvent;
-    const data: any = vzapsData(body) ?? {};
 
     // ── 2. Eventos de conexão ──
     if (eventType === "Connected" || eventType === "Disconnected") {
@@ -203,10 +209,14 @@ Deno.serve(async (req) => {
     const chatJid = rawChatJid.includes("@lid") && alternateSender ? alternateSender : rawChatJid;
     const fromMe: boolean = info?.IsFromMe === true || info?.isFromMe === true || info?.is_from_me === true || data?.from_me === true;
 
-    if (!messageId || !chatJid) return json({ success: true, skipped: "missing id or chat" });
+    if (!messageId || !chatJid) {
+      console.log("[webhook-vzaps] message skipped: missing id or chat", { eventType });
+      return json({ success: true, skipped: "missing id or chat" });
+    }
     // A VZaps pode disparar primeiro uma cópia parcial contendo apenas o LID.
     // Aguarda a cópia seguinte com sender_alt para não criar o contato com um identificador incorreto.
     if (rawChatJid.includes("@lid") && !alternateSender) {
+      console.log("[webhook-vzaps] message skipped: awaiting alternate sender", { messageId });
       return json({ success: true, skipped: "lid without alternate sender" });
     }
     if (chatJid.includes("@g.us") || info?.IsGroup === true) {
@@ -248,8 +258,9 @@ Deno.serve(async (req) => {
     );
     const originalFileName: string | undefined = mediaNode?.fileName ?? mediaNode?.file_name ?? undefined;
     let mimetype: string | undefined = mediaNode?.mimetype ?? undefined;
-    const sent_at = info?.Timestamp
-      ? new Date(info.Timestamp).toISOString()
+    const timestamp = info?.Timestamp ?? info?.timestamp;
+    const sent_at = timestamp
+      ? new Date(timestamp).toISOString()
       : body?.created_at
       ? new Date(body.created_at).toISOString()
       : new Date().toISOString();
@@ -292,7 +303,7 @@ Deno.serve(async (req) => {
           .insert({
             user_id: userId,
             company_id,
-            name: String(info?.PushName || data?.push_name || `WhatsApp ${normalizedPhone.slice(-4)}`),
+            name: String(info?.PushName || info?.push_name || data?.push_name || `WhatsApp ${normalizedPhone.slice(-4)}`),
             phone: normalizedPhone,
             source: "whatsapp",
           })
@@ -399,7 +410,7 @@ Deno.serve(async (req) => {
     const metadata: Record<string, unknown> = {
       instance_id: instance.instance_id,
       provider: "vzaps",
-      raw: body,
+      raw: data,
     };
     if (media_url) metadata.media_url = media_url;
     if (mimetype) metadata.mimetype = mimetype;
@@ -429,7 +440,7 @@ Deno.serve(async (req) => {
       from_phone: normalizedPhone,
       message_text: content,
       message_type,
-      raw_data: body,
+      raw_data: data,
     });
 
     // ── 5. Kill switches da IA ──
@@ -473,6 +484,7 @@ Deno.serve(async (req) => {
     );
     if (bufErr) throw bufErr;
 
+    console.log("[webhook-vzaps] message processed", { messageId, conversationId, company_id });
     return json({ success: true, action: "inserted", buffered: true });
   } catch (error) {
     console.error("[webhook-vzaps] error:", error);
