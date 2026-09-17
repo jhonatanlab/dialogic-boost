@@ -208,13 +208,16 @@ Deno.serve(async (req) => {
 
     // ── 3. Recibos de entrega/leitura ──
     if (eventType === "ReadReceipt") {
-      const stateRaw = data?.state ?? data?.State ?? data?.status ?? data?.Status ?? data?.ack ?? data?.Ack ?? "";
+      const receiptRaw = parseJsonValue(data?.event ?? data?.Event);
+      const receipt = (receiptRaw && typeof receiptRaw === "object" ? receiptRaw : data) as any;
+      const stateRaw = data?.state ?? data?.State ?? receipt?.state ?? receipt?.State ??
+        data?.status ?? data?.Status ?? data?.ack ?? data?.Ack ?? receipt?.type ?? receipt?.Type ?? "";
       const stateNorm = String(stateRaw).toLowerCase().replace(/[^a-z0-9]/g, "");
 
       // Coleta identificadores em qualquer um dos formatos conhecidos.
       const ids: string[] = [];
       const pushId = (v: unknown) => {
-        if (typeof v === "string" && v.trim()) ids.push(v.trim());
+        if (typeof v === "string" && v.trim() && !ids.includes(v.trim())) ids.push(v.trim());
       };
       const pushList = (v: unknown) => {
         if (Array.isArray(v)) {
@@ -226,23 +229,29 @@ Deno.serve(async (req) => {
           }
         }
       };
-      pushList(data?.MessageIDs ?? data?.message_ids ?? data?.messageIds ?? data?.ids ?? data?.IDs);
-      pushList(data?.keys ?? data?.Keys);
-      for (
-        const candidate of [
-          data?.MessageID,
-          data?.message_id,
-          data?.messageId,
-          data?.id,
-          data?.ID,
-          data?.key?.id,
-          data?.Key?.ID,
-          data?.info?.id,
-          data?.Info?.ID,
-          data?.message?.id,
-          data?.message?.key?.id,
-        ]
-      ) pushId(candidate);
+      for (const src of [receipt, data]) {
+        if (!src || typeof src !== "object") continue;
+        pushList(
+          (src as any).message_i_ds ?? (src as any).MessageIDs ?? (src as any).message_ids ??
+            (src as any).messageIds ?? (src as any).ids ?? (src as any).IDs,
+        );
+        pushList((src as any).keys ?? (src as any).Keys);
+        for (
+          const candidate of [
+            (src as any).MessageID,
+            (src as any).message_id,
+            (src as any).messageId,
+            (src as any).id,
+            (src as any).ID,
+            (src as any).key?.id,
+            (src as any).Key?.ID,
+            (src as any).info?.id,
+            (src as any).Info?.ID,
+            (src as any).message?.id,
+            (src as any).message?.key?.id,
+          ]
+        ) pushId(candidate);
+      }
 
       // Diagnóstico temporário: capturar a estrutura real do recibo sem expor PII.
       const redactValue = (key: string, value: unknown): unknown => {
