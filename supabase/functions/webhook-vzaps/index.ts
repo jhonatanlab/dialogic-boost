@@ -244,12 +244,29 @@ Deno.serve(async (req) => {
         ]
       ) pushId(candidate);
 
+      // Diagnóstico temporário: capturar a estrutura real do recibo sem expor PII.
+      const redactValue = (key: string, value: unknown): unknown => {
+        const sensitive = /token|secret|apikey|api_key|password|phone|number|text|message|body|content|caption|sender|recipient|chat|pushname|name/i;
+        if (sensitive.test(key)) return "<redacted>";
+        if (Array.isArray(value)) return value.map((v, i) => redactValue(String(i), v));
+        if (value && typeof value === "object") {
+          const out: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(value)) out[k] = redactValue(k, v);
+          return out;
+        }
+        return value;
+      };
+      const jsonDataParsed = body?.json_data ? parseJsonValue(body.json_data) : null;
       console.log("[webhook-vzaps] receipt debug", {
         eventType,
         stateRaw: typeof stateRaw === "string" ? stateRaw : typeof stateRaw,
         idCount: ids.length,
         dataKeys: data && typeof data === "object" ? Object.keys(data).slice(0, 15) : [],
         rootKeys: body && typeof body === "object" ? Object.keys(body).slice(0, 12) : [],
+        data: data && typeof data === "object" ? redactValue("data", data) : data,
+        jsonData: jsonDataParsed && typeof jsonDataParsed === "object"
+          ? redactValue("jsonData", jsonDataParsed)
+          : jsonDataParsed,
       });
 
       if (stateNorm === "readself" || stateNorm === "played") {
