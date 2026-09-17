@@ -121,8 +121,6 @@ Deno.serve(async (req) => {
     }
 
     const company_id = instance.company_id as string;
-    // Diagnóstico temporário: registrar o formato real do payload da VZaps.
-    console.log("[webhook-vzaps] payload:", rawBody.substring(0, 2000));
     const rawEvent = String(
       body?.type ??
         body?.event ??
@@ -130,6 +128,7 @@ Deno.serve(async (req) => {
         body?.eventType ??
         body?.Event ??
         body?.name ??
+        body?.json_data?.event?.type ??
         body?.data?.type ??
         body?.data?.event ??
         "",
@@ -195,14 +194,21 @@ Deno.serve(async (req) => {
     }
 
     // ── 4. Mensagem ──
-    const info: any = data?.Info ?? data?.info ?? data?.event?.Info ?? {};
-    const waMessage: any = data?.Message ?? data?.message ?? data?.event?.Message ?? {};
+    const info: any = data?.Info ?? data?.info ?? data?.event?.Info ?? data?.event?.info ?? {};
+    const waMessage: any = data?.Message ?? data?.message ?? data?.event?.Message ?? data?.event?.message ?? {};
 
     const messageId: string | undefined = info?.ID ?? info?.Id ?? info?.id ?? data?.id ?? undefined;
-    const chatJid: string = String(info?.Chat ?? info?.chat ?? info?.Sender ?? data?.from ?? "");
-    const fromMe: boolean = info?.IsFromMe === true || info?.isFromMe === true || data?.from_me === true;
+    const rawChatJid: string = String(info?.Chat ?? info?.chat ?? info?.Sender ?? info?.sender ?? data?.from ?? "");
+    const alternateSender: string = String(info?.SenderAlt ?? info?.sender_alt ?? info?.RecipientAlt ?? info?.recipient_alt ?? "");
+    const chatJid = rawChatJid.includes("@lid") && alternateSender ? alternateSender : rawChatJid;
+    const fromMe: boolean = info?.IsFromMe === true || info?.isFromMe === true || info?.is_from_me === true || data?.from_me === true;
 
     if (!messageId || !chatJid) return json({ success: true, skipped: "missing id or chat" });
+    // A VZaps pode disparar primeiro uma cópia parcial contendo apenas o LID.
+    // Aguarda a cópia seguinte com sender_alt para não criar o contato com um identificador incorreto.
+    if (rawChatJid.includes("@lid") && !alternateSender) {
+      return json({ success: true, skipped: "lid without alternate sender" });
+    }
     if (chatJid.includes("@g.us") || info?.IsGroup === true) {
       return json({ success: true, skipped: "group message" });
     }
