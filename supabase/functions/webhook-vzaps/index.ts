@@ -339,33 +339,40 @@ Deno.serve(async (req) => {
     if (!normalizedPhone) return json({ success: true, skipped: "chat is not a phone" });
     const phoneVariants = brazilPhoneVariants(normalizedPhone);
 
-    // Tipo + conteúdo
-    const mediaNodeKey = waMessage?.imageMessage
-      ? "image"
-      : waMessage?.videoMessage
-      ? "video"
-      : waMessage?.audioMessage
-      ? "audio"
-      : waMessage?.documentMessage
-      ? "document"
-      : waMessage?.stickerMessage
+    // Tipo + conteúdo (a VZaps pode enviar as chaves em camelCase ou snake_case)
+    const pickMediaNode = (): { key: string | null; node: any } => {
+      for (const key of ["image", "video", "audio", "document", "sticker"]) {
+        const node = waMessage?.[`${key}Message`] ?? waMessage?.[`${key}_message`] ?? null;
+        if (node && typeof node === "object") return { key, node };
+      }
+      return { key: null, node: null };
+    };
+    const { key: mediaNodeKey, node: mediaNode } = pickMediaNode();
+    const declaredMedia = String(info?.media_type ?? info?.MediaType ?? "").toLowerCase();
+    const message_type = mediaNodeKey === "sticker"
       ? "sticker"
-      : null;
-    const message_type = mediaNodeKey === "sticker" ? "sticker" : (mediaNodeKey ?? "text");
-    const mediaNode: any =
-      mediaNodeKey && mediaNodeKey !== "sticker"
-        ? waMessage[`${mediaNodeKey}Message`]
-        : waMessage?.stickerMessage ?? null;
+      : mediaNodeKey
+      ? mediaNodeKey
+      : declaredMedia === "ptt" || declaredMedia === "audio"
+      ? "audio"
+      : declaredMedia === "image"
+      ? "image"
+      : declaredMedia === "video"
+      ? "video"
+      : declaredMedia === "document"
+      ? "document"
+      : "text";
 
     let content = String(
       waMessage?.conversation ??
         waMessage?.extendedTextMessage?.text ??
+        waMessage?.extended_text_message?.text ??
         mediaNode?.caption ??
         data?.text ??
         "",
     );
     const originalFileName: string | undefined = mediaNode?.fileName ?? mediaNode?.file_name ?? undefined;
-    let mimetype: string | undefined = mediaNode?.mimetype ?? undefined;
+    let mimetype: string | undefined = mediaNode?.mimetype ?? mediaNode?.mime_type ?? undefined;
     const timestamp = info?.Timestamp ?? info?.timestamp;
     const sent_at = timestamp
       ? new Date(timestamp).toISOString()
