@@ -57,11 +57,12 @@ Deno.serve(async (req) => {
 
     const { data: inst } = await admin
       .from('whatsapp_instances')
-      .select('company_id, instance_id')
+      .select('company_id, instance_id, user_id')
       .eq('id', instanceId)
       .maybeSingle();
 
-    if (!inst || !profile || profile.company_id !== inst.company_id) {
+    // Permite o admin da mesma empresa ou o admin que criou a conexão (Admin SaaS).
+    if (!inst || (!(profile && profile.company_id === inst.company_id) && inst.user_id !== userId)) {
       return new Response(JSON.stringify({ ok: false, error: 'forbidden' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -8,6 +8,13 @@
       "when": 1789654856143,
       "tag": "0000_company_admin_manage_whatsapp_instances",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789664320091,
+      "tag": "0001_allow_owner_admin_wa_instance_config",
+      "breakpoints": true
     }
   ]
 }
