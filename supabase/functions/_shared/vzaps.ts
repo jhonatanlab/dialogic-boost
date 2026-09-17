@@ -1,8 +1,15 @@
 // Helpers compartilhados da integração VZaps (https://docs.vzaps.com)
 export const VZAPS_DEFAULT_BASE = "https://api.vzaps.com";
 
-export const vzapsBase = (baseUrl?: string | null) =>
-  (baseUrl && baseUrl.trim() ? baseUrl.trim() : VZAPS_DEFAULT_BASE).replace(/\/+$/, "");
+/**
+ * Base da VZaps. Se a instância tiver sobrado uma base de outro provedor
+ * (ex.: api.zapsterapi.com de uma conexão anterior), ignoramos e usamos a da VZaps.
+ */
+export const vzapsBase = (baseUrl?: string | null) => {
+  const v = (baseUrl || "").trim().replace(/\/+$/, "");
+  if (!v || !/vzaps/i.test(v)) return VZAPS_DEFAULT_BASE;
+  return v;
+};
 
 const clean = (v?: string | null) => (v || "").replace(/[\r\n\t]/g, "").trim();
 

@@ -1029,9 +1029,18 @@ const AdminWhatsapp = () => {
                           <Select
                             value={((companyInstance as any).provider as string) || "evolution"}
                             onValueChange={async (value) => {
+                              const baseByProvider: Record<string, string | null> = {
+                                vzaps: "https://api.vzaps.com",
+                                zapster: "https://api.zapsterapi.com/v1",
+                              };
+                              const patch: Record<string, unknown> = {
+                                provider: value,
+                                updated_at: new Date().toISOString(),
+                              };
+                              if (value in baseByProvider) patch.evolution_base_url = baseByProvider[value];
                               const { error } = await supabase
                                 .from("whatsapp_instances")
-                                .update({ provider: value, updated_at: new Date().toISOString() })
+                                .update(patch)
                                 .eq("id", companyInstance.id);
                               if (error) {
                                 toast({ title: "Erro ao trocar tipo", description: error.message, variant: "destructive" });
