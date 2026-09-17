@@ -124,9 +124,15 @@ export function useWhatsappInstances() {
 
   const deleteInstance = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("whatsapp_instances").delete().eq("id", id);
+      const { data, error } = await supabase
+        .from("whatsapp_instances")
+        .delete()
+        .eq("id", id)
+        .select("id");
       if (error) throw error;
-      console.log("Integração com n8n será feita via Webhook - Apagar instância:", id);
+      if (!data || data.length === 0) {
+        throw new Error("Você não tem permissão para apagar esta conexão.");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["whatsapp-instances"] });
