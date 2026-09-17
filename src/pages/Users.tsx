@@ -26,6 +26,17 @@ interface CompanyUser {
   blocked_at?: string | null;
 }
 
+async function readFnError(error: unknown): Promise<string> {
+  const err = error as { context?: { json?: () => Promise<{ error?: string }> }; message?: string };
+  try {
+    const body = await err?.context?.json?.();
+    if (body?.error) return String(body.error);
+  } catch {
+    // ignore parse failures and fall back to the generic message
+  }
+  return err?.message || "Erro inesperado";
+}
+
 async function callManageUsers(body: Record<string, unknown>) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Not authenticated");
@@ -34,7 +45,7 @@ async function callManageUsers(body: Record<string, unknown>) {
     body,
   });
 
-  if (res.error) throw new Error(res.error.message);
+  if (res.error) throw new Error(await readFnError(res.error));
   if (res.data?.error) throw new Error(res.data.error);
   return res.data;
 }
