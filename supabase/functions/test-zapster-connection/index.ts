@@ -46,11 +46,12 @@ Deno.serve(async (req) => {
       .from("profiles").select("company_id").eq("user_id", userId).maybeSingle();
     const { data: inst } = await admin
       .from("whatsapp_instances")
-      .select("company_id, instance_id, provider")
+      .select("company_id, instance_id, provider, user_id")
       .eq("id", instanceRowId)
       .maybeSingle();
 
-    if (!inst || !profile || profile.company_id !== inst.company_id) {
+    // Permite o admin da mesma empresa ou o admin que criou a conexão (Admin SaaS).
+    if (!inst || (!(profile && profile.company_id === inst.company_id) && (inst as any).user_id !== userId)) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
     if (!inst.instance_id) return json({ ok: false, error: "instância sem ID da Zapster" }, 400);
