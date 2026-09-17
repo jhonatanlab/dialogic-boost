@@ -337,7 +337,7 @@ Deno.serve(async (req) => {
       {
         const { data: existingConv } = await supabase
           .from("conversations")
-          .select("id, status")
+          .select("id, status, unread_count")
           .eq("company_id", company_id)
           .eq("contact_id", contactId)
           .eq("channel", "whatsapp")
@@ -346,12 +346,15 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (existingConv) {
           conversationId = existingConv.id;
+          const convUpdate: Record<string, unknown> = {
+            unread_count: ((existingConv as any).unread_count ?? 0) + 1,
+          };
           if (existingConv.status === "closed") {
-            await supabase
-              .from("conversations")
-              .update({ status: "open", assigned_to: null, assigned_team: null })
-              .eq("id", existingConv.id);
+            convUpdate.status = "open";
+            convUpdate.assigned_to = null;
+            convUpdate.assigned_team = null;
           }
+          await supabase.from("conversations").update(convUpdate).eq("id", existingConv.id);
         } else {
           const { data: newConv, error: convErr } = await supabase
             .from("conversations")
