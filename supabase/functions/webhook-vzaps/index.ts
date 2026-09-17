@@ -121,8 +121,6 @@ Deno.serve(async (req) => {
     }
 
     const company_id = instance.company_id as string;
-    // Diagnóstico temporário: registrar o formato real do payload da VZaps.
-    console.log("[webhook-vzaps] payload:", rawBody.substring(0, 2000));
     const rawEvent = String(
       body?.type ??
         body?.event ??
