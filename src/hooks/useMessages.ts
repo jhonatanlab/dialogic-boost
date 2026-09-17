@@ -130,13 +130,16 @@ client_message_id: tempMessageId,
       if (fileName) payload.file_name = fileName;
       if (ptt) payload.ptt = "true";
 
-      // Check if company uses native pipeline (Evolution API)
-      const { data: companyRow } = await supabase
-        .from("companies")
-        .select("ai_pipeline_enabled")
-        .eq("id", companyId)
+      // Rota decidida pela conexão real da empresa (VZaps / Zapster / Evolution)
+      const { data: connectedInstance } = await supabase
+        .from("whatsapp_instances")
+        .select("id, provider")
+        .eq("company_id", companyId)
+        .eq("status", "connected")
+        .in("provider", ["vzaps", "zapster", "evolution"])
+        .limit(1)
         .maybeSingle();
-      const nativePipeline = (companyRow as any)?.ai_pipeline_enabled === true;
+      const nativePipeline = !!connectedInstance;
 
       // Fetch all relevant settings for this company
       const { data: allSettings } = await supabase
@@ -181,6 +184,9 @@ client_message_id: tempMessageId,
         const waId =
           data?.message_id ??
           data?.result?.message_id ??
+          data?.result?.data?.message_id ??
+          data?.result?.result?.data?.message_id ??
+          data?.result?.result?.message_id ??
           data?.result?.result?.key?.id ??
           data?.result?.result?.messages?.[0]?.id ??
           null;
