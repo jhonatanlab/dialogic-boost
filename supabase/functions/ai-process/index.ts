@@ -59,7 +59,26 @@ Deno.serve(async (req) => {
     const systemPrompt = (company as any)?.system_prompt || "";
 
     if (!provider || !model || !apiKey || !systemPrompt) {
-      return await fail(admin, buffer.id, buffer.attempts, "missing_llm_config");
+      const missing = [
+        !provider ? "provider" : null,
+        !model ? "model" : null,
+        !apiKey ? "api_key" : null,
+        !systemPrompt ? "system_prompt" : null,
+      ].filter(Boolean).join(",");
+      const detail = `missing_llm_config: ${missing}`;
+      console.error(`[ai-process] ${detail} (company ${buffer.company_id})`);
+      // Configuration problem, not a transient failure: keep the item pending
+      // (without consuming attempts) so it runs as soon as the config is fixed.
+      await admin
+        .from("message_buffer")
+        .update({
+          status: "pending",
+          locked_at: null,
+          last_error: detail,
+          flush_at: new Date(Date.now() + 60_000).toISOString(),
+        })
+        .eq("id", buffer.id);
+      return json({ ok: false, error: detail, retry: "pending" });
     }
 
     // Conversation restarted_at for history cutoff
