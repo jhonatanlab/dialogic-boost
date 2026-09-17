@@ -64,7 +64,7 @@ const AgentAI = () => {
   const queryClient = useQueryClient();
   const { profile, companyId, isLoading: companyLoading } = useCompany();
 
-  const isAllowed = profile?.role === "admin" || profile?.role === "owner";
+  const isAllowed = profile?.role === "admin" || profile?.role === "manager";
 
   useEffect(() => {
     if (!companyLoading && profile && !isAllowed) {
