@@ -163,6 +163,14 @@ const AgentAI = () => {
     onError: (e: Error) => toast.error(e.message || "Erro ao salvar"),
   });
 
+  const readFnError = async (error: any): Promise<string> => {
+    try {
+      const body = await error?.context?.json?.();
+      if (body?.error) return String(body.error);
+    } catch (_) { /* ignore */ }
+    return error?.message || "Falha na requisição";
+  };
+
   const testKeyMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("test-llm-connection", {
@@ -173,7 +181,7 @@ const AgentAI = () => {
           api_key: apiKey.trim() || undefined,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await readFnError(error));
       if (!data?.ok) throw new Error(data?.error || "Falha ao testar chave");
       return data as { ok: true; latency_ms: number };
     },

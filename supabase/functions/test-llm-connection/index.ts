@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: false, error: "Empresa não encontrada" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    if (!["admin", "owner"].includes(String(profile.role))) {
+    if (!["admin", "owner", "manager"].includes(String(profile.role))) {
       return new Response(JSON.stringify({ ok: false, error: "Acesso negado" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
