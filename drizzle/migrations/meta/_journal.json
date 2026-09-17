@@ -15,6 +15,13 @@
       "when": 1789664320091,
       "tag": "0001_allow_owner_admin_wa_instance_config",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789673363008,
+      "tag": "0002_allow_manager_set_company_llm_api_key",
+      "breakpoints": true
     }
   ]
 }
