@@ -207,7 +207,7 @@ const AgentAI = () => {
           system_prompt: systemPrompt || undefined,
         },
       });
-      if (error) throw error;
+      if (error) throw new Error(await readFnError(error));
       if (!data?.ok) throw new Error(data?.error || "Falha na resposta");
       return data as { ok: true; response: string; latency_ms: number };
     },
