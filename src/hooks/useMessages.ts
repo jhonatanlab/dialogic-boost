@@ -357,7 +357,14 @@ client_message_id: tempMessageId,
           if (error || (data && data.ok === false)) {
             throw new Error(error?.message || data?.error || "Erro no reenvio via API Nativa");
           }
-          const waId = data?.result?.result?.key?.id ?? null;
+          const waId =
+            data?.message_id ??
+            data?.result?.message_id ??
+            data?.result?.data?.message_id ??
+            data?.result?.result?.data?.message_id ??
+            data?.result?.result?.message_id ??
+            data?.result?.result?.key?.id ??
+            null;
           if (waId) {
             await (supabase as any).from("messages").update({ message_id: waId }).eq("id", message.id);
           }
