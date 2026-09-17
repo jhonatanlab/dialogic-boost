@@ -330,12 +330,15 @@ client_message_id: tempMessageId,
       const automationOutbound = settingsMap["n8n_automation_outbound"];
       const nativeSendEndpoint = settingsMap["n8n_send_message"];
 
-      const { data: companyRow } = await supabase
-        .from("companies")
-        .select("ai_pipeline_enabled")
-        .eq("id", companyId)
+      const { data: connectedInstance } = await supabase
+        .from("whatsapp_instances")
+        .select("id, provider")
+        .eq("company_id", companyId)
+        .eq("status", "connected")
+        .in("provider", ["vzaps", "zapster", "evolution"])
+        .limit(1)
         .maybeSingle();
-      const nativePipeline = (companyRow as any)?.ai_pipeline_enabled === true;
+      const nativePipeline = !!connectedInstance;
 
       const markFailed = async () => {
         await (supabase as any).from("messages").update({ status: "failed" }).eq("id", message.id);
