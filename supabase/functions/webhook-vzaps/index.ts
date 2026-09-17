@@ -77,6 +77,53 @@ const toSnakeCase = (obj: Record<string, unknown>): Record<string, unknown> => {
   return out;
 };
 
+const parseJsonValue = (value: unknown): unknown => {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+};
+
+const findEventPayload = (value: unknown, depth = 0): Record<string, any> | null => {
+  if (depth > 6) return null;
+  const parsed = parseJsonValue(value);
+  if (!parsed || typeof parsed !== "object") return null;
+  if (Array.isArray(parsed)) {
+    for (const item of parsed) {
+      const found = findEventPayload(item, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  const obj = parsed as Record<string, any>;
+  const eventName = typeof obj.type === "string"
+    ? obj.type
+    : typeof obj.event === "string"
+    ? obj.event
+    : typeof obj.event_type === "string"
+    ? obj.event_type
+    : "";
+  const normalized = eventName.toLowerCase().replace(/[^a-z]/g, "");
+  if (
+    normalized.startsWith("message") ||
+    normalized.includes("readreceipt") ||
+    normalized.includes("connected") ||
+    normalized.includes("disconnected")
+  ) return obj;
+
+  for (const key of ["event", "json_data", "data", "payload", "body"]) {
+    if (!(key in obj)) continue;
+    const found = findEventPayload(obj[key], depth + 1);
+    if (found) return found;
+  }
+  return null;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -121,12 +168,7 @@ Deno.serve(async (req) => {
     }
 
     const company_id = instance.company_id as string;
-    const nestedEvent = body?.json_data?.event;
-    const eventPayload: any = nestedEvent && typeof nestedEvent === "object"
-      ? nestedEvent
-      : body?.data?.event && typeof body.data.event === "object"
-      ? body.data.event
-      : null;
+    const eventPayload: any = findEventPayload(body);
     const data: any = eventPayload ?? vzapsData(body) ?? {};
     const rawEvent = String(
       eventPayload?.type ??
@@ -195,7 +237,12 @@ Deno.serve(async (req) => {
     }
 
     if (eventType !== "Message") {
-      console.log("[webhook-vzaps] ignored event:", eventType);
+      console.log("[webhook-vzaps] ignored event", {
+        eventType: eventType || "empty",
+        rootKeys: body && typeof body === "object" ? Object.keys(body).slice(0, 12) : [],
+        jsonDataType: typeof body?.json_data,
+        eventValueType: typeof body?.event,
+      });
       return json({ success: true, ignored: eventType });
     }
 
