@@ -211,7 +211,54 @@ Deno.serve(async (req) => {
             },
           });
 
-          // Try to send via n8n (same payload format as Inbox)
+          // Prefer the native connected provider (VZaps / Zapster / Evolution)
+          try {
+            const { data: nativeInstance } = await supabase
+              .from("whatsapp_instances")
+              .select("id, provider")
+              .eq("company_id", company_id)
+              .eq("status", "connected")
+              .in("provider", ["vzaps", "zapster", "evolution"])
+              .maybeSingle();
+
+            if (nativeInstance) {
+              const phone = contact?.phone?.replace(/\D/g, "") || "";
+              const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+              const resp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-message`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${serviceRole}`,
+                  "x-internal-secret": serviceRole,
+                },
+                body: JSON.stringify({ company_id, phone, message: msgContent }),
+              });
+              const payload = await resp.json().catch(() => null);
+              const waId = payload?.message_id ?? null;
+
+              if (!resp.ok || !payload?.success) {
+                console.error("[execute-automation] Native send failed:", resp.status, JSON.stringify(payload)?.slice(0, 300));
+                await supabase.from("messages").update({ status: "failed" }).eq("client_message_id", tempMessageId);
+              } else {
+                await supabase
+                  .from("messages")
+                  .update({ status: "sent", message_id: waId })
+                  .eq("client_message_id", tempMessageId);
+              }
+
+              const nextNodes = getNextNodes(currentId);
+              queue.push(...nextNodes);
+              continue;
+            }
+          } catch (nativeErr) {
+            console.error("[execute-automation] Native send error:", nativeErr);
+            await supabase.from("messages").update({ status: "failed" }).eq("client_message_id", tempMessageId);
+            const nextNodes = getNextNodes(currentId);
+            queue.push(...nextNodes);
+            continue;
+          }
+
+          // Fallback: send via n8n (same payload format as Inbox)
           try {
             // Check custom automation engine first
             let sendEndpoint: string | null = null;
